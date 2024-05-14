@@ -1,0 +1,28 @@
+[package]
+name = "rtos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cortex-m = { version = "^0.7.7", features = ["inline-asm"]}
+static_assertions = "1.1.0"
+heapless = "0.7"
+spin = "^0.9.3"
+owning_ref = { git = "https://github.com/theseus-os/owning-ref-rs.git"}
+crossbeam = { version = "^0.8.2", default-features = false}
+int-enum = "1.1.1"
+hopter_proc_macro = { git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git" }
+
+
+[dependencies.gimli]
+version = "0.26.0"
+default-features = false
+features = [ "read" ]
+
+[dependencies.fallible-iterator]
+version = "0.2"
+default-features = false
+
+[dependencies.intrusive-collections]
+version = "0.9.6"
+features = [ "nightly" ]
