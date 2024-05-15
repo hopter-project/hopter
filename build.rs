@@ -11,4 +11,5 @@ fn main() {
     f.write_all(link_x).unwrap();
 
     println!("cargo:rustc-link-search={}", out.display());
+    println!("cargo:rustc-link-arg=-Tlink.ld");
 }
