@@ -1,0 +1,13 @@
+{
+    "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
+    "rust-analyzer.checkOnSave.allTargets": false,
+    "cSpell.words": [
+        "Kalman",
+        "presults",
+        "setpoint"
+    ],
+    "rust-analyzer.linkedProjects": [
+        "./Cargo.toml"
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
+}
