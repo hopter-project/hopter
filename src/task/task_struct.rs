@@ -510,7 +510,7 @@ impl Task {
         // function.
         let downcast_func = self.downcast_func.unwrap_or_die();
         let entry_closure_arg = self.entry_closure_arg.as_ref().unwrap_or_die();
-        let closure_arg_ptr = downcast_func(entry_closure_arg) as usize;
+        let closure_arg_ptr = downcast_func(entry_closure_arg.as_ref()) as usize;
 
         // Unwrap the entry trampoline function. Get its address.
         let entry_trampoline = self.restart_entry_trampoline.unwrap_or_die() as usize;
