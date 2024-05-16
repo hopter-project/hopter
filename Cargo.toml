@@ -8,6 +8,7 @@ static_assertions = "1.1"
 heapless = "0.8"
 spin = "0.9"
 int-enum = "1.1"
+cortex-m-semihosting = "0.5"
 
 [dependencies.hopter_proc_macro]
 git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git"
