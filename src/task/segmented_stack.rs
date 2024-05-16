@@ -326,6 +326,8 @@ pub(in super::super) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
         // Copy the return values to the previous trap frame.
         prev_tf.gp_regs.r0 = tf.gp_regs.r0;
         prev_tf.gp_regs.r1 = tf.gp_regs.r1;
+        prev_tf.gp_regs.r2 = tf.gp_regs.r2;
+        prev_tf.gp_regs.r3 = tf.gp_regs.r3;
 
         // Will resume execution from the returning address.
         prev_tf.gp_regs.pc = prev_tf.gp_regs.lr;
