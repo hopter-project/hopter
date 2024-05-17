@@ -2,7 +2,7 @@
 //! algorithm proposed by M. Masmano et. al.
 //!
 //! Below shows the SRAM region layout:
-//!
+//! ```plain
 //! +----------------------+ 0x20020000 (heap end)
 //! |         Heap         |
 //! +----------------------+ 0x20001010 + x (heap start)
@@ -12,31 +12,42 @@
 //! +----------------------+ 0x20004000 (kernel stack start)
 //! |     Kernel Stack     |
 //! +----------------------+ 0x20000000 (kernel stack end)
-//!
+//! ```
 //!
 //! Free chunk layout:
+//! ```plain
 //! +-----------+-----------+-----------+-----+-----------+
 //! |   Header  | Prev Link | Next Link | ... |   Footer  |
 //! +-----------+-----------+-----------+-----+-----------+
 //! |  32 bits  |  16 bits  |  16 bits  | ... |  32 bits  |
+//! ```
 //!
 //! Allocated chunk layout:
+//! ```plain
 //! +-----------+-----------------------------------------+
 //! |   Header  |                Payload                  |
 //! +-----------+-----------------------------------------+
 //! |  32 bits  |                  ...                    |
+//! ^           ^
+//! 4-byte      8-byte
+//! aligned     aligned
+//! ```
 //!
 //! Header layout:
+//! ```plain
 //! +--------------+----------------+----------------+
 //! | Chunk Length | Self Allocated | Left Allocated |
 //! +--------------+----------------+----------------+
 //! |    30 bits   |      1 bit     |      1 bit     |
+//! ```
 //!
 //! Footer layout:
+//! ```plain
 //! +--------------+---------------------------------+
 //! | Chunk Length |          Always Zero            |
 //! +--------------+---------------------------------+
 //! |    30 bits   |             2 bits              |
+//! ```
 //!
 //! Description of fields:
 //! - Chunk length: The length of the chunk, including the header and
@@ -57,6 +68,8 @@
 //!      shifted right by 2 bits to be saved in link pointer.
 //!
 
+use static_assertions::const_assert_eq;
+
 type Header = u32;
 type Footer = u32;
 type Link = u16;
@@ -68,6 +81,11 @@ const GUARD_SIZE: u32 = core::mem::size_of::<Header>() as u32;
 const FREE_CHUNK_MIN_SIZE: u32 = (core::mem::size_of::<Header>()
     + core::mem::size_of::<Footer>()
     + 2 * core::mem::size_of::<Link>()) as u32;
+
+// The header size must be 4 to ensure the payload in each allocated chunk
+// is 8-byte aligned. This is because each chunk is 4-byte aligned but not
+// 8-byte aligned. See allocated chunk layout for details.
+const_assert_eq!(HDR_SIZE, 4);
 
 /// Given the pointer to header, return the pointer to payload.
 #[inline(always)]
@@ -530,13 +548,13 @@ pub(in super::super) unsafe fn mcu_malloc(mut size: u32) -> *mut u8 {
         return core::ptr::null_mut();
     }
 
-    // Round up to a multiple of 4.
-    size = (size + 3) & (!3);
-    // Round up to minimum allocation size. This is because a free
-    // block must be larger than 16 bytes.
-    size = size.max(12);
     // Add the header overhead.
     size += HDR_SIZE;
+    // Round up to minimum allocation size. This is because a free
+    // block must be larger than 16 bytes.
+    size = size.max(16);
+    // Round up to a multiple of 8.
+    size = (size + 7) & (!7);
 
     // If the cached chunk satisfies the request, use it.
     if !CACHED.is_null()
@@ -583,7 +601,24 @@ pub(in super::super) unsafe fn mcu_malloc(mut size: u32) -> *mut u8 {
 }
 
 // Initialize the heap structure.
-pub(in super::super) unsafe fn mcu_heap_init(data_end: u32) {
+pub(in super::super) unsafe fn mcu_heap_init(mut data_end: u32) {
+    // Round up to a multiple of 4.
+    data_end = (data_end + 3) & (!3);
+
+    // Round up so that data_end % 8 == 4.
+    // This is to ensure that the payload of every allocated chunk is
+    // 8-byte aligned.
+    data_end = if data_end % 8 == 0 {
+        data_end + 4
+    } else {
+        data_end
+    };
+
+    assert!(
+        HEAP_END - data_end >= FREE_CHUNK_MIN_SIZE,
+        "No memory for heap."
+    );
+
     // Set the heap start address.
     HEAP_START = data_end as *mut u8;
 
