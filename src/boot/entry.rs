@@ -1,6 +1,7 @@
 use super::super::{allocator, config, schedule};
 use alloc::boxed::Box;
 use core::sync::atomic::AtomicPtr;
+use cortex_m::peripheral::scb::SystemHandler;
 
 #[no_mangle]
 pub extern "C" fn entry() -> ! {
@@ -17,6 +18,22 @@ pub extern "C" fn entry() -> ! {
             cortex_m::peripheral::scb::SystemHandler::PendSV,
             config::CTXT_SWITCH_PRIORITY,
         );
+
+        cp.SCB
+            .set_priority(SystemHandler::SysTick, config::IRQ_DEFAULT_PRIORITY);
+
+        // Circumvent compiler bug.
+        // use cortex_m::peripheral::syst::SystClkSource;
+        // cp.SYST.set_clock_source(SystClkSource::Core);
+        let val = cp.SYST.csr.read();
+        let val = val | (1 << 2);
+        cp.SYST.csr.write(val);
+
+        cp.SYST.set_reload(168_000);
+        cp.SYST.clear_current();
+        cp.SYST.enable_counter();
+        cp.SYST.enable_interrupt();
+
         cortex_m::register::basepri::write(config::IRQ_BASEPRI_DISABLE_PRIORITY);
     }
 
