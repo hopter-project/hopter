@@ -37,3 +37,12 @@ default-features = false
 [dependencies.intrusive-collections]
 version = "0.9"
 features = [ "nightly" ]
+
+[dev-dependencies]
+nb = "1.1"
+
+[dev-dependencies.stm32f4xx-hal]
+git = "https://github.com/ZhiyaoMa98/stm32f4xx-hal.git"
+branch = "dependency"
+default-features = false
+features = ["stm32f405"]
