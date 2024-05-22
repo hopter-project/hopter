@@ -110,7 +110,7 @@ unsafe extern "C" fn svc_entry() {
         // Exception return.
         "bx   lr",
         stklet_boundary_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
-        kern_stk_boundary = const config::KERNEL_STACK_BOUNDARY,
+        kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
         svc_handler = sym svc_handler,
         die = sym unrecoverable::die,
         options(noreturn)

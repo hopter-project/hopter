@@ -30,10 +30,10 @@ pub(super) unsafe extern "C" fn idle() -> ! {
 
     // Enable interrupt.
     unsafe {
-        cortex_m::register::basepri::write(config::IRQ_BASEPRI_ENABLE_PRIORITY);
+        cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
         cortex_m::Peripherals::steal().SCB.set_priority(
             cortex_m::peripheral::scb::SystemHandler::SVCall,
-            config::SVC_REDUCED_PRIORITY,
+            config::SVC_NORMAL_PRIORITY,
         );
     }
 

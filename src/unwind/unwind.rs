@@ -1041,7 +1041,7 @@ unsafe extern "C" fn resume_unwind<'a>(
     // Don't let the unwinder take the CPU for a very long time.
     // When preeption is enabled, the unwinder will not be chosen to run unless
     // no other priority task is ready.
-    if !config::USE_PREEMPTION {
+    if !config::ALLOW_TASK_PREEMPTION {
         if !schedule::is_running_in_isr() {
             svc::svc_yield_current_task();
         }

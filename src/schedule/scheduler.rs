@@ -256,7 +256,7 @@ pub unsafe fn start_scheduler() -> ! {
             "b {idle}",
             idle = sym super::idle,
             stklet_boundary_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
-            kern_stk_bottom = const config::KERNEL_STACK_BOTTOM,
+            kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
             in("r0") stack_bottom,
             in("r1") idle_stk_bound,
             options(noreturn)

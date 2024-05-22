@@ -66,7 +66,6 @@ extern "C" fn irq_handler_trampoline(handler_func_ptr: u32) {
 /// if they need to use them.
 #[naked]
 pub unsafe extern "C" fn fast_irq_entry(handler_func_ptr: u32) {
-    use super::super::config::KERNEL_STACK_BOUNDARY;
     asm!(
         // Preserve the user task's stacklet boundary and exception return value.
         "ldr r3, ={stklet_boundary_mem_addr}",
@@ -80,7 +79,7 @@ pub unsafe extern "C" fn fast_irq_entry(handler_func_ptr: u32) {
         // Run the IRQ handler.
         "b   {handler_trampoline}",
         stklet_boundary_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
-        kern_stk_boundary = const KERNEL_STACK_BOUNDARY,
+        kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
         irq_fast_exit = sym fast_irq_exit,
         handler_trampoline = sym irq_handler_trampoline,
         options(noreturn)

@@ -12,15 +12,15 @@ pub extern "C" fn entry() -> ! {
     unsafe {
         cp.SCB.set_priority(
             cortex_m::peripheral::scb::SystemHandler::SVCall,
-            config::SVC_HIGH_PRIORITY,
+            config::SVC_RAISED_PRIORITY,
         );
         cp.SCB.set_priority(
             cortex_m::peripheral::scb::SystemHandler::PendSV,
-            config::CTXT_SWITCH_PRIORITY,
+            config::PENDSV_PRIORITY,
         );
 
         cp.SCB
-            .set_priority(SystemHandler::SysTick, config::IRQ_DEFAULT_PRIORITY);
+            .set_priority(SystemHandler::SysTick, config::SYSTICK_PRIORITY);
 
         // Circumvent compiler bug.
         // use cortex_m::peripheral::syst::SystClkSource;
@@ -34,7 +34,7 @@ pub extern "C" fn entry() -> ! {
         cp.SYST.enable_counter();
         cp.SYST.enable_interrupt();
 
-        cortex_m::register::basepri::write(config::IRQ_BASEPRI_DISABLE_PRIORITY);
+        cortex_m::register::basepri::write(config::IRQ_DISABLE_BASEPRI_PRIORITY);
     }
 
     cp.SCB.enable_fpu();

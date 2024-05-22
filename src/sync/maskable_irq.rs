@@ -30,9 +30,9 @@ impl RecursivelyMaskable for AllIrqExceptSvc {
         unsafe {
             cortex_m::Peripherals::steal().SCB.set_priority(
                 cortex_m::peripheral::scb::SystemHandler::SVCall,
-                config::SVC_HIGH_PRIORITY,
+                config::SVC_RAISED_PRIORITY,
             );
-            cortex_m::register::basepri::write(config::IRQ_BASEPRI_DISABLE_PRIORITY);
+            cortex_m::register::basepri::write(config::IRQ_DISABLE_BASEPRI_PRIORITY);
         }
 
         // Increase the mask count.
@@ -54,10 +54,10 @@ impl RecursivelyMaskable for AllIrqExceptSvc {
         // which effectively enables all IRQs which all have priority 32 or up.
         if prev_cnt == 1 {
             unsafe {
-                cortex_m::register::basepri::write(config::IRQ_BASEPRI_ENABLE_PRIORITY);
+                cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
                 cortex_m::Peripherals::steal().SCB.set_priority(
                     cortex_m::peripheral::scb::SystemHandler::SVCall,
-                    config::SVC_REDUCED_PRIORITY,
+                    config::SVC_NORMAL_PRIORITY,
                 );
             }
         }

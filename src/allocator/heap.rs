@@ -68,14 +68,16 @@
 //!      shifted right by 2 bits to be saved in link pointer.
 //!
 
+use super::super::{
+    config::{HEAP_END, MEM_CHUNK_LINK_OFFSET},
+    unrecoverable::{self, Lethal},
+};
 use static_assertions::const_assert_eq;
 
 type Header = u32;
 type Footer = u32;
 type Link = u16;
 
-const HEAP_END: u32 = 0x2002_0000;
-const LINK_OFFSET: u32 = 0x2000_0000;
 const HDR_SIZE: u32 = core::mem::size_of::<Header>() as u32;
 const GUARD_SIZE: u32 = core::mem::size_of::<Header>() as u32;
 const FREE_CHUNK_MIN_SIZE: u32 = (core::mem::size_of::<Header>()
@@ -246,13 +248,13 @@ unsafe fn set_left_free(hdr: *mut Header) {
 /// Convert a `Link` to a pointer.
 #[inline(always)]
 fn link_to_ptr<T>(link: Link) -> *mut T {
-    (LINK_OFFSET + ((link as u32) << 2)) as *mut T
+    (MEM_CHUNK_LINK_OFFSET + ((link as u32) << 2)) as *mut T
 }
 
 /// Convert a pointer to a `Link`.
 #[inline(always)]
 fn ptr_to_link<T>(ptr: *mut T) -> Link {
-    (((ptr as u32) - LINK_OFFSET) >> 2) as Link
+    (((ptr as u32) - MEM_CHUNK_LINK_OFFSET) >> 2) as Link
 }
 
 /// Given a pointer to header, return the pointer to the `prev` field.
@@ -603,21 +605,23 @@ pub(in super::super) unsafe fn mcu_malloc(mut size: u32) -> *mut u8 {
 // Initialize the heap structure.
 pub(in super::super) unsafe fn mcu_heap_init(mut data_end: u32) {
     // Round up to a multiple of 4.
-    data_end = (data_end + 3) & (!3);
+    data_end = data_end.checked_add(3).unwrap_or_die() & (!3);
 
     // Round up so that data_end % 8 == 4.
     // This is to ensure that the payload of every allocated chunk is
     // 8-byte aligned.
     data_end = if data_end % 8 == 0 {
-        data_end + 4
+        data_end.checked_add(4).unwrap_or_die()
     } else {
         data_end
     };
 
-    assert!(
-        HEAP_END - data_end >= FREE_CHUNK_MIN_SIZE,
-        "No memory for heap."
-    );
+    if HEAP_END < data_end {
+        unrecoverable::die_with_arg("No memory for heap.");
+    }
+    if HEAP_END - data_end < FREE_CHUNK_MIN_SIZE {
+        unrecoverable::die_with_arg("No memory for heap.");
+    }
 
     // Set the heap start address.
     HEAP_START = data_end as *mut u8;

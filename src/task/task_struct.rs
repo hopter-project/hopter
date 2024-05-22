@@ -255,7 +255,13 @@ impl Task {
         // actually not used. The `idle()` function is invoked through the
         // assembly sequence when starting the scheduler.
         idle_task
-            .initialize(0, |_| unrecoverable::die(), (), 0, config::IDLE_PRIORITY)
+            .initialize(
+                0,
+                |_| unrecoverable::die(),
+                (),
+                0,
+                config::IDLE_TASK_PRIORITY,
+            )
             .unwrap_or_die();
 
         // We are about to transmute the current thread as the idle task.
@@ -646,7 +652,7 @@ impl Task {
     /// Return true if and only if this task has higher priority than the other
     /// task.
     pub(in super::super) fn should_preempt(&self, other: &Self) -> bool {
-        if config::USE_PREEMPTION {
+        if config::ALLOW_TASK_PREEMPTION {
             self.priority.load() < other.priority.load()
         } else {
             false

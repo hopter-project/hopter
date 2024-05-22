@@ -72,10 +72,10 @@ unsafe extern "C" fn pendsv_entry() {
         "b 0b",
         cur_task = sym schedule::CUR_TASK_REGS,
         stklet_boundary_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
-        kern_stk_boundary = const config::KERNEL_STACK_BOUNDARY,
+        kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
         pendsv_handler = sym pendsv_handler,
-        kern_stk_bottom = const config::KERNEL_STACK_BOTTOM,
-        ex_ret_to_psp_with_fp = const config::EXCEPTION_RETURN_TO_PSP_WITH_FP,
+        kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
+        ex_ret_to_psp_with_fp = const 0xffffffedu32,
         options(noreturn)
     )
 }
