@@ -1,5 +1,5 @@
 use super::super::{
-    sync::{self, RwLock, RwLockReadGuard},
+    sync::{SpinSchedSafe, SpinSchedSafeGuard},
     task::{Task, TaskCtxt},
 };
 use alloc::sync::Arc;
@@ -7,16 +7,16 @@ use alloc::sync::Arc;
 /// The `Arc` of the currently running task. After the scheduler is started,
 /// it should always be `Some`. When all user tasks are blocked, it should
 /// be the idle task.
-static CUR_TASK: RwLock<Option<Arc<Task>>> = RwLock::new(None);
+static CUR_TASK: SpinSchedSafe<Option<Arc<Task>>> = SpinSchedSafe::new(None);
 
 /// Get the task struct of the currently running task.
-pub(super) fn get_cur_task() -> RwLockReadGuard<'static, Option<Arc<Task>>> {
-    CUR_TASK.read()
+fn get_cur_task() -> SpinSchedSafeGuard<'static, Option<Arc<Task>>> {
+    CUR_TASK.lock()
 }
 
 /// Update the current running task to a new one.
 pub(super) fn set_cur_task(task: Arc<Task>) {
-    let mut write_guard = CUR_TASK.write();
+    let mut write_guard = CUR_TASK.lock();
     write_guard.replace(task);
 }
 
@@ -41,8 +41,6 @@ pub(in super::super) fn with_current_task_arc<F, R>(closure: F) -> R
 where
     F: FnOnce(Arc<Task>) -> R,
 {
-    let _sched_suspend_guard = sync::suspend_scheduler();
-
     // WARNING: the reader lock on the current task `Arc` is deliberately
     // held longer than necessary to make the following `.clone()`. This is
     // to ensure that during the running of the closure no context switch
@@ -65,8 +63,6 @@ pub(in super::super) fn with_current_task<F, R>(closure: F) -> R
 where
     F: FnOnce(&Task) -> R,
 {
-    let _sched_suspend_guard = sync::suspend_scheduler();
-
     let cur_task = get_cur_task();
     let ret = if let Some(cur_task) = &*cur_task {
         closure(cur_task)
