@@ -259,7 +259,7 @@ impl Task {
                 0,
                 |_| unrecoverable::die(),
                 (),
-                0,
+                config::IDLE_TASK_INITIAL_STACK_SIZE,
                 config::IDLE_TASK_PRIORITY,
             )
             .unwrap_or_die();

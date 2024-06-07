@@ -21,6 +21,10 @@ const_assert!(CONTIGUOUS_STACK_BOUNDARY < CONTIGUOUS_STACK_BOTTOM);
 const_assert!(CONTIGUOUS_STACK_BOUNDARY % 8 == 0);
 const_assert!(CONTIGUOUS_STACK_BOTTOM % 8 == 0);
 
+/// Whether dynamic extension of the stack is enabled.
+pub use hopter_conf_params::ALLOW_DYNAMIC_STACK;
+assert_value_type!(ALLOW_DYNAMIC_STACK, bool);
+
 /// The address in memory where the active stacklet boundary is stored.
 pub use hopter_conf_params::STACKLET_BOUNDARY_MEM_ADDR;
 assert_value_type!(STACKLET_BOUNDARY_MEM_ADDR, u32);
@@ -35,11 +39,31 @@ const_assert!(helper::is_thumb2_allowed_constant(
 
 /// The extra size added to a stacklet allocation request in addition to the
 /// allocation size requested by the function prologue.
-pub use hopter_conf_params::STKLET_ADDITION_ALLOC_SIZE;
-assert_value_type!(STKLET_ADDITION_ALLOC_SIZE, usize);
+pub use hopter_conf_params::STACKLET_ADDITION_ALLOC_SIZE;
+assert_value_type!(STACKLET_ADDITION_ALLOC_SIZE, usize);
 
 // The additional allocation size should be a multiple of 8
-const_assert!(STKLET_ADDITION_ALLOC_SIZE % 8 == 0);
+const_assert!(STACKLET_ADDITION_ALLOC_SIZE % 8 == 0);
+
+/// The stack size of the idle task when it is just created. If
+/// [`ALLOW_DYNAMIC_STACK`] is set to true, this value can be kept to 0 so
+/// that the stack will be allocated completely dynamically.
+pub use hopter_conf_params::IDLE_TASK_INITIAL_STACK_SIZE;
+assert_value_type!(IDLE_TASK_INITIAL_STACK_SIZE, usize);
+
+// Either the stack of the idle task is configured to have non-zero size
+// or it is allocated completely dynamically.
+const_assert!(IDLE_TASK_INITIAL_STACK_SIZE > 0 || ALLOW_DYNAMIC_STACK);
+
+/// The stack size of the main task when it is just created. If
+/// [`ALLOW_DYNAMIC_STACK`] is set to true, this value can be kept to 0 so
+/// that the stack will be allocated completely dynamically.
+pub use hopter_conf_params::MAIN_TASK_INITIAL_STACK_SIZE;
+assert_value_type!(MAIN_TASK_INITIAL_STACK_SIZE, usize);
+
+// Either the stack of the main task is configured to have non-zero size
+// or it is allocated completely dynamically.
+const_assert!(MAIN_TASK_INITIAL_STACK_SIZE > 0 || ALLOW_DYNAMIC_STACK);
 
 /* ########################### */
 /* ### Heap Configurations ### */

@@ -51,7 +51,7 @@ pub extern "C" fn entry() -> ! {
             1,
             move |_| __main_trampoline(raw_cp),
             (),
-            0,
+            config::MAIN_TASK_INITIAL_STACK_SIZE,
             config::MAIN_TASK_PRIORITY,
         )
         .unwrap();

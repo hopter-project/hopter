@@ -172,6 +172,10 @@ pub(super) fn alloc_initial_stacklet(free_size: usize) -> (*mut u8, *mut u8) {
 /// Allocate a new stacklet for the currently running task. Let the task's current
 /// function continue with the new stacklet to execute its function body.
 pub(in super::super) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
+    if !config::ALLOW_DYNAMIC_STACK {
+        unrecoverable::die();
+    }
+
     // The compiler generates the following function prologue:
     //
     //   00: f04f 5c00 mov.w  r12, #0x20000000 ; take stacklet boundary address
@@ -234,7 +238,7 @@ pub(in super::super) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     let total_size = stk_frame_size as usize
         + stk_arg_size as usize
         + OVERHEAD_SIZE
-        + config::STKLET_ADDITION_ALLOC_SIZE;
+        + config::STACKLET_ADDITION_ALLOC_SIZE;
 
     unsafe {
         // Pointer to the new stacklet.
@@ -312,6 +316,10 @@ pub(in super::super) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
 /// Free the current stacklet of the currently running task. Let the task return to the
 /// function running with the previous stacklet.
 pub(in super::super) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
+    if !config::ALLOW_DYNAMIC_STACK {
+        unrecoverable::die();
+    }
+
     // The current stacklet boundary.
     let bound = ctxt.stklet_bound;
 
