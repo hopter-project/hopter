@@ -133,8 +133,8 @@ extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     match get_svc_num(tf) {
         // Task wants to yield. Mark its state as ready so that the
         // scheduler can schedule it later.
-        SVCNum::TaskYield => schedule::yield_task(),
-        SVCNum::TaskBlock => schedule::block_task(),
+        SVCNum::TaskYield => schedule::yield_cur_task_from_isr(),
+        SVCNum::TaskBlock => schedule::block_cur_task_from_isr(),
         SVCNum::TaskMoreStack => task::more_stack(tf, ctxt),
         SVCNum::TaskLessStack => task::less_stack(tf, ctxt),
         SVCNum::MemAlloc => allocator::task_malloc(tf),

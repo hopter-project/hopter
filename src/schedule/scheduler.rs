@@ -328,12 +328,12 @@ pub(in super::super) fn decrement_suspend_count() {
     SCHEDULER_SUSPEND_CNT.fetch_sub(1, Ordering::SeqCst);
 }
 
-pub(in super::super) fn yield_task() {
+pub(in super::super) fn yield_cur_task_from_isr() {
     cortex_m::peripheral::SCB::set_pendsv()
 }
 
-pub(in super::super) fn block_task() {
-    yield_task()
+pub(in super::super) fn block_cur_task_from_isr() {
+    yield_cur_task_from_isr()
 }
 
 pub fn yield_current_task() {
@@ -347,18 +347,16 @@ pub fn request_context_switch() {
 }
 
 pub fn yield_for_preemption() {
+    if !CONTEXT_SWITCH_REQUESTED.load(Ordering::SeqCst)
+        || SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) > 0
+    {
+        return;
+    }
+
     if !is_running_in_isr() {
-        if CONTEXT_SWITCH_REQUESTED.load(Ordering::SeqCst) {
-            if SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) == 0 {
-                svc::svc_yield_current_task();
-            }
-        }
+        svc::svc_yield_current_task();
     } else if !is_running_in_pendsv() {
-        if CONTEXT_SWITCH_REQUESTED.load(Ordering::SeqCst) {
-            if SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) == 0 {
-                yield_task();
-            }
-        }
+        yield_cur_task_from_isr();
     }
 }
 
