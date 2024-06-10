@@ -30,7 +30,13 @@
 //!
 //! The implementation is inspired by `libunwind` and Theseus OS's unwinder.
 
-use super::super::{
+use super::{
+    unw_lsda::{self, LSDA},
+    unw_table::{
+        ExIdxEntry, ExTabEntry, PersonalityType, Prel31, UnwindInstrIter, UnwindInstruction,
+    },
+};
+use crate::{
     boot, config,
     interrupt::{
         svc,
@@ -39,12 +45,6 @@ use super::super::{
     },
     schedule, task,
     unrecoverable::{self, Lethal},
-};
-use super::{
-    unw_lsda::{self, LSDA},
-    unw_table::{
-        ExIdxEntry, ExTabEntry, PersonalityType, Prel31, UnwindInstrIter, UnwindInstruction,
-    },
 };
 use alloc::boxed::Box;
 use core::{

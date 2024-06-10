@@ -1,11 +1,11 @@
-use super::super::{
-    interrupt::svc,
-    schedule,
-    task::{TaskListAdapter, TaskListInterfaces},
-};
 use super::{
     Access, AllowPendOp, Interruptable, Lockable, RefCellSchedSafe, RunPendedOp, Spin,
     UnlockableGuard,
+};
+use crate::{
+    interrupt::svc,
+    schedule,
+    task::{TaskListAdapter, TaskListInterfaces},
 };
 use core::sync::atomic::{AtomicUsize, Ordering};
 use intrusive_collections::LinkedList;

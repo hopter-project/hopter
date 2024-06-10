@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use intrusive_collections::LinkedList;
 
 /// Additional interfaces for task list.
-pub(in super::super) trait TaskListInterfaces {
+pub(crate) trait TaskListInterfaces {
     fn push_back_tick_sorted(&mut self, new_task: Arc<Task>);
     fn pop_highest_priority(&mut self) -> Option<Arc<Task>>;
 }

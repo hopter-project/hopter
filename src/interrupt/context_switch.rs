@@ -1,4 +1,4 @@
-use super::super::{config, schedule, task::TaskCtxt};
+use crate::{config, schedule, task::TaskCtxt};
 use core::arch::asm;
 
 /// The interrupt entry function for PendSV. It preserves the registers and segmented

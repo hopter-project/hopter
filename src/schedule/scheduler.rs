@@ -1,11 +1,11 @@
-use super::super::{
+use super::idle;
+use crate::{
     config,
     interrupt::svc,
     sync::{Access, AllowPendOp, Interruptable, RunPendedOp, Spin},
     task::{Task, TaskCtxt, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::Lethal,
 };
-use super::idle;
 use alloc::sync::Arc;
 use core::{
     arch::asm,
@@ -121,8 +121,7 @@ pub(super) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
 /// upon exception. This pointer is used by the assembly of exception entry
 /// functions.
 #[no_mangle]
-pub(in super::super) static CUR_TASK_REGS: AtomicPtr<TaskCtxt> =
-    AtomicPtr::new(core::ptr::null_mut());
+pub(crate) static CUR_TASK_REGS: AtomicPtr<TaskCtxt> = AtomicPtr::new(core::ptr::null_mut());
 
 /// The ID of the currently running task.
 #[no_mangle]
@@ -132,7 +131,7 @@ static CUR_TASK_ID: AtomicU8 = AtomicU8::new(0);
 /// to its preserved registers in memory. The pointer has exclusive mutable access
 /// to the contents.
 #[no_mangle]
-pub(in super::super) extern "C" fn schedule() -> *mut TaskCtxt {
+pub(crate) extern "C" fn schedule() -> *mut TaskCtxt {
     if SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
         loop {}
     }
@@ -266,7 +265,7 @@ pub unsafe fn start_scheduler() -> ! {
 
 /// Destroy the task struct of the currently running task and switch to another
 /// ready task.
-pub(in super::super) fn destroy_current_task_and_schedule() {
+pub(crate) fn destroy_current_task_and_schedule() {
     EXIST_TASK_NUM.fetch_sub(1, Ordering::SeqCst);
 
     // Mark the task state as `Empty` so that the scheduler will drop the task struct.
@@ -280,7 +279,7 @@ pub(in super::super) fn destroy_current_task_and_schedule() {
     cortex_m::peripheral::SCB::set_pendsv()
 }
 
-pub(in super::super) fn is_running_in_isr() -> bool {
+pub(crate) fn is_running_in_isr() -> bool {
     let ipsr: u32;
 
     unsafe {
@@ -294,7 +293,7 @@ pub(in super::super) fn is_running_in_isr() -> bool {
     ipsr != 0
 }
 
-pub(in super::super) fn is_running_in_pendsv() -> bool {
+pub(crate) fn is_running_in_pendsv() -> bool {
     let ipsr: u32;
 
     unsafe {
@@ -310,7 +309,7 @@ pub(in super::super) fn is_running_in_pendsv() -> bool {
 
 static SCHEDULER_STARTED: AtomicBool = AtomicBool::new(false);
 
-pub(in super::super) fn is_scheduler_started() -> bool {
+pub(crate) fn is_scheduler_started() -> bool {
     SCHEDULER_STARTED.load(Ordering::SeqCst)
 }
 
@@ -320,19 +319,19 @@ pub(super) fn mark_scheduler_started() {
 
 static SCHEDULER_SUSPEND_CNT: AtomicUsize = AtomicUsize::new(0);
 
-pub(in super::super) fn increment_suspend_count() {
+pub(crate) fn increment_suspend_count() {
     SCHEDULER_SUSPEND_CNT.fetch_add(1, Ordering::SeqCst);
 }
 
-pub(in super::super) fn decrement_suspend_count() {
+pub(crate) fn decrement_suspend_count() {
     SCHEDULER_SUSPEND_CNT.fetch_sub(1, Ordering::SeqCst);
 }
 
-pub(in super::super) fn yield_cur_task_from_isr() {
+pub(crate) fn yield_cur_task_from_isr() {
     cortex_m::peripheral::SCB::set_pendsv()
 }
 
-pub(in super::super) fn block_cur_task_from_isr() {
+pub(crate) fn block_cur_task_from_isr() {
     yield_cur_task_from_isr()
 }
 
@@ -360,7 +359,7 @@ pub fn yield_for_preemption() {
     }
 }
 
-pub(in super::super) fn make_task_ready_and_enqueue(task: Arc<Task>) {
+pub(crate) fn make_task_ready_and_enqueue(task: Arc<Task>) {
     READY_TASK_QUEUE.with_access(|access| match access {
         Access::Full { full_access } => super::with_current_task(|cur_task| {
             if task.should_preempt(cur_task) {
@@ -376,6 +375,6 @@ pub(in super::super) fn make_task_ready_and_enqueue(task: Arc<Task>) {
     })
 }
 
-pub(in super::super) fn set_task_state_block(task: &Task) {
+pub(crate) fn set_task_state_block(task: &Task) {
     task.set_state(TaskState::Blocked);
 }

@@ -1,4 +1,4 @@
-use super::super::{
+use crate::{
     config,
     interrupt::svc,
     sync::{SpinSchedSafe, SpinSchedSafeGuard},

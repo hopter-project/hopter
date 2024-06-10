@@ -1,4 +1,4 @@
-use super::super::{schedule, unrecoverable, unwind::unw_catch};
+use crate::{schedule, unrecoverable, unwind::unw_catch};
 use alloc::boxed::Box;
 use core::any::Any;
 

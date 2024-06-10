@@ -3,7 +3,7 @@
 //! document: Exception Handling ABI for the Arm Architecture. The chapters
 //! mentioned in below comments all refer to this document.
 
-use super::super::unrecoverable::{self, Lethal};
+use crate::unrecoverable::{self, Lethal};
 
 /// Prel31 offset is a position relative pointer. The value represented
 /// by a prel31 offset is *the address of the prel31 data itself plus

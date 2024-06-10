@@ -1,4 +1,4 @@
-use super::super::{
+use crate::{
     sync::{SpinSchedSafe, SpinSchedSafeGuard},
     task::{Task, TaskCtxt},
 };
@@ -37,7 +37,7 @@ pub(super) fn lock_cur_task_regs() -> *mut TaskCtxt {
 /// Do things with the current task struct. When the given closure is being
 /// executed, the current task `Arc` in the scheduler will be locked in
 /// reader mode and thus no context switch should happen during this period.
-pub(in super::super) fn with_current_task_arc<F, R>(closure: F) -> R
+pub(crate) fn with_current_task_arc<F, R>(closure: F) -> R
 where
     F: FnOnce(Arc<Task>) -> R,
 {
@@ -59,7 +59,7 @@ where
 /// Do things with the current task struct. When the given closure is being
 /// executed, the current task `Arc` in the scheduler will be locked in
 /// reader mode and thus no context switch should happen during this period.
-pub(in super::super) fn with_current_task<F, R>(closure: F) -> R
+pub(crate) fn with_current_task<F, R>(closure: F) -> R
 where
     F: FnOnce(&Task) -> R,
 {

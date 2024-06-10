@@ -2,10 +2,10 @@ use super::svc_handler::SVCNum;
 use core::arch::asm;
 
 /// Invoke SVC to free the top stacklet. This function should *never* be called
-/// directly. See [`more_stack`](`super::super::task::more_stack`) for how this
+/// directly. See [`more_stack`](`crate::task::more_stack`) for how this
 /// function is used.
 #[naked]
-pub(in super::super) unsafe extern "C" fn svc_less_stack() {
+pub(crate) unsafe extern "C" fn svc_less_stack() {
     asm!(
         "svc {task_less_stack}",
         "bx lr",
@@ -16,7 +16,7 @@ pub(in super::super) unsafe extern "C" fn svc_less_stack() {
 
 /// Allocate memory when running in task context, i.e., in thread mode.
 #[naked]
-pub(in super::super) extern "C" fn svc_malloc(size: u32) -> *mut u8 {
+pub(crate) extern "C" fn svc_malloc(size: u32) -> *mut u8 {
     unsafe {
         asm!(
             "svc {mem_alloc}",
@@ -32,7 +32,7 @@ pub(in super::super) extern "C" fn svc_malloc(size: u32) -> *mut u8 {
 /// Safety: The pointer must point to a memory chunk previously allocated from
 /// the heap.
 #[naked]
-pub(in super::super) unsafe extern "C" fn svc_free(ptr: *mut u8) {
+pub(crate) unsafe extern "C" fn svc_free(ptr: *mut u8) {
     asm!(
         "svc {mem_free}",
         "bx  lr",
@@ -44,7 +44,7 @@ pub(in super::super) unsafe extern "C" fn svc_free(ptr: *mut u8) {
 /// Yield the current task. Let the scheduler choose the next task to run.
 /// The current task will become ready to run after yielding.
 #[naked]
-pub(in super::super) extern "C" fn svc_yield_current_task() {
+pub(crate) extern "C" fn svc_yield_current_task() {
     unsafe {
         asm!(
             "svc {task_yield}",
@@ -58,7 +58,7 @@ pub(in super::super) extern "C" fn svc_yield_current_task() {
 /// Block the current task. Let the scheduler choose the next task to run.
 /// The current task will not be scheduled to run unless being notified.
 #[naked]
-pub(in super::super) extern "C" fn svc_block_current_task() {
+pub(crate) extern "C" fn svc_block_current_task() {
     unsafe {
         asm!(
             "svc {task_block}",
@@ -71,7 +71,7 @@ pub(in super::super) extern "C" fn svc_block_current_task() {
 
 /// Terminate the current task and free its task struct.
 #[naked]
-pub(in super::super) unsafe extern "C" fn svc_destroy_current_task() {
+pub(crate) unsafe extern "C" fn svc_destroy_current_task() {
     asm!(
         "svc {task_destroy}",
         "bx lr",

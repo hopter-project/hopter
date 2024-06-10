@@ -1,5 +1,5 @@
-use super::super::{config, unwind};
 use super::trap_frame::TrapFrame;
+use crate::{config, unwind};
 use core::arch::asm;
 
 /// Prepare r0 register to point to the trap frame, so that later we can

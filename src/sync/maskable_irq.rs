@@ -1,4 +1,4 @@
-use super::super::config;
+use crate::config;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 /// Representing recursively maskable interrupt(s). Recursive means one can

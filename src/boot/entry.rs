@@ -1,4 +1,4 @@
-use super::super::{allocator, config, schedule};
+use crate::{allocator, config, schedule};
 use alloc::boxed::Box;
 use core::sync::atomic::AtomicPtr;
 use cortex_m::peripheral::scb::SystemHandler;
