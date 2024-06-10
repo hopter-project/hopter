@@ -11,12 +11,12 @@ static CUR_TASK: SpinSchedSafe<Option<Arc<Task>>> = SpinSchedSafe::new(None);
 
 /// Get the task struct of the currently running task.
 fn get_cur_task() -> SpinSchedSafeGuard<'static, Option<Arc<Task>>> {
-    CUR_TASK.lock()
+    CUR_TASK.lock_now_or_die()
 }
 
 /// Update the current running task to a new one.
 pub(super) fn set_cur_task(task: Arc<Task>) {
-    let mut write_guard = CUR_TASK.lock();
+    let mut write_guard = CUR_TASK.lock_now_or_die();
     write_guard.replace(task);
 }
 

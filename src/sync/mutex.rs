@@ -98,7 +98,7 @@ where
 
     #[allow(unused)]
     pub unsafe fn force_unlock(&self) {
-        self.owner.lock().take();
+        self.owner.lock_now_or_die().take();
         self.spin_lock.force_unlock();
         self.queue.notify_one_allow_isr();
     }
@@ -127,7 +127,9 @@ where
             // task pointer.
             .and_then(|guard| {
                 if !schedule::is_running_in_isr() {
-                    schedule::with_current_task_arc(|cur_task| self.owner.lock().replace(cur_task));
+                    schedule::with_current_task_arc(|cur_task| {
+                        self.owner.lock_now_or_die().replace(cur_task)
+                    });
                 }
                 Some(guard)
             })
@@ -157,7 +159,7 @@ where
 
         // Priority inheritance.
         schedule::with_current_task(|cur_task| {
-            let locked_owner = self.owner.lock();
+            let locked_owner = self.owner.lock_now_or_die();
             if let Some(owner) = locked_owner.as_ref() {
                 owner.ceil_priority_from(cur_task);
             }
@@ -197,7 +199,7 @@ where
     H: Holdable<GuardType = G>,
 {
     fn drop(&mut self) {
-        if let Some(cur_task) = self.mutex.owner.lock().take() {
+        if let Some(cur_task) = self.mutex.owner.lock_now_or_die().take() {
             cur_task.restore_intrinsic_priority();
         }
 

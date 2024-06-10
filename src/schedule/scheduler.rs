@@ -60,7 +60,7 @@ struct InnerPendAccessor<'a> {
 impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     fn run_pended_op(&mut self) {
         super::with_current_task(|cur_task| {
-            let mut locked_list = self.ready_linked_list.lock();
+            let mut locked_list = self.ready_linked_list.lock_now_or_die();
             while let Some(task) = self.insert_buffer.dequeue() {
                 if task.should_preempt(cur_task) {
                     request_context_switch();
@@ -110,7 +110,7 @@ pub(super) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
     }
 
     READY_TASK_QUEUE.must_with_full_access(|full_access| {
-        let mut locked_list = full_access.ready_linked_list.lock();
+        let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
         locked_list.push_back(task);
         EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
         Ok(())
@@ -146,7 +146,7 @@ pub(in super::super) extern "C" fn schedule() -> *mut TaskCtxt {
 
     {
         READY_TASK_QUEUE.must_with_full_access(|full_access| {
-            let mut locked_list = full_access.ready_linked_list.lock();
+            let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
 
             super::with_current_task_arc(|cur_task| {
                 if cur_task.get_state() == TaskState::Running {
@@ -367,7 +367,7 @@ pub(in super::super) fn make_task_ready_and_enqueue(task: Arc<Task>) {
                 request_context_switch();
             }
             task.set_state(TaskState::Ready);
-            let mut locked_list = full_access.ready_linked_list.lock();
+            let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
             locked_list.push_back(task);
         }),
         Access::PendOnly { pend_access } => {

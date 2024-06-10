@@ -596,7 +596,7 @@ impl Task {
     /// context. This is used when the scheduler picks a task to run.
     /// See [`Task`] for the invariants of the context.
     pub(in super::super) fn lock_ctxt(&self) -> *mut TaskCtxt {
-        let mut locked_ctxt = self.ctxt.lock();
+        let mut locked_ctxt = self.ctxt.lock_now_or_die();
         let ptr = &mut *locked_ctxt as *mut _;
         core::mem::forget(locked_ctxt);
         ptr
@@ -611,7 +611,7 @@ impl Task {
 
     /// Return the lock guard for accessing the hot-split alleviation block.
     pub(in super::super) fn lock_hsab(&self) -> SpinGuard<HotSplitAlleviationBlock> {
-        self.hsab.lock()
+        self.hsab.lock_now_or_die()
     }
 }
 

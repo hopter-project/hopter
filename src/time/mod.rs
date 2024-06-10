@@ -52,7 +52,7 @@ impl<'a> AllowPendOp<'a> for Inner {
 impl<'a> InnerFullAccessor<'a> {
     fn wake_expired_tasks(&self) {
         let cur_tick = TICKS.load(Ordering::SeqCst);
-        let mut locked_queue = self.time_sorted_queue.lock();
+        let mut locked_queue = self.time_sorted_queue.lock_now_or_die();
 
         // remove also moves the cursor to the next element
         let mut cursor_mut = locked_queue.front_mut();
@@ -125,7 +125,7 @@ pub fn sleep_ms(ms: u32) {
                 schedule::with_current_task_arc(|cur_task| {
                     schedule::set_task_state_block(&cur_task);
                     cur_task.set_wake_tick(wake_at_tick);
-                    let mut locked_queue = full_access.time_sorted_queue.lock();
+                    let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
                     locked_queue.push_back_tick_sorted(cur_task);
                 });
             });

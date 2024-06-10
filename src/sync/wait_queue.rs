@@ -63,7 +63,7 @@ impl<'a> AllowPendOp<'a> for Inner {
 /// as indicated by the counter.
 impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     fn run_pended_op(&mut self) {
-        let mut locked_queue = self.queue.lock();
+        let mut locked_queue = self.queue.lock_now_or_die();
         let cnt = self.notify_cnt.swap(0, Ordering::SeqCst);
         for _ in 0..cnt {
             if let Some(task) = locked_queue.pop_highest_priority() {
@@ -115,7 +115,7 @@ impl WaitQueue {
                 // Put the current task into the queue.
                 schedule::with_current_task_arc(|cur_task| {
                     schedule::set_task_state_block(&cur_task);
-                    let mut locked_queue = full_access.queue.lock();
+                    let mut locked_queue = full_access.queue.lock_now_or_die();
                     locked_queue.push_back(cur_task);
                 });
             });
@@ -169,7 +169,7 @@ impl WaitQueue {
             wq.inner.lock().must_with_full_access(|full_access| {
                 // Must lock the queue here before evaluating the condition to
                 // prevent deadlock.
-                let mut locked_queue = full_access.queue.lock();
+                let mut locked_queue = full_access.queue.lock_now_or_die();
 
                 // Check if the predicate is satisfied and if yes return the value
                 // contained in `Some`.
@@ -246,7 +246,7 @@ impl WaitQueue {
             wq.inner.lock().must_with_full_access(|full_access| {
                 // Must lock the queue here before evaluating the condition and
                 // releasing the `guard` passed in argument to prevent deadlock.
-                let mut locked_queue = full_access.queue.lock();
+                let mut locked_queue = full_access.queue.lock_now_or_die();
 
                 // Check if the predicate is satisfied and if yes return the value
                 // contained in `Some` with the lock guard.
@@ -282,7 +282,7 @@ impl WaitQueue {
             // If we have full access to the inner components, we directly operate
             // on the queue to make the popped task ready.
             Access::Full { full_access } => {
-                let mut locked_queue = full_access.queue.lock();
+                let mut locked_queue = full_access.queue.lock_now_or_die();
                 if let Some(task) = locked_queue.pop_highest_priority() {
                     schedule::make_task_ready_and_enqueue(task);
                 }

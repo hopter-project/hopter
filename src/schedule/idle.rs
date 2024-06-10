@@ -16,11 +16,11 @@ pub trait IdleCallback: Send + Sync {
 static IDLE_CALLBACKS: SpinSchedSafe<Vec<Arc<dyn IdleCallback>>> = SpinSchedSafe::new(Vec::new());
 
 pub fn insert_idle_callback(callback: Arc<dyn IdleCallback>) {
-    IDLE_CALLBACKS.lock().push(callback);
+    IDLE_CALLBACKS.lock_now_or_die().push(callback);
 }
 
 pub(super) fn lock_idle_callbacks() -> SpinSchedSafeGuard<'static, Vec<Arc<dyn IdleCallback>>> {
-    IDLE_CALLBACKS.lock()
+    IDLE_CALLBACKS.lock_now_or_die()
 }
 
 /// The idle task. Just endlessly yield itself so that whenever a task becomes

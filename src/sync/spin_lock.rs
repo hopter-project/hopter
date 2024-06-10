@@ -1,4 +1,5 @@
 use super::{HeldInterrupt, Holdable, Scheduler, SchedulerSuspendGuard};
+use crate::unrecoverable::Lethal;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use owning_ref::StableAddress;
@@ -132,7 +133,21 @@ where
         })
     }
 
-    /// Lock it. Spin until success and return the lock guard.
+    /// Acquire the lock and return the lock guard, while asserting that there
+    /// should be no contention. It is an unrecoverable error if the lock turns
+    /// out to be under contention.
+    ///
+    /// The method is currently only for kernel's internel use. For global and
+    /// static variables that logically have no concurrent access, we use a
+    /// spin lock to wrap them around and use this method to access the object.
+    /// We prefer having an extra sanity check rather than writing unsafe code
+    /// for mutable global or static variable.
+    pub(crate) fn lock_now_or_die(&self) -> SpinGenericGuard<T, G> {
+        self.try_lock().unwrap_or_die()
+    }
+
+    /// Acquire the lock and return the lock gurad. If the lock is under
+    /// contention, spin until the lock can be acquired.
     pub fn lock(&self) -> SpinGenericGuard<T, G> {
         loop {
             if let Some(locked) = self.try_lock() {
