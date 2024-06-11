@@ -61,7 +61,6 @@ use crate::{
     },
     schedule,
     unrecoverable::{self, Lethal},
-    unwind::unwind::{ARMGPReg, UnwindState},
 };
 use core::{
     alloc::Layout,
@@ -114,6 +113,7 @@ const STACKLET_METADATA_BOUNDARY_OFFSET: usize = OVERHEAD_SIZE;
 
 /// Given the boundary address of a stacklet, return the `*mut u8` pointer to
 /// the stacklet.
+#[cfg(feature = "unwind")]
 pub(crate) fn bound_to_stklet_ptr(bound: usize) -> *mut u8 {
     (bound - STACKLET_METADATA_BOUNDARY_OFFSET) as *mut u8
 }
@@ -362,7 +362,10 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
 }
 
 /// Let the task being unwound execute the landing pad.
+#[cfg(feature = "unwind")]
 pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
+    use crate::unwind::unwind::{ARMGPReg, UnwindState};
+
     // This SVC function must be invoked from the unwinder. The stacklet boundary
     // we get from the context is the one *used by the unwinder*. Also, by the
     // code structure of the unwinder, this is the only stacklet that has not

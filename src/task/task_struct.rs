@@ -1,7 +1,7 @@
 use super::{
     priority::TaskPriority,
     segmented_stack::{self, HotSplitAlleviationBlock},
-    trampoline::{self, EntryClosureArg, RestartableEntryFuncArg},
+    trampoline::{self, EntryClosureArg},
 };
 use crate::{
     config,
@@ -9,17 +9,18 @@ use crate::{
     sync::{AtomicCell, Spin, SpinGuard},
     unrecoverable::{self, Lethal},
 };
-use alloc::{
-    boxed::Box,
-    sync::{Arc, Weak},
-};
+use alloc::{boxed::Box, sync::Arc};
 use core::{
     alloc::Layout,
-    any::Any,
     sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU8, Ordering},
 };
 use intrusive_collections::{intrusive_adapter, LinkedListAtomicLink};
 use static_assertions::const_assert;
+
+#[cfg(feature = "unwind")]
+use alloc::sync::Weak;
+#[cfg(feature = "unwind")]
+use core::any::Any;
 
 #[repr(u8)]
 #[derive(PartialEq, Clone, Copy)]
@@ -116,9 +117,11 @@ pub(crate) struct Task {
 
     /*** Fields for unwinding. ***/
     /// Set only when the task is unwinding.
+    #[cfg(feature = "unwind")]
     is_unwinding: AtomicBool,
     /// Set when a panicked task has been restarted with a new concurrent task
     /// context.
+    #[cfg(feature = "unwind")]
     has_restarted: AtomicBool,
 
     /*** Fields present only for restartable tasks. ***/
@@ -127,15 +130,19 @@ pub(crate) struct Task {
     /// erased using `Arc<dyn Any>`, so that all task structs will have an
     /// identical type `Task`, rather than `Task<F, A>` with different `F` and
     /// `A`.
+    #[cfg(feature = "unwind")]
     entry_closure_arg: Option<Arc<dyn Any + Send + Sync + 'static>>,
     /// A function that can cast the `entry_closure_arg` field from an
     /// `Arc<dyn Any>` to `*const u8`. The resulting raw pointer is used in
     /// the task entry trampoline function.
+    #[cfg(feature = "unwind")]
     downcast_func: Option<fn(&(dyn Any + Send + Sync + 'static)) -> *const u8>,
     /// Set when the task is a restarted instance of another panicked task.
+    #[cfg(feature = "unwind")]
     restarted_from: Option<Weak<Task>>,
     /// The entry trampoline function the restarted task should run after
     /// being created.
+    #[cfg(feature = "unwind")]
     restart_entry_trampoline: Option<extern "C" fn(*const u8)>,
 
     /*** Fields for segmented stack hot-split alleviation. ***/
@@ -209,6 +216,7 @@ impl Task {
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
+    #[cfg(feature = "unwind")]
     pub(crate) fn build_restartable<F, A>(
         id: u8,
         entry_closure: F,
@@ -228,6 +236,7 @@ impl Task {
     /// Build a new task struct as the restarted instance of a previously
     /// panicked task. The new task will start its execution from the same
     /// closure using the same arguments as the panicked task.
+    #[cfg(feature = "unwind")]
     pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Result<Self, ()> {
         let mut new_task = Self::new();
         new_task.restart_from(prev_task.clone())?;
@@ -277,19 +286,25 @@ impl Task {
         Self {
             ctxt: Spin::new(TaskCtxt::default()),
             id: AtomicU8::new(0),
-            is_unwinding: AtomicBool::new(false),
-            has_restarted: AtomicBool::new(false),
             state: AtomicCell::new(TaskState::Initializing),
             initial_stklet: AtomicPtr::new(core::ptr::null_mut()),
+            #[cfg(feature = "unwind")]
+            is_unwinding: AtomicBool::new(false),
+            #[cfg(feature = "unwind")]
+            has_restarted: AtomicBool::new(false),
+            #[cfg(feature = "unwind")]
             entry_closure_arg: None,
+            #[cfg(feature = "unwind")]
             downcast_func: None,
+            #[cfg(feature = "unwind")]
             restart_entry_trampoline: None,
+            #[cfg(feature = "unwind")]
+            restarted_from: None,
             init_stklet_size: 0,
             hsab: Spin::new(HotSplitAlleviationBlock::default()),
             priority: AtomicCell::new(TaskPriority::new_intrinsic(
                 config::TASK_PRIORITY_LEVELS - 1,
             )),
-            restarted_from: None,
             linked_list_link: LinkedListAtomicLink::new(),
             wake_at_tick: AtomicU32::new(u32::MAX),
         }
@@ -453,6 +468,7 @@ impl Task {
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
+    #[cfg(feature = "unwind")]
     fn initialize_restartable<F, A>(
         &mut self,
         id: u8,
@@ -465,6 +481,8 @@ impl Task {
         F: FnOnce(A) + Send + Sync + Clone + 'static,
         A: Send + Sync + Clone + 'static,
     {
+        use super::trampoline::RestartableEntryFuncArg;
+
         // Bundle the entry closure and arguments, and put them onto the heap.
         let arc_closure_arg = Arc::new(RestartableEntryFuncArg::new(entry_closure, entry_arg));
 
@@ -502,6 +520,7 @@ impl Task {
     /// task.
     ///
     /// - `prev_task`: The panicked task.
+    #[cfg(feature = "unwind")]
     fn restart_from(&mut self, prev_task: Arc<Task>) -> Result<(), ()> {
         // The task ID is kept the same as the panicked task.
         let id = prev_task.id.load(Ordering::SeqCst);
@@ -568,10 +587,12 @@ impl Task {
         self.id.load(Ordering::SeqCst)
     }
 
+    #[cfg(feature = "unwind")]
     pub(crate) fn set_unwind_flag(&self, val: bool) {
         self.is_unwinding.store(val, Ordering::SeqCst);
     }
 
+    #[cfg(feature = "unwind")]
     pub(crate) fn is_unwinding(&self) -> bool {
         self.is_unwinding.load(Ordering::SeqCst)
     }
@@ -580,6 +601,7 @@ impl Task {
         self.wake_at_tick.load(Ordering::SeqCst)
     }
 
+    #[cfg(feature = "unwind")]
     pub(crate) fn get_restart_origin_task(&self) -> Option<&Weak<Task>> {
         self.restarted_from.as_ref()
     }
@@ -588,6 +610,7 @@ impl Task {
         self.wake_at_tick.store(tick, Ordering::SeqCst);
     }
 
+    #[cfg(feature = "unwind")]
     pub(crate) fn has_restarted(&self) -> bool {
         self.has_restarted.load(Ordering::SeqCst)
     }
@@ -644,6 +667,7 @@ impl Task {
 
     /// Reduce the task's priority during unwinding, so that the unwinder will
     /// use the CPU idle time, unless any priority inversion occurs.
+    #[cfg(feature = "unwind")]
     pub(crate) fn reduce_priority_for_unwind(&self) {
         self.priority
             .store(TaskPriority::new_intrinsic(config::UNWIND_PRIORITY))

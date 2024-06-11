@@ -42,6 +42,7 @@ pub(crate) enum SVCNum {
     TaskUnwindPrepare = 253,
     /// The task wants to release the stacklet used to run the unwinder and
     /// then jump to the landing pad.
+    #[cfg(feature = "unwind")]
     TaskUnwindLand = 254,
     /// The task wants to allocate a new stacklet.
     /// IMPORTANT NOTE: The compiler toolchain assumes that the SVC number for
@@ -141,6 +142,7 @@ extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         SVCNum::MemFree => allocator::task_free(tf),
         SVCNum::TaskDestroy => schedule::destroy_current_task_and_schedule(),
         SVCNum::TaskUnwindPrepare => task::more_stack(tf, ctxt),
+        #[cfg(feature = "unwind")]
         SVCNum::TaskUnwindLand => task::unwind_land(tf, ctxt),
     }
 }
