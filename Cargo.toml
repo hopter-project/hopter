@@ -10,6 +10,8 @@ spin = "0.9"
 int-enum = "1.1"
 cortex-m-semihosting = "0.5"
 concat-idents = "1.0"
+crc32fast = { version = "1.4.2", default-features = false }
+
 
 [dependencies.hopter_proc_macro]
 git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git"
@@ -33,7 +35,7 @@ default-features = false
 [dependencies.gimli]
 version = "0.29"
 default-features = false
-features = [ "read" ]
+features = ["read"]
 
 [dependencies.fallible-iterator]
 version = "0.3"
@@ -41,7 +43,7 @@ default-features = false
 
 [dependencies.intrusive-collections]
 version = "0.9"
-features = [ "nightly" ]
+features = ["nightly"]
 
 [dev-dependencies]
 nb = "1.1"

@@ -9,5 +9,10 @@
     "rust-analyzer.linkedProjects": [
         "./Cargo.toml"
     ],
-    "rust-analyzer.showUnlinkedFileNotification": false
+    "rust-analyzer.showUnlinkedFileNotification": false,
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#103141",
+        "titleBar.activeBackground": "#16445B",
+        "titleBar.activeForeground": "#F7FBFD"
+    }
 }

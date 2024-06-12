@@ -5,7 +5,7 @@ extern crate alloc;
 use core::fmt::Write;
 
 use alloc::string::String;
-use hopter::{boot::main, debug::semihosting, hprintln};
+use hopter::{boot::main, debug::semihosting, hprint, hprintln};
 use nb::block;
 use stm32f4xx_hal::{gpio::GpioExt, prelude::*, rcc::RccExt, serial::Serial, uart::Config};
 
@@ -14,12 +14,29 @@ pub struct UnwindInfoPackage<'a> {
     func_addr: u32,
     s: &'a String,
 }
-
+// print 32 bit number as hex with spaces
+fn print_checksum(checksum: u32) {
+    let bytes = checksum.to_le_bytes();
+    for i in 0..4 {
+        hprint!("{:02X?} ", bytes[i]);
+    }
+    hprint!("\n");
+}
+fn print_slice(slice: [u8; 256]) {
+    for i in 0..16 {
+        for j in 0..16 {
+            hprint!("{:02X?} ", slice[(16 * i) + j]);
+        }
+        hprint!("\n");
+    }
+    hprint!("\n");
+}
 // Attribute `#[main]` marks the function as the entry function for the main
 // task. The function name can be arbitrary. The main function should accept
 // one argument which is the Cortex-M core peripherals.
 #[main]
 fn main(_: cortex_m::Peripherals) {
+    hprintln!("Starting qemu test...");
     // Take the board peripherals.
     // NOTE: must not use the `take()` method, because it contains a
     // `cortex_m::interrupt::free` block, which will conflict with the
@@ -54,11 +71,26 @@ fn main(_: cortex_m::Peripherals) {
         )
         .unwrap();
 
-    // Send a string to the USART1.
-    let data: [u8; 256] = [0; 256];
-    for i in 0..256 {
-        data[i] = i as u8;
+    let mut package: [u8; 252] = [0; 252];
+    for i in 0..252 {
+        package[i] = i as u8;
     }
-    usart1.write(data).unwrap();
+
+    let mut data: [u8; 256] = [0; 256];
+    for i in 0..252 {
+        data[i] = package[i];
+    }
+
+    let checksum = crc32fast::hash(&data[0..252]);
+    for i in 252..256 {
+        hprintln!("{:02X}", checksum.to_le_bytes()[i - 252]);
+        data[i] = checksum.to_le_bytes()[i - 252];
+    }
+    print_slice(data);
+    print_checksum(checksum);
+
+    for i in 0..256 {
+        usart1.write(data[i] as u8).unwrap();
+    }
     semihosting::terminate(true);
 }
