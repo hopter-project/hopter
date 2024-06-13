@@ -24,3 +24,4 @@ pub mod task;
 pub mod time;
 mod unrecoverable;
 pub mod unwind;
+pub mod uart;
