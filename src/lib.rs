@@ -16,7 +16,6 @@ pub mod allocator;
 mod assembly;
 pub mod boot;
 pub mod config;
-pub mod crc;
 pub mod debug;
 pub mod interrupt;
 pub mod schedule;

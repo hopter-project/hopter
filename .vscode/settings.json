@@ -11,8 +11,23 @@
     ],
     "rust-analyzer.showUnlinkedFileNotification": false,
     "workbench.colorCustomizations": {
-        "activityBar.background": "#103141",
-        "titleBar.activeBackground": "#16445B",
-        "titleBar.activeForeground": "#F7FBFD"
-    }
+        "activityBar.activeBackground": "#00383e",
+        "activityBar.background": "#00383e",
+        "activityBar.foreground": "#e7e7e7",
+        "activityBar.inactiveForeground": "#e7e7e799",
+        "activityBarBadge.background": "#bf00ad",
+        "activityBarBadge.foreground": "#e7e7e7",
+        "commandCenter.border": "#e7e7e799",
+        "sash.hoverBorder": "#00383e",
+        "statusBar.background": "#000a0b",
+        "statusBar.foreground": "#e7e7e7",
+        "statusBarItem.hoverBackground": "#00383e",
+        "statusBarItem.remoteBackground": "#000a0b",
+        "statusBarItem.remoteForeground": "#e7e7e7",
+        "titleBar.activeBackground": "#000a0b",
+        "titleBar.activeForeground": "#e7e7e7",
+        "titleBar.inactiveBackground": "#000a0b99",
+        "titleBar.inactiveForeground": "#e7e7e799"
+    },
+    "peacock.remoteColor": "#000a0b"
 }

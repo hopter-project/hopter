@@ -15,6 +15,13 @@ const MESSSAGE_SIZE: usize = 60;
 const CHECKSUM_SIZE: usize = 4;
 const PACKET_SIZE: usize = MESSSAGE_SIZE + CHECKSUM_SIZE;
 const FILESIZE: usize = 1000;
+
+struct Packet {
+    data: [u8; 60],
+    sequence: u32,
+    checksum: u32,
+}
+
 fn send_filesize(filesize: usize, usart1: &mut Serial<USART1>) {
     let filesize_bytes = filesize.to_le_bytes();
     for i in 0..CHECKSUM_SIZE {
@@ -132,6 +139,7 @@ fn main(_: cortex_m::Peripherals) {
 
     // send the binary data in chunks of 252 bytes
     send_binary(binary, &mut usart1, FILESIZE);
+
     let mut data: [u8; PACKET_SIZE] = [0; PACKET_SIZE];
     for i in 0..PACKET_SIZE {
         data[i] = usart1.read().unwrap();
