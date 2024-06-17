@@ -1,8 +1,9 @@
-use super::{
+use crate::{
     interrupt::svc,
     schedule,
     sync::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
     task::{TaskListAdapter, TaskListInterfaces},
+    unrecoverable::Lethal,
 };
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use intrusive_collections::LinkedList;
@@ -58,7 +59,7 @@ impl<'a> InnerFullAccessor<'a> {
         let mut cursor_mut = locked_queue.front_mut();
         while let Some(task) = cursor_mut.get() {
             if task.get_wake_tick() <= cur_tick {
-                let task = cursor_mut.remove().unwrap();
+                let task = cursor_mut.remove().unwrap_or_die();
                 schedule::make_task_ready_and_enqueue(task);
             } else {
                 break;
