@@ -7,6 +7,8 @@ extern crate alloc;
 pub enum UartError {
     ReadError,
     WriteError,
+    RetransmissionLimitError,
+    Timeout,
     Other,
 }
 
@@ -72,7 +74,7 @@ impl Chunk {
         Chunk {
             message,
             flags,
-            checksum: 0 as u32,
+            checksum: crc32fast::hash(&message),
         }
     }
     pub fn compute_checksum(&mut self) {
@@ -90,7 +92,6 @@ impl Flags {
         Flags {
             response_type,
             sequence,
-            
         }
     }
     pub fn from_byte(byte: u8) -> Self {
@@ -140,14 +141,19 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
         UartCrc { serial }
     }
 
+    /// send the ack response with no sequence bits
     pub fn send_ack(&mut self) -> Result<(), UartError> {
         self.send_response(Flags::new(Some(ResponseType::Ack), None))?;
         Ok(())
     }
+
+    /// send the nack response with no sequence bits, should trigger sender to resend the chunk
     pub fn send_nack(&mut self) -> Result<(), UartError> {
         self.send_response(Flags::new(Some(ResponseType::Nack), None))?;
         Ok(())
     }
+
+    /// sends a one byte response, first four bits are for response type, last four bits are for sequence
     pub fn send_response(&mut self, flags: Flags) -> Result<(), UartError> {
         let buf = flags.to_byte();
         hprintln!("Sending response {:#08b}", buf);
@@ -155,7 +161,11 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
         Ok(())
     }
 
+    /// wait to receieve a response from receiever before continueing
+    ///
+    /// if response is ack or nack we pass it along
     pub fn listen_for_response(&mut self) -> Result<Flags, UartError> {
+        // Readbyte should return UartError::timeout on timeout
         let buf = self.serial.uart_read_byte()?;
         let flags = Flags {
             response_type: match buf & 0xF0 {
@@ -172,71 +182,113 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
         // TODO: actual error handling
         match flags.response_type {
             Some(ResponseType::Ack) => hprintln!("Received Ack"),
-            _ => panic!("Response not Ack"),
+            Some(ResponseType::Nack) => hprintln!("Received Nack"),
+            _ => panic!("Response does not include a response"),
         }
 
         Ok(flags)
     }
 
+    /// send one chunk of data which has a message, flags, and checksum
+    ///
+    /// upon a nack response, the same chunk will be resent
     pub fn send_chunk(&mut self, chunk: &Chunk) -> Result<(), UartError> {
-        let mut buf: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
-        buf[0..MESSSAGE_SIZE].copy_from_slice(&chunk.message);
+        let mut retransmission_counter = 0;
+        loop {
+            let mut buf: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
+            buf[0..MESSSAGE_SIZE].copy_from_slice(&chunk.message);
 
-        buf[MESSSAGE_SIZE] = chunk.flags;
+            buf[MESSSAGE_SIZE] = chunk.flags;
 
-        buf[(MESSSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]
-            .copy_from_slice(&chunk.checksum.to_le_bytes());
+            buf[(MESSSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]
+                .copy_from_slice(&chunk.checksum.to_le_bytes());
 
-        for i in 0..CHUNK_SIZE {
-            self.serial.uart_write_byte(buf[i])?;
+            for i in 0..CHUNK_SIZE {
+                self.serial.uart_write_byte(buf[i])?;
+            }
+            let response = self.listen_for_response()?;
+            match response.response_type {
+                Some(ResponseType::Ack) => break,
+                Some(ResponseType::Nack) => {
+                    retransmission_counter += 1;
+                    if retransmission_counter > 3 {
+                        return Err(UartError::RetransmissionLimitError);
+                    }
+                }
+                None => panic!("Response does not include a response"),
+            }
         }
         Ok(())
     }
 
+    /// wait to receieve one chunk of data from the sender
+    ///
+    /// if the checksum does not match the message, send a nack response and wait for sender to resend
+    ///
+    /// can send nack but never ack - will defer to calling code to check sequence
     pub fn listen_for_chunk(&mut self) -> Result<Chunk, UartError> {
-        let mut buf: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
-        for i in 0..CHUNK_SIZE {
-            buf[i] = self.serial.uart_read_byte()?;
+        let mut retransmission_counter = 0;
+        loop {
+            let mut buf: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
+            for i in 0..CHUNK_SIZE {
+                buf[i] = self.serial.uart_read_byte()?;
+            }
+            let message = buf[0..MESSSAGE_SIZE].try_into().unwrap();
+            let flags = buf[MESSSAGE_SIZE];
+
+            let mut message_checksum_b: [u8; CHECKSUM_SIZE] = [0; CHECKSUM_SIZE];
+            message_checksum_b.copy_from_slice(&buf[(MESSSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]);
+            let message_checksum = u32::from_le_bytes(message_checksum_b);
+
+            let checksum = crc32fast::hash(&buf[0..MESSSAGE_SIZE]);
+            let chunk = Chunk {
+                message,
+                flags,
+                checksum,
+            };
+
+            if checksum != message_checksum {
+                hprintln!("Checksum mismatch");
+                retransmission_counter += 1;
+                if retransmission_counter > 3 {
+                    return Err(UartError::RetransmissionLimitError);
+                }
+                self.send_nack()?;
+            } else {
+                return Ok(chunk);
+            }
         }
-        let message = buf[0..MESSSAGE_SIZE].try_into().unwrap();
-        let flags = buf[MESSSAGE_SIZE];
-
-        let mut message_checksum_b: [u8; CHECKSUM_SIZE] = [0; CHECKSUM_SIZE];
-        message_checksum_b.copy_from_slice(&buf[(MESSSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]);
-        let message_checksum = u32::from_le_bytes(message_checksum_b);
-
-        let checksum = crc32fast::hash(&buf[0..MESSSAGE_SIZE]);
-        if checksum != message_checksum {
-            panic!("Checksum mismatch");
-        }
-
-        let chunk = Chunk {
-            message,
-            flags,
-            checksum,
-        };
-        // print_chunk(&chunk);
-        Ok(chunk)
     }
 
+    /// listen for special chunk which contains the size of the future data
+    ///
+    /// size chunk should ALWAYS be the first chunk sent and contains no other data
     pub fn listen_for_data_size(&mut self) -> Result<u64, UartError> {
         let chunk = self.listen_for_chunk()?;
+        self.send_ack()?;
         let data_size = u64::from_le_bytes(chunk.message[0..8].try_into().unwrap());
         hprintln!("Data_size: {}", data_size);
         Ok(data_size)
     }
+
+    /// listen for arbitrary ammount of data from sender
+    ///
+    /// the size of the data is always sent first as its own chunk
+    ///
+    /// the data is sent in order and the receiver will send an ack or nack response for each chunk
     pub fn listen_for_data(&mut self) -> Result<heapless::Vec<u8, MAX_DATA_SIZE>, UartError> {
         let data_size = self.listen_for_data_size()?;
-        self.send_ack()?;
         let mut data: heapless::Vec<u8, MAX_DATA_SIZE> = heapless::Vec::new();
 
         let mut current_read_size = 0;
         let mut last_sequence = 0x0A;
         while current_read_size < data_size {
             let chunk = self.listen_for_chunk()?;
+
             if chunk.flags & 0x0F == last_sequence {
+                // TODO: Sequence as number instead, so we can request a specific chunk?
+                hprintln!("Sequence mismatch, requesting retransmission");
                 self.send_nack()?;
-                panic!("Sequence mismatch");
             } else {
                 last_sequence = chunk.flags & 0x0F;
                 self.send_ack()?;
@@ -252,23 +304,25 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
         }
         Ok(data)
     }
+
+    /// send the size of the future data to the receiver
     pub fn send_data_size(&mut self, datasize: usize) -> Result<(), UartError> {
         let mut message = [0; MESSSAGE_SIZE];
         message[0..8].copy_from_slice(&(datasize as u64).to_le_bytes());
         let flags = Flags::new(None, Some(Sequence::Odd));
-        let checksum = crc32fast::hash(&message);
-        let chunk = Chunk {
-            message: message,
-            flags: flags.to_byte(),
-            checksum: checksum,
-        };
+        let chunk = Chunk::new(message, flags.to_byte());
+
         self.send_chunk(&chunk)?;
         Ok(())
     }
+
+    /// send arbitrary ammount of data to the receiver 
+    /// 
+    /// sends the data in chunks with the first being the size of the data
     pub fn send_data(&mut self, data: heapless::Vec<u8, MAX_DATA_SIZE>) -> Result<(), UartError> {
         let data_size = data.len() as usize;
         self.send_data_size(data_size)?;
-        self.listen_for_response()?;
+        // self.listen_for_response()?;
 
         let mut flags = Flags::new(None, Some(Sequence::Even));
         let mut current_write_size: usize = 0;
@@ -287,13 +341,9 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
                 current_write_size += diff;
             }
 
-            let mut chunk = Chunk::new(message, flags.to_byte());
-            chunk.compute_checksum();
+            let chunk = Chunk::new(message, flags.to_byte());
 
             self.send_chunk(&chunk)?;
-
-            // TODO: Implement retransmission
-            self.listen_for_response()?;
 
             flags.toggle();
         }
