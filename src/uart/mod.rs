@@ -9,11 +9,6 @@ pub enum UartError {
     WriteError,
     Other,
 }
-// impl<T > From<T> for UartError {
-//     fn from(err: T) -> Self {
-//         UartError::Other
-//     }
-// }
 
 use core::{fmt::Debug, panic};
 
@@ -95,6 +90,7 @@ impl Flags {
         Flags {
             response_type,
             sequence,
+            
         }
     }
     pub fn from_byte(byte: u8) -> Self {

@@ -2,14 +2,14 @@
 #![no_main]
 
 extern crate alloc;
-use core::fmt::Write;
 
-use cortex_m_semihosting::{heprint, heprintln};
-use heapless::String;
+
+
+
 use hopter::{boot::main, debug::semihosting, hprint, hprintln};
 use nb::block;
 use stm32f4xx_hal::{
-    dma::CurrentBuffer, gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial,
+    gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial,
     uart::Config,
 };
 
@@ -308,7 +308,7 @@ fn main(_: cortex_m::Peripherals) {
     // uart_crc.send_data(request);
     uart_crc.send_data(request);
 
-    let mut binary: heapless::Vec<u8, MAX_DATA_SIZE> = uart_crc.listen_for_data();
+    let binary: heapless::Vec<u8, MAX_DATA_SIZE> = uart_crc.listen_for_data();
     print_data(&binary);
     // uart_crc.listen_for_response
 

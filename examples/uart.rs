@@ -2,10 +2,10 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprint, hprintln, uart::*};
+use hopter::{boot::main, debug::semihosting, hprintln, uart::*};
 use nb::block;
 use stm32f4xx_hal::{
-    dma::CurrentBuffer, gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial,
+    gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial,
     uart::Config,
 };
 struct UartSerial(Serial<USART1>);
@@ -41,7 +41,7 @@ fn main(_: cortex_m::Peripherals) {
         gpioa.pa10.into_alternate::<7>(),
     );
 
-    let mut usart1: Serial<_, u8> = dp
+    let usart1: Serial<_, u8> = dp
         .USART1
         .serial(
             usart1_pins,
@@ -65,7 +65,7 @@ fn main(_: cortex_m::Peripherals) {
     // uart_crc.send_data(request);
     uart_crc.send_data(request).unwrap();
 
-    let mut binary: heapless::Vec<u8, MAX_DATA_SIZE> = uart_crc.listen_for_data().unwrap();
+    let binary: heapless::Vec<u8, MAX_DATA_SIZE> = uart_crc.listen_for_data().unwrap();
     print_data(&binary);
     // uart_crc.listen_for_response
 

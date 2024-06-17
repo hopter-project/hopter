@@ -2,11 +2,11 @@
 #![no_main]
 
 extern crate alloc;
-use core::fmt::Write;
+
 
 use alloc::string::String;
 use hopter::{boot::main, debug::semihosting, hprint, hprintln};
-use nb::block;
+
 use stm32f4xx_hal::{gpio::GpioExt, prelude::*, rcc::RccExt, serial::Serial, uart::Config};
 
 #[derive(Debug)]

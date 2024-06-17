@@ -2,13 +2,13 @@
 #![no_main]
 
 extern crate alloc;
-use core::fmt::Write;
 
-use alloc::string::String;
+
+
 use hopter::{boot::main, debug::semihosting, hprint, hprintln};
-use nb::block;
+
 use stm32f4xx_hal::{
-    dma::CurrentBuffer, gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial,
+    gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial,
     uart::Config,
 };
 const MESSSAGE_SIZE: usize = 60;
