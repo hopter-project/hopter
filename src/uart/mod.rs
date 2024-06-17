@@ -39,9 +39,9 @@ pub const FLAGS_SIZE: usize = 1;
 pub const CHUNK_SIZE: usize = MESSSAGE_SIZE + FLAGS_SIZE + CHECKSUM_SIZE;
 pub const MAX_DATA_SIZE: usize = 1024;
 
-pub fn print_data(vec: &heapless::Vec<u8, MAX_DATA_SIZE>) {
-    for i in 0..vec.len() {
-        hprint!("{:02x} ", vec[i]);
+pub fn print_data(vec: &[u8]) {
+    for (i, byte) in vec.iter().enumerate() {
+        hprint!("{:02x} ", byte);
         if i % 16 == 15 {
             hprintln!();
         }
@@ -225,7 +225,7 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
     ///
     /// if the checksum does not match the message, send a nack response and wait for sender to resend
     ///
-    /// can send nack but never ack - will defer to calling code to check sequence
+    /// does not send ack here, but does checck the checksum and send nack if it does not match
     pub fn listen_for_chunk(&mut self) -> Result<Chunk, UartError> {
         let mut retransmission_counter = 0;
         loop {
@@ -241,11 +241,6 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
             let message_checksum = u32::from_le_bytes(message_checksum_b);
 
             let checksum = crc32fast::hash(&buf[0..MESSSAGE_SIZE]);
-            let chunk = Chunk {
-                message,
-                flags,
-                checksum,
-            };
 
             if checksum != message_checksum {
                 hprintln!("Checksum mismatch");
@@ -255,6 +250,11 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
                 }
                 self.send_nack()?;
             } else {
+                let chunk = Chunk {
+                    message,
+                    flags,
+                    checksum,
+                };
                 return Ok(chunk);
             }
         }
@@ -316,11 +316,11 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
         Ok(())
     }
 
-    /// send arbitrary ammount of data to the receiver 
-    /// 
+    /// send arbitrary ammount of data to the receiver
+    ///
     /// sends the data in chunks with the first being the size of the data
     pub fn send_data(&mut self, data: heapless::Vec<u8, MAX_DATA_SIZE>) -> Result<(), UartError> {
-        let data_size = data.len() as usize;
+        let data_size = data.len();
         self.send_data_size(data_size)?;
         // self.listen_for_response()?;
 

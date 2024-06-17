@@ -5,8 +5,7 @@ extern crate alloc;
 use hopter::{boot::main, debug::semihosting, hprintln, uart::*};
 use nb::block;
 use stm32f4xx_hal::{
-    gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial,
-    uart::Config,
+    gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial, uart::Config,
 };
 struct UartSerial(Serial<USART1>);
 
@@ -54,7 +53,7 @@ fn main(_: cortex_m::Peripherals) {
 
     let mut request: heapless::Vec<u8, MAX_DATA_SIZE> = heapless::Vec::new();
 
-    for i in 0..500 {
+    for i in 0..50 {
         request.push(i as u8).unwrap();
     }
 
