@@ -1,0 +1,57 @@
+name: Rust
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Restore Rust compiler toolchain cache
+        id: rust-cache
+        uses: actions/cache@v3
+        with:
+          path: rust.tar.xz
+          key: ${{ runner.os }}-rust.tar.xz
+
+      - name: Download Rust compiler toolchain if not cached
+        if: steps.rust-cache.outputs.cache-hit != 'true'
+        run: curl -L -o rust.tar.xz 'https://zyma.me/media/rust.tar.xz'
+
+      - name: Decompress Rust compiler toolchain
+        run: tar -xf rust.tar.xz
+
+      - name: Register Rust compiler toolchain
+        run: rustup toolchain link segstk-rust rust
+
+      - name: Verify Rust compiler toolchain registration
+        run: cargo +segstk-rust --version
+
+      - name: Restore QEMU cache
+        id: qemu-cache
+        uses: actions/cache@v3
+        with:
+          path: qemu.tar.xz
+          key: ${{ runner.os }}-qemu.tar.xz
+
+      - name: Download QEMU if not cached
+        if: steps.qemu-cache.outputs.cache-hit != 'true'
+        run: curl -L -o qemu.tar.xz 'https://zyma.me/media/qemu.tar.xz'
+
+      - name: Decompress QEMU
+        run: tar -xf qemu.tar.xz
+
+      - name: Add QEMU to search path
+        run: echo "$(pwd)/qemu/bin" >> $GITHUB_PATH
+
+      - name: Verify QEMU
+        run: qemu-system-arm --version
+
+      - name: Run Hopter "hello world" test
+        run: cargo +segstk-rust run --release --example hello_world
