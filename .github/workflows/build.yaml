@@ -11,11 +11,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Restore Rust compiler toolchain cache
         id: rust-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: rust
           key: ${{ runner.os }}-rust
@@ -36,7 +36,7 @@ jobs:
 
       - name: Restore QEMU cache
         id: qemu-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: qemu
           key: ${{ runner.os }}-qemu
