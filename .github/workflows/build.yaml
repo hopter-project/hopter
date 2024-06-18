@@ -17,14 +17,15 @@ jobs:
         id: rust-cache
         uses: actions/cache@v3
         with:
-          path: rust.tar.xz
-          key: ${{ runner.os }}-rust.tar.xz
+          path: rust
+          key: ${{ runner.os }}-rust
 
       - name: Download Rust compiler toolchain if not cached
         if: steps.rust-cache.outputs.cache-hit != 'true'
         run: curl -L -o rust.tar.xz 'https://zyma.me/media/rust.tar.xz'
 
       - name: Decompress Rust compiler toolchain
+        if: steps.rust-cache.outputs.cache-hit != 'true'
         run: tar -xf rust.tar.xz
 
       - name: Register Rust compiler toolchain
@@ -37,14 +38,15 @@ jobs:
         id: qemu-cache
         uses: actions/cache@v3
         with:
-          path: qemu.tar.xz
-          key: ${{ runner.os }}-qemu.tar.xz
+          path: qemu
+          key: ${{ runner.os }}-qemu
 
       - name: Download QEMU if not cached
         if: steps.qemu-cache.outputs.cache-hit != 'true'
         run: curl -L -o qemu.tar.xz 'https://zyma.me/media/qemu.tar.xz'
 
       - name: Decompress QEMU
+        if: steps.qemu-cache.outputs.cache-hit != 'true'
         run: tar -xf qemu.tar.xz
 
       - name: Add QEMU to search path
@@ -52,6 +54,9 @@ jobs:
 
       - name: Verify QEMU
         run: qemu-system-arm --version
+
+      - name: Build Hopter
+        run: cargo +segstk-rust build --release
 
       - name: Run Hopter "hello world" test
         run: cargo +segstk-rust run --release --example hello_world
