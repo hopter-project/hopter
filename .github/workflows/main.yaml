@@ -1,0 +1,23 @@
+name: Build Test
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-rust-toolchain:
+    uses: ./.github/workflows/check-rust-toolchain.yaml
+    secrets:
+      cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+
+  check-qemu:
+    uses: ./.github/workflows/check-qemu.yaml
+    secrets:
+      cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+
+  build-test:
+    needs: [check-qemu, check-rust-toolchain]
+    uses: ./.github/workflows/build.yaml
+    secrets:
+      cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}

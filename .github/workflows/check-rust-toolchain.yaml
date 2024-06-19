@@ -1,4 +1,4 @@
-name: Build Hopter
+name: Check Rust toolchain
 
 on:
   workflow_call:
@@ -22,13 +22,6 @@ jobs:
         with:
           cookie: ${{ secrets.cookie }}
 
-      - name: Prepare QEMU
-        uses: ./.github/workflows/actions/prepare-qemu
-        with:
-          cookie: ${{ secrets.cookie }}
-
-      - name: Build Hopter
-        run: cargo +segstk-rust build --release
-
-      - name: Build test "hello world"
-        run: cargo +segstk-rust build --release --example hello_world
+      - name: Verify Rust compiler toolchain registration
+        run: cargo +segstk-rust --version
+        shell: bash

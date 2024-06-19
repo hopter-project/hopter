@@ -1,0 +1,35 @@
+name: Prepare QEMU
+description: "Download QEMU and add it to PATH."
+
+inputs:
+  cookie:
+    description: "Cookie for download authorization."
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Restore QEMU cache
+      id: qemu-cache
+      uses: actions/cache@v4
+      with:
+        path: qemu
+        key: ${{ runner.os }}-qemu
+
+    - name: Download QEMU if not cached
+      if: steps.qemu-cache.outputs.cache-hit != 'true'
+      run: |
+        curl --fail -L \
+             --cookie "authorized_cookie=${{ inputs.cookie }}" \
+             -o qemu.tar.xz \
+             'https://file.zyma.me/qemu.tar.xz'
+      shell: bash
+
+    - name: Decompress QEMU
+      if: steps.qemu-cache.outputs.cache-hit != 'true'
+      run: tar -xf qemu.tar.xz
+      shell: bash
+
+    - name: Add QEMU to search path
+      run: echo "$(pwd)/qemu/bin" >> $GITHUB_PATH
+      shell: bash
