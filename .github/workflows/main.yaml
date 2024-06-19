@@ -15,7 +15,7 @@ jobs:
       - name: Prepare Rust compiler toolchain
         uses: ./.github/workflows/actions/prepare-rust-toolchain
         with:
-          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
 
       - name: Verify Rust compiler toolchain registration
         run: cargo +segstk-rust --version
@@ -30,7 +30,7 @@ jobs:
       - name: Prepare QEMU
         uses: ./.github/workflows/actions/prepare-qemu
         with:
-          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
 
       - name: Verify QEMU
         run: qemu-system-arm --version
@@ -46,16 +46,10 @@ jobs:
       - name: Build Hopter and tests
         uses: ./.github/workflows/actions/build
         with:
-          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
     
-  test-hello-world:
-    runs-on: ubuntu-latest
+  test:
     needs: [build]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run test "hello world"
-        uses: ./.github/workflows/actions/test-hello-world
-        with:
-          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+    uses: ./.github/workflows/tests.yaml
+    secrets:
+      cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
