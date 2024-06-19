@@ -1,0 +1,29 @@
+name: Build Hopter and Tests
+description: "Build Hopter and all tests."
+
+inputs:
+  cookie:
+    description: "Cookie for download authorization."
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+      - name: Prepare Rust compiler toolchain
+        uses: ./.github/workflows/actions/prepare-rust-toolchain
+        with:
+          cookie: ${{ inputs.cookie }}
+
+      - name: Build Hopter
+        run: cargo +segstk-rust build --release
+        shell: bash
+
+      - name: Build test "hello world"
+        run: cargo +segstk-rust build --release --example hello_world
+        shell: bash
+
+      - name: Upload test "hello world"
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello_world
+          path: ./target/thumbv7em-none-eabihf/release/examples/hello_world

@@ -7,17 +7,55 @@ env:
 
 jobs:
   check-rust-toolchain:
-    uses: ./.github/workflows/check-rust-toolchain.yaml
-    secrets:
-      cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Rust compiler toolchain
+        uses: ./.github/workflows/actions/prepare-rust-toolchain
+        with:
+          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+
+      - name: Verify Rust compiler toolchain registration
+        run: cargo +segstk-rust --version
+        shell: bash
 
   check-qemu:
-    uses: ./.github/workflows/check-qemu.yaml
-    secrets:
-      cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  build-test:
+      - name: Prepare QEMU
+        uses: ./.github/workflows/actions/prepare-qemu
+        with:
+          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+
+      - name: Verify QEMU
+        run: qemu-system-arm --version
+        shell: bash
+
+  build:
+    runs-on: ubuntu-latest
     needs: [check-qemu, check-rust-toolchain]
-    uses: ./.github/workflows/build.yaml
-    secrets:
-      cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Hopter and tests
+        uses: ./.github/workflows/actions/build
+        with:
+          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
+    
+  test-hello-world:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test "hello world"
+        uses: ./.github/workflows/actions/test-hello-world
+        with:
+          cookie: ${{ secrets.AUTHORIZED_DOWNLOAD_COOKIE }}
