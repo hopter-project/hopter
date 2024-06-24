@@ -1,7 +1,11 @@
 [package]
 name = "hopter"
-version = "0.1.6"
+version = "0.1.8"
 edition = "2021"
+
+[features]
+default = ["unwind"]
+unwind = ["dep:gimli", "dep:fallible-iterator"]
 
 [dependencies]
 static_assertions = "1.1"
@@ -35,11 +39,13 @@ default-features = false
 [dependencies.gimli]
 version = "0.29"
 default-features = false
-features = ["read"]
+features = [ "read" ]
+optional = true
 
 [dependencies.fallible-iterator]
 version = "0.3"
 default-features = false
+optional = true
 
 [dependencies.intrusive-collections]
 version = "0.9"
@@ -53,3 +59,23 @@ git = "https://github.com/ZhiyaoMa98/stm32f4xx-hal.git"
 branch = "dependency"
 default-features = false
 features = ["stm32f405"]
+
+[[example]]
+name = "test-sync-mailbox-notify_by_task"
+path = "examples/tests/sync/mailbox/notify_by_task.rs"
+
+[[example]]
+name = "test-sync-mailbox-notify_in_advance"
+path = "examples/tests/sync/mailbox/notify_in_advance.rs"
+
+[[example]]
+name = "test-sync-mailbox-task_timeout"
+path = "examples/tests/sync/mailbox/task_timeout.rs"
+
+[[example]]
+name = "test-sync-mailbox-task_not_timeout"
+path = "examples/tests/sync/mailbox/task_not_timeout.rs"
+
+[[example]]
+name = "test-sync-mailbox-notify_in_advance_after_timeout"
+path = "examples/tests/sync/mailbox/notify_in_advance_after_timeout.rs"

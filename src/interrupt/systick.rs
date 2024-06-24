@@ -16,7 +16,7 @@ unsafe extern "C" fn systick_entry() {
 
 /// We simply need to advance the tick count when SysTick fires.
 unsafe extern "C" fn systick_handler() {
-    use super::super::time;
+    use crate::time;
     time::advance_tick();
     time::wake_sleeping_tasks();
 }

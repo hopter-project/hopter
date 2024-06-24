@@ -1,8 +1,8 @@
-use super::super::{schedule, task::Task, unwind};
 use super::{
     HeldInterrupt, Holdable, Lockable, Scheduler, SchedulerSuspendGuard, SpinGeneric,
     SpinGenericGuard, SpinSchedSafe, UnlockableGuard, WaitQueue,
 };
+use crate::{schedule, task::Task};
 use alloc::sync::Arc;
 use core::{
     ops::{Deref, DerefMut},
@@ -203,7 +203,8 @@ where
             cur_task.restore_intrinsic_priority();
         }
 
-        if unwind::unwind::is_unwinding() {
+        #[cfg(feature = "unwind")]
+        if crate::unwind::unwind::is_unwinding() {
             self.mutex.poisoned.store(true, Ordering::SeqCst);
         }
 

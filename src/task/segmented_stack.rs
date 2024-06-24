@@ -52,7 +52,7 @@
 //! [`unwind_land`] handles the corner case when the unwinder invokes a landing
 //! pad.
 
-use super::super::{
+use crate::{
     config,
     interrupt::{
         svc,
@@ -61,7 +61,6 @@ use super::super::{
     },
     schedule,
     unrecoverable::{self, Lethal},
-    unwind::unwind::{ARMGPReg, UnwindState},
 };
 use core::{
     alloc::Layout,
@@ -88,15 +87,15 @@ pub fn get_active_stacklet_count() -> usize {
 /// together to form a logical function call stack.
 #[repr(C)]
 #[derive(Clone, Default)]
-pub(in super::super) struct StackletMeta {
+pub(crate) struct StackletMeta {
     /// The boundary address of the previous stacklet.
-    pub(in super::super) prev_stklet_bound: u32,
+    pub(crate) prev_stklet_bound: u32,
     /// The final stack pointer address pointing into the previous stacklet
     /// before switching to the next stacklet.
-    pub(in super::super) prev_sp: u32,
+    pub(crate) prev_sp: u32,
     /// How many times a new stacklet was allocated when running with the
     /// current stacklet.
-    pub(in super::super) extend_cnt: u32,
+    pub(crate) extend_cnt: u32,
 }
 
 /// Calculate the overhead size according to the stacklet layout. See the
@@ -114,18 +113,19 @@ const STACKLET_METADATA_BOUNDARY_OFFSET: usize = OVERHEAD_SIZE;
 
 /// Given the boundary address of a stacklet, return the `*mut u8` pointer to
 /// the stacklet.
-pub(in super::super) fn bound_to_stklet_ptr(bound: usize) -> *mut u8 {
+#[cfg(feature = "unwind")]
+pub(crate) fn bound_to_stklet_ptr(bound: usize) -> *mut u8 {
     (bound - STACKLET_METADATA_BOUNDARY_OFFSET) as *mut u8
 }
 
 /// Given the boundary address of a stacklet, return the raw pointer pointing
 /// to the stacklet metadata.
-pub(in super::super) fn bound_to_stklet_meta(bound: usize) -> *mut StackletMeta {
+pub(crate) fn bound_to_stklet_meta(bound: usize) -> *mut StackletMeta {
     (bound - STACKLET_METADATA_BOUNDARY_OFFSET) as *mut StackletMeta
 }
 
 /// Given the raw pointer to a stacklet, return the boundary address.
-pub(in super::super) fn stklet_ptr_to_bound(ptr: *mut u8) -> usize {
+pub(crate) fn stklet_ptr_to_bound(ptr: *mut u8) -> usize {
     (ptr as usize) + STACKLET_METADATA_BOUNDARY_OFFSET
 }
 
@@ -171,7 +171,7 @@ pub(super) fn alloc_initial_stacklet(free_size: usize) -> (*mut u8, *mut u8) {
 
 /// Allocate a new stacklet for the currently running task. Let the task's current
 /// function continue with the new stacklet to execute its function body.
-pub(in super::super) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
+pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     if !config::ALLOW_DYNAMIC_STACK {
         unrecoverable::die();
     }
@@ -315,7 +315,7 @@ pub(in super::super) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
 
 /// Free the current stacklet of the currently running task. Let the task return to the
 /// function running with the previous stacklet.
-pub(in super::super) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
+pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     if !config::ALLOW_DYNAMIC_STACK {
         unrecoverable::die();
     }
@@ -362,7 +362,10 @@ pub(in super::super) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
 }
 
 /// Let the task being unwound execute the landing pad.
+#[cfg(feature = "unwind")]
 pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
+    use crate::unwind::unwind::{ARMGPReg, UnwindState};
+
     // This SVC function must be invoked from the unwinder. The stacklet boundary
     // we get from the context is the one *used by the unwinder*. Also, by the
     // code structure of the unwinder, this is the only stacklet that has not
@@ -425,7 +428,7 @@ pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
 const HOT_SPLIT_PREVENTION_CACHE_SIZE: usize = 4;
 
 #[derive(Default)]
-pub(in super::super) struct HotSplitAlleviationBlock {
+pub(crate) struct HotSplitAlleviationBlock {
     call_chain_signature: u32,
     hot_split_cause_signatures: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],
     add_sizes: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],

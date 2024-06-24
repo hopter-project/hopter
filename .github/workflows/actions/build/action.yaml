@@ -1,0 +1,56 @@
+name: Build Hopter and Tests
+description: "Build Hopter and all tests."
+
+inputs:
+  cookie:
+    description: "Cookie for download authorization."
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare Rust compiler toolchain
+      uses: ./.github/workflows/actions/prepare-rust-toolchain
+      with:
+        cookie: ${{ inputs.cookie }}
+
+    - name: Build Hopter
+      run: cargo +segstk-rust build --release
+      shell: bash
+
+    # *** Tests for sync - mailbox ***
+
+    - name: Build test test-sync-mailbox-notify_by_task
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_by_task
+
+    - name: Build test test-sync-mailbox-notify_in_advance
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_in_advance
+
+    - name: Build test test-sync-mailbox-task_not_timeout
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: task_not_timeout
+
+    - name: Build test test-sync-mailbox-task_timeout
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: task_timeout
+
+    - name: Build test test-sync-mailbox-notify_in_advance_after_timeout
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_in_advance_after_timeout

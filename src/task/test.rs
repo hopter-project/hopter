@@ -1,4 +1,4 @@
-use super::super::{interrupt::SVCNum, unrecoverable};
+use crate::{interrupt::SVCNum, unrecoverable};
 use core::arch::asm;
 
 #[no_mangle]

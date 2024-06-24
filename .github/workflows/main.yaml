@@ -1,0 +1,55 @@
+name: Build Test
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-rust-toolchain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Rust compiler toolchain
+        uses: ./.github/workflows/actions/prepare-rust-toolchain
+        with:
+          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
+
+      - name: Verify Rust compiler toolchain registration
+        run: cargo +segstk-rust --version
+        shell: bash
+
+  check-qemu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare QEMU
+        uses: ./.github/workflows/actions/prepare-qemu
+        with:
+          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
+
+      - name: Verify QEMU
+        run: qemu-system-arm --version
+        shell: bash
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [check-qemu, check-rust-toolchain]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Hopter and tests
+        uses: ./.github/workflows/actions/build
+        with:
+          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
+    
+  test:
+    needs: [build]
+    uses: ./.github/workflows/tests.yaml
+    secrets:
+      cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}

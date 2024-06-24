@@ -6,24 +6,24 @@
 //! registers are pushed to the user segmented stack, forming the trap frame,
 //! while callee-saved registers are preserved by the handler functions
 //! following the function call ABI. So, there is no need to make a copy of
-//! callee-saved registers, unlike in [`TaskCtxt`](super::super::task::TaskCtxt).
+//! callee-saved registers, unlike in [`TaskCtxt`](crate::task::TaskCtxt).
 //!
 //! To clarify, a task indeed invokes SVC to yield, but the actual context
 //! switch is done by chaining PendSV after the SVC. Logically, the SVC still
 //! returns to the yielding task, but PendSV then immediately causes the task
 //! to be switched out of the CPU.
 
-use super::super::{
+use super::trap_frame::TrapFrame;
+use crate::{
     allocator, config, schedule, task,
     unrecoverable::{self, Lethal},
 };
-use super::trap_frame::TrapFrame;
 use core::arch::asm;
 use int_enum::IntEnum;
 
 #[repr(u8)]
 #[derive(IntEnum)]
-pub(in super::super) enum SVCNum {
+pub(crate) enum SVCNum {
     /// The calling task wants to yield the CPU. The yielded task will become
     /// ready immediately.
     TaskYield = 1,
@@ -42,6 +42,7 @@ pub(in super::super) enum SVCNum {
     TaskUnwindPrepare = 253,
     /// The task wants to release the stacklet used to run the unwinder and
     /// then jump to the landing pad.
+    #[cfg(feature = "unwind")]
     TaskUnwindLand = 254,
     /// The task wants to allocate a new stacklet.
     /// IMPORTANT NOTE: The compiler toolchain assumes that the SVC number for
@@ -52,18 +53,18 @@ pub(in super::super) enum SVCNum {
 
 /// Context of a task when it invokes SVC. SVC context is available only during
 /// the handling of an SVC. This struct should not be confused with
-/// [`TaskCtxt`](super::super::task::TaskCtxt), which is available when a task
+/// [`TaskCtxt`](crate::task::TaskCtxt), which is available when a task
 /// is scheduled out, i.e., not running on the CPU.
 ///
-/// Similar to [`TaskCtxt`](super::super::task::TaskCtxt), modification to the
+/// Similar to [`TaskCtxt`](crate::task::TaskCtxt), modification to the
 /// struct's fields causes the corresponding state of the task to also be
 /// updated when resuming the task.
 #[repr(C)]
-pub(in super::super) struct TaskSVCCtxt {
+pub(crate) struct TaskSVCCtxt {
     /// The stack pointer value when the task invokes SVC.
-    pub(in super::super) sp: u32,
+    pub(crate) sp: u32,
     /// The boundary address of the top stacklet when the task invokes SVC.
-    pub(in super::super) stklet_bound: u32,
+    pub(crate) stklet_bound: u32,
 }
 
 /// The interrupt entry function for SVC. The SVC handling is slower than other
@@ -141,6 +142,7 @@ extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         SVCNum::MemFree => allocator::task_free(tf),
         SVCNum::TaskDestroy => schedule::destroy_current_task_and_schedule(),
         SVCNum::TaskUnwindPrepare => task::more_stack(tf, ctxt),
+        #[cfg(feature = "unwind")]
         SVCNum::TaskUnwindLand => task::unwind_land(tf, ctxt),
     }
 }

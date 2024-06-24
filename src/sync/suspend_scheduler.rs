@@ -1,5 +1,5 @@
-use super::super::schedule;
 use super::Holdable;
+use crate::schedule;
 use core::ops::Deref;
 
 pub struct Scheduler {}

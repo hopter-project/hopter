@@ -1,4 +1,4 @@
-use super::super::unrecoverable::{self, Lethal};
+use crate::unrecoverable::{self, Lethal};
 use static_assertions::const_assert_eq;
 
 /// Represent the priority of a task.
@@ -6,7 +6,7 @@ use static_assertions::const_assert_eq;
 /// This struct is configured to have 4-byte alignment and a size of 4 bytes so
 /// that it can be stored behind a lock-free `AtomicCell`.
 #[derive(Clone, Copy)]
-pub(in super::super) struct TaskPriority(PriorityVariant);
+pub(crate) struct TaskPriority(PriorityVariant);
 const_assert_eq!(core::mem::size_of::<TaskPriority>(), 4);
 const_assert_eq!(core::mem::align_of::<TaskPriority>(), 4);
 
@@ -32,7 +32,7 @@ impl TaskPriority {
     /// Return the priority level when the task participates in prioritized
     /// scheduling. When the task is not inheriting other priorities, return
     /// its intrinsic priority, otherwise return its inherited priority.
-    pub(in super::super) fn effective_priority(&self) -> u8 {
+    pub(crate) fn effective_priority(&self) -> u8 {
         match self.0 {
             PriorityVariant::Intrinsic(prio) => prio,
             PriorityVariant::Inherited { inherited, .. } => inherited,
@@ -43,7 +43,7 @@ impl TaskPriority {
     /// Return the intrinsic priority, regardless of whether the task is
     /// currently having a different effective priority inherited from
     /// another task.
-    pub(in super::super) fn intrinsic_priority(&self) -> u8 {
+    pub(crate) fn intrinsic_priority(&self) -> u8 {
         match self.0 {
             PriorityVariant::Intrinsic(prio) => prio,
             PriorityVariant::Inherited { intrinsic, .. } => intrinsic,
@@ -57,7 +57,7 @@ impl TaskPriority {
     ///
     /// The function signature intends to clarify that it returns a new
     /// `TaskPriority` struct instead of modifying existing ones.
-    pub(in super::super) fn try_inherit_from(this: &Self, other: &Self) -> Result<Self, ()> {
+    pub(crate) fn try_inherit_from(this: &Self, other: &Self) -> Result<Self, ()> {
         if this.effective_priority() <= other.effective_priority() {
             Err(())
         } else {
@@ -70,7 +70,7 @@ impl TaskPriority {
 
     /// Construct a `TaskPriority` struct with a given intrinsic priority level.
     /// Note that smaller numerical value represents higher priority.
-    pub(in super::super) const fn new_intrinsic(prio: u8) -> Self {
+    pub(crate) const fn new_intrinsic(prio: u8) -> Self {
         TaskPriority(PriorityVariant::Intrinsic(prio))
     }
 
@@ -81,7 +81,7 @@ impl TaskPriority {
     ///
     /// The function signature intends to clarify that it returns a new
     /// `TaskPriority` struct instead of modifying the existing one.
-    pub(in super::super) fn restore_intrinsic(this: &Self) -> Self {
+    pub(crate) fn restore_intrinsic(this: &Self) -> Self {
         Self::new_intrinsic(this.intrinsic_priority())
     }
 }

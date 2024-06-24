@@ -1,30 +1,31 @@
-use super::super::{
+use super::{
+    priority::TaskPriority,
+    segmented_stack::{self, HotSplitAlleviationBlock},
+    trampoline::{self, EntryClosureArg},
+};
+use crate::{
     config,
     interrupt::{svc, trap_frame::TrapFrame},
     sync::{AtomicCell, Spin, SpinGuard},
     unrecoverable::{self, Lethal},
 };
-use super::{
-    priority::TaskPriority,
-    segmented_stack::{self, HotSplitAlleviationBlock},
-    trampoline::{self, EntryClosureArg, RestartableEntryFuncArg},
-};
-use alloc::{
-    boxed::Box,
-    sync::{Arc, Weak},
-};
+use alloc::{boxed::Box, sync::Arc};
 use core::{
     alloc::Layout,
-    any::Any,
     sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU8, Ordering},
 };
 use intrusive_collections::{intrusive_adapter, LinkedListAtomicLink};
 use static_assertions::const_assert;
 
+#[cfg(feature = "unwind")]
+use alloc::sync::Weak;
+#[cfg(feature = "unwind")]
+use core::any::Any;
+
 #[repr(u8)]
 #[derive(PartialEq, Clone, Copy)]
 /// All possible states of a task.
-pub(in super::super) enum TaskState {
+pub(crate) enum TaskState {
     /// The task is under initialization. Not ready to run.
     Initializing,
     /// The task is waiting for an event, e.g., a semaphore notification
@@ -77,7 +78,7 @@ struct CalleeSavedFPRegs {
 /// The context of a task managed by the kernel. The struct does not store
 /// caller-saved registers because these registers are pushed to the user stack
 /// before context switch.
-pub(in super::super) struct TaskCtxt {
+pub(crate) struct TaskCtxt {
     /// The boundary address of the top stacklet.
     stklet_bound: u32,
     /// The stack pointer value.
@@ -89,7 +90,7 @@ pub(in super::super) struct TaskCtxt {
 }
 
 /// The struct representing a task.
-pub(in super::super) struct Task {
+pub(crate) struct Task {
     /// The task context preserved in the kernel. When a task is scheduled to
     /// run on the CPU, the spin lock will be acquired during the running
     /// period. Accidental attempt to modify the context of a running task
@@ -99,7 +100,7 @@ pub(in super::super) struct Task {
     ///
     /// Note that this field remains being locked when the task makes an SVC.
     /// The SVC handlers should instead use
-    /// [`TaskSVCCtxt`](super::super::interrupt::TaskSVCCtxt)
+    /// [`TaskSVCCtxt`](crate::interrupt::TaskSVCCtxt)
     /// to read or modify the task's context.
     ctxt: Spin<TaskCtxt>,
     /// The initial stacklet of a task. Semantically, this pointer owns the
@@ -116,9 +117,11 @@ pub(in super::super) struct Task {
 
     /*** Fields for unwinding. ***/
     /// Set only when the task is unwinding.
+    #[cfg(feature = "unwind")]
     is_unwinding: AtomicBool,
     /// Set when a panicked task has been restarted with a new concurrent task
     /// context.
+    #[cfg(feature = "unwind")]
     has_restarted: AtomicBool,
 
     /*** Fields present only for restartable tasks. ***/
@@ -127,15 +130,19 @@ pub(in super::super) struct Task {
     /// erased using `Arc<dyn Any>`, so that all task structs will have an
     /// identical type `Task`, rather than `Task<F, A>` with different `F` and
     /// `A`.
+    #[cfg(feature = "unwind")]
     entry_closure_arg: Option<Arc<dyn Any + Send + Sync + 'static>>,
     /// A function that can cast the `entry_closure_arg` field from an
     /// `Arc<dyn Any>` to `*const u8`. The resulting raw pointer is used in
     /// the task entry trampoline function.
+    #[cfg(feature = "unwind")]
     downcast_func: Option<fn(&(dyn Any + Send + Sync + 'static)) -> *const u8>,
     /// Set when the task is a restarted instance of another panicked task.
+    #[cfg(feature = "unwind")]
     restarted_from: Option<Weak<Task>>,
     /// The entry trampoline function the restarted task should run after
     /// being created.
+    #[cfg(feature = "unwind")]
     restart_entry_trampoline: Option<extern "C" fn(*const u8)>,
 
     /*** Fields for segmented stack hot-split alleviation. ***/
@@ -178,7 +185,7 @@ impl Task {
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
-    pub(in super::super) fn build<F, A>(
+    pub(crate) fn build<F, A>(
         id: u8,
         entry_closure: F,
         entry_arg: A,
@@ -209,7 +216,8 @@ impl Task {
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
-    pub(in super::super) fn build_restartable<F, A>(
+    #[cfg(feature = "unwind")]
+    pub(crate) fn build_restartable<F, A>(
         id: u8,
         entry_closure: F,
         entry_arg: A,
@@ -228,7 +236,8 @@ impl Task {
     /// Build a new task struct as the restarted instance of a previously
     /// panicked task. The new task will start its execution from the same
     /// closure using the same arguments as the panicked task.
-    pub(in super::super) fn build_restarted(prev_task: Arc<Task>) -> Result<Self, ()> {
+    #[cfg(feature = "unwind")]
+    pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Result<Self, ()> {
         let mut new_task = Self::new();
         new_task.restart_from(prev_task.clone())?;
 
@@ -242,7 +251,7 @@ impl Task {
     }
 
     /// Build the task struct of the idle task.
-    pub(in super::super) fn build_idle() -> Self {
+    pub(crate) fn build_idle() -> Self {
         // Make sure the idle task is built only once. It is an unrecoverable
         // error if attempt to build it twice.
         static IDLE_CREATED: AtomicBool = AtomicBool::new(false);
@@ -277,19 +286,25 @@ impl Task {
         Self {
             ctxt: Spin::new(TaskCtxt::default()),
             id: AtomicU8::new(0),
-            is_unwinding: AtomicBool::new(false),
-            has_restarted: AtomicBool::new(false),
             state: AtomicCell::new(TaskState::Initializing),
             initial_stklet: AtomicPtr::new(core::ptr::null_mut()),
+            #[cfg(feature = "unwind")]
+            is_unwinding: AtomicBool::new(false),
+            #[cfg(feature = "unwind")]
+            has_restarted: AtomicBool::new(false),
+            #[cfg(feature = "unwind")]
             entry_closure_arg: None,
+            #[cfg(feature = "unwind")]
             downcast_func: None,
+            #[cfg(feature = "unwind")]
             restart_entry_trampoline: None,
+            #[cfg(feature = "unwind")]
+            restarted_from: None,
             init_stklet_size: 0,
             hsab: Spin::new(HotSplitAlleviationBlock::default()),
             priority: AtomicCell::new(TaskPriority::new_intrinsic(
                 config::TASK_PRIORITY_LEVELS - 1,
             )),
-            restarted_from: None,
             linked_list_link: LinkedListAtomicLink::new(),
             wake_at_tick: AtomicU32::new(u32::MAX),
         }
@@ -453,6 +468,7 @@ impl Task {
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
+    #[cfg(feature = "unwind")]
     fn initialize_restartable<F, A>(
         &mut self,
         id: u8,
@@ -465,6 +481,8 @@ impl Task {
         F: FnOnce(A) + Send + Sync + Clone + 'static,
         A: Send + Sync + Clone + 'static,
     {
+        use super::trampoline::RestartableEntryFuncArg;
+
         // Bundle the entry closure and arguments, and put them onto the heap.
         let arc_closure_arg = Arc::new(RestartableEntryFuncArg::new(entry_closure, entry_arg));
 
@@ -502,6 +520,7 @@ impl Task {
     /// task.
     ///
     /// - `prev_task`: The panicked task.
+    #[cfg(feature = "unwind")]
     fn restart_from(&mut self, prev_task: Arc<Task>) -> Result<(), ()> {
         // The task ID is kept the same as the panicked task.
         let id = prev_task.id.load(Ordering::SeqCst);
@@ -548,54 +567,58 @@ impl Task {
 
 /// Field getters and Setters.
 impl Task {
-    pub(in super::super) fn get_sp(&mut self) -> u32 {
+    pub(crate) fn get_sp(&mut self) -> u32 {
         self.ctxt.get_mut().sp
     }
 
-    pub(in super::super) fn get_stk_bound(&mut self) -> u32 {
+    pub(crate) fn get_stk_bound(&mut self) -> u32 {
         self.ctxt.get_mut().stklet_bound
     }
 
-    pub(in super::super) fn get_state(&self) -> TaskState {
+    pub(crate) fn get_state(&self) -> TaskState {
         self.state.load()
     }
 
-    pub(in super::super) fn set_state(&self, state: TaskState) {
+    pub(crate) fn set_state(&self, state: TaskState) {
         self.state.store(state);
     }
 
-    pub(in super::super) fn get_id(&self) -> u8 {
+    pub(crate) fn get_id(&self) -> u8 {
         self.id.load(Ordering::SeqCst)
     }
 
-    pub(in super::super) fn set_unwind_flag(&self, val: bool) {
+    #[cfg(feature = "unwind")]
+    pub(crate) fn set_unwind_flag(&self, val: bool) {
         self.is_unwinding.store(val, Ordering::SeqCst);
     }
 
-    pub(in super::super) fn is_unwinding(&self) -> bool {
+    #[cfg(feature = "unwind")]
+    pub(crate) fn is_unwinding(&self) -> bool {
         self.is_unwinding.load(Ordering::SeqCst)
     }
 
-    pub(in super::super) fn get_wake_tick(&self) -> u32 {
+    pub(crate) fn get_wake_tick(&self) -> u32 {
         self.wake_at_tick.load(Ordering::SeqCst)
     }
 
-    pub(in super::super) fn get_restart_origin_task(&self) -> Option<&Weak<Task>> {
+    #[cfg(feature = "unwind")]
+    pub(crate) fn get_restart_origin_task(&self) -> Option<&Weak<Task>> {
         self.restarted_from.as_ref()
     }
 
-    pub(in super::super) fn set_wake_tick(&self, tick: u32) {
+    pub(crate) fn set_wake_tick(&self, tick: u32) {
         self.wake_at_tick.store(tick, Ordering::SeqCst);
     }
 
-    pub(in super::super) fn has_restarted(&self) -> bool {
+    #[cfg(feature = "unwind")]
+    pub(crate) fn has_restarted(&self) -> bool {
         self.has_restarted.load(Ordering::SeqCst)
     }
 
     /// Lock the task context and return the mutable raw pointer to the
     /// context. This is used when the scheduler picks a task to run.
     /// See [`Task`] for the invariants of the context.
-    pub(in super::super) fn lock_ctxt(&self) -> *mut TaskCtxt {
+    pub(crate) fn lock_ctxt(&self) -> *mut TaskCtxt {
         let mut locked_ctxt = self.ctxt.lock_now_or_die();
         let ptr = &mut *locked_ctxt as *mut _;
         core::mem::forget(locked_ctxt);
@@ -605,12 +628,12 @@ impl Task {
     /// Force unlock the task context. This is used when the previously
     /// running task yields or is blocked. See [`Task`] for the invariants
     /// of the context.
-    pub(in super::super) unsafe fn force_unlock_ctxt(&self) {
+    pub(crate) unsafe fn force_unlock_ctxt(&self) {
         self.ctxt.force_unlock()
     }
 
     /// Return the lock guard for accessing the hot-split alleviation block.
-    pub(in super::super) fn lock_hsab(&self) -> SpinGuard<HotSplitAlleviationBlock> {
+    pub(crate) fn lock_hsab(&self) -> SpinGuard<HotSplitAlleviationBlock> {
         self.hsab.lock_now_or_die()
     }
 }
@@ -618,7 +641,7 @@ impl Task {
 /// Priority related.
 impl Task {
     /// Get the priority of this task.
-    pub(in super::super) fn get_priority(&self) -> TaskPriority {
+    pub(crate) fn get_priority(&self) -> TaskPriority {
         self.priority.load()
     }
 
@@ -627,7 +650,7 @@ impl Task {
     ///
     /// Note: even if the task inherits priority from the given task, its
     /// intrinsic priority will still be kept and can be restored at any time.
-    pub(in super::super) fn ceil_priority_from(&self, other: &Self) {
+    pub(crate) fn ceil_priority_from(&self, other: &Self) {
         let self_prio = self.priority.load();
         let other_prio = other.priority.load();
         if let Ok(inherited_prio) = TaskPriority::try_inherit_from(&self_prio, &other_prio) {
@@ -637,21 +660,22 @@ impl Task {
 
     /// Set the priority of the task to its intrinsic value, i.e. the one given
     /// at task creation time.
-    pub(in super::super) fn restore_intrinsic_priority(&self) {
+    pub(crate) fn restore_intrinsic_priority(&self) {
         let intrinsic_prio = TaskPriority::restore_intrinsic(&self.priority.load());
         self.priority.store(intrinsic_prio);
     }
 
     /// Reduce the task's priority during unwinding, so that the unwinder will
     /// use the CPU idle time, unless any priority inversion occurs.
-    pub(in super::super) fn reduce_priority_for_unwind(&self) {
+    #[cfg(feature = "unwind")]
+    pub(crate) fn reduce_priority_for_unwind(&self) {
         self.priority
             .store(TaskPriority::new_intrinsic(config::UNWIND_PRIORITY))
     }
 
     /// Return true if and only if this task has higher priority than the other
     /// task.
-    pub(in super::super) fn should_preempt(&self, other: &Self) -> bool {
+    pub(crate) fn should_preempt(&self, other: &Self) -> bool {
         if config::ALLOW_TASK_PREEMPTION {
             self.priority.load() < other.priority.load()
         } else {
@@ -662,7 +686,7 @@ impl Task {
 
 // Create the adapter for the intrusive linked list of task structs.
 intrusive_adapter!(
-    pub(in super::super) TaskListAdapter
+    pub(crate) TaskListAdapter
         = Arc<Task>: Task { linked_list_link: LinkedListAtomicLink }
 );
 
@@ -680,5 +704,14 @@ impl Drop for Task {
                 alloc::alloc::dealloc(stklet_ptr, Layout::new::<u8>());
             }
         }
+    }
+}
+
+impl PartialEq for Task {
+    /// Different tasks are never considered equal. A task is only equal to
+    /// itself. Thus the function returns `true` only when the two references
+    /// point to the same address.
+    fn eq(&self, other: &Self) -> bool {
+        self as *const _ as usize == other as *const _ as usize
     }
 }

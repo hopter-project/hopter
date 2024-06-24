@@ -4,12 +4,28 @@ use alloc::sync::Arc;
 use intrusive_collections::LinkedList;
 
 /// Additional interfaces for task list.
-pub(in super::super) trait TaskListInterfaces {
+pub(crate) trait TaskListInterfaces {
+    fn remove_task(&mut self, task: &Task) -> Option<Arc<Task>>;
     fn push_back_tick_sorted(&mut self, new_task: Arc<Task>);
     fn pop_highest_priority(&mut self) -> Option<Arc<Task>>;
 }
 
 impl TaskListInterfaces for LinkedList<TaskListAdapter> {
+    /// Remove the given task from the linked list. If the task exists in the
+    /// list, returns `Some`, otherwise `None`.
+    fn remove_task(&mut self, task: &Task) -> Option<Arc<Task>> {
+        let mut cursor_mut = self.front_mut();
+
+        while let Some(candidate_task) = cursor_mut.get() {
+            if candidate_task == task {
+                return cursor_mut.remove();
+            }
+            cursor_mut.move_next();
+        }
+
+        None
+    }
+
     /// Push a new task into the linked list. Maintain ascending order w.r.t.
     /// the tick number to wake up.
     fn push_back_tick_sorted(&mut self, new_task: Arc<Task>) {

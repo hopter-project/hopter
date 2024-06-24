@@ -1,5 +1,5 @@
-use super::super::task::Task;
 use super::scheduler;
+use crate::task::Task;
 use alloc::sync::Arc;
 
 /// Create a new task with the given task ID and the closure as the entry
@@ -34,6 +34,7 @@ where
 ///
 /// When created task panics, it will automatically restart using the same
 /// entry function and argument, and thus both of them must implement `Clone`.
+#[cfg(feature = "unwind")]
 pub fn start_restartable_task<F, A>(
     id: u8,
     entry_closure: F,
@@ -56,7 +57,8 @@ where
 }
 
 /// Start a new task from a previously failed task.
-pub(in super::super) fn restart_from_task(prev_task: Arc<Task>) -> Result<(), ()> {
+#[cfg(feature = "unwind")]
+pub(crate) fn restart_from_task(prev_task: Arc<Task>) -> Result<(), ()> {
     let id = prev_task.get_id();
     let new_task = Task::build_restarted(prev_task)?;
 

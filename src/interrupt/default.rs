@@ -1,5 +1,5 @@
-use super::super::{config, unwind};
 use super::trap_frame::TrapFrame;
+use crate::config;
 use core::arch::asm;
 
 /// Prepare r0 register to point to the trap frame, so that later we can
@@ -42,6 +42,10 @@ pub unsafe extern "C" fn default_handler(_ex_num: i16) {
 }
 
 extern "C" fn irq_handler_trampoline(handler_func_ptr: u32) {
+    #[cfg(feature = "unwind")]
+    use crate::unwind;
+
+    #[cfg(feature = "unwind")]
     let saved_is_handler_unwinding = unwind::unwind::save_and_clear_isr_unwinding();
 
     // Following the documentation, we `as`-cast to a raw pointer before
@@ -52,10 +56,13 @@ extern "C" fn irq_handler_trampoline(handler_func_ptr: u32) {
     let handler_func =
         unsafe { core::mem::transmute::<*const (), extern "C" fn()>(handler_func_ptr) };
 
-    let _ = unwind::unw_catch::catch_unwind_with_arg(|_| handler_func(), ());
+    #[cfg(not(feature = "unwind"))]
+    handler_func();
 
-    if saved_is_handler_unwinding {
-        unwind::unwind::set_isr_unwinding(true);
+    #[cfg(feature = "unwind")]
+    {
+        let _ = unwind::unw_catch::catch_unwind_with_arg(|_| handler_func(), ());
+        unwind::unwind::set_isr_unwinding(saved_is_handler_unwinding);
     }
 }
 

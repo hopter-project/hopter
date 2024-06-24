@@ -16,7 +16,7 @@
 //!
 //! Original license: https://opensource.org/license/mit
 
-use super::super::sync::{AllIrqExceptSvc, SpinSchedIrqSafe};
+use crate::sync::{AllIrqExceptSvc, SpinSchedIrqSafe};
 use core::fmt::{self, Write};
 use cortex_m_semihosting::{
     debug,

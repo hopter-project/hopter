@@ -68,7 +68,7 @@
 //!      shifted right by 2 bits to be saved in link pointer.
 //!
 
-use super::super::{
+use crate::{
     config::{HEAP_END, MEM_CHUNK_LINK_OFFSET},
     unrecoverable::{self, Lethal},
 };
@@ -332,10 +332,10 @@ static mut HEAP_START: *mut u8 = core::ptr::null_mut();
 static mut CACHED: *mut Header = core::ptr::null_mut();
 
 /// The right most position the heap has ever grown to.
-pub(in super::super) static mut HIGH_WATER_MARK: u32 = 0;
+pub(crate) static mut HIGH_WATER_MARK: u32 = 0;
 
 /// If the high water mark has just been updated.
-pub(in super::super) static mut HIGH_WATER_MARK_JUST_UPDATED: bool = false;
+pub(crate) static mut HIGH_WATER_MARK_JUST_UPDATED: bool = false;
 
 /// Sum of all currently allocated size.
 static mut CUR_ALLOC_SIZE: u32 = 0;
@@ -501,7 +501,7 @@ fn search_first_fit(size: u32) -> *mut Header {
 ///
 /// Safety:
 /// - `payload` must be a pointer previously returned by [`mcu_malloc`].
-pub(in super::super) unsafe fn mcu_free(payload: *mut u8) {
+pub(crate) unsafe fn mcu_free(payload: *mut u8) {
     let mut hdr = payload_to_hdr(payload);
 
     // Cache the chunk if the cache is empty.
@@ -545,7 +545,7 @@ pub(in super::super) unsafe fn mcu_free(payload: *mut u8) {
 ///
 /// Safety:
 /// - The heap must be initialized before calling this funcion.
-pub(in super::super) unsafe fn mcu_malloc(mut size: u32) -> *mut u8 {
+pub(crate) unsafe fn mcu_malloc(mut size: u32) -> *mut u8 {
     if size == 0 {
         return core::ptr::null_mut();
     }
@@ -603,7 +603,7 @@ pub(in super::super) unsafe fn mcu_malloc(mut size: u32) -> *mut u8 {
 }
 
 // Initialize the heap structure.
-pub(in super::super) unsafe fn mcu_heap_init(mut data_end: u32) {
+pub(crate) unsafe fn mcu_heap_init(mut data_end: u32) {
     // Round up to a multiple of 4.
     data_end = data_end.checked_add(3).unwrap_or_die() & (!3);
 

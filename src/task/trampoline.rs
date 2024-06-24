@@ -1,6 +1,7 @@
-use super::super::{schedule, unrecoverable, unwind::unw_catch};
 use alloc::boxed::Box;
-use core::any::Any;
+
+#[cfg(feature = "unwind")]
+use crate::unwind::unw_catch;
 
 /// The bundle struct of the entry closure and arguments to start a
 /// non-restartable task.
@@ -42,12 +43,22 @@ where
     // Regardless of whether the return was normal or because of panic,
     // silently return the entry trampoline function so that the current task
     // struct will be released.
+    #[cfg(feature = "unwind")]
     let _ = unw_catch::catch_unwind_with_arg(closure_arg.entry_closure, closure_arg.entry_arg);
+
+    #[cfg(not(feature = "unwind"))]
+    (closure_arg.entry_closure)(closure_arg.entry_arg);
 }
+
+#[cfg(feature = "unwind")]
+use crate::{schedule, unrecoverable};
+#[cfg(feature = "unwind")]
+use core::any::Any;
 
 /// The bundle struct of the entry closure and arguments to start a restartable
 /// task. The closure and argument has stricter trait bounds than the
 /// non-restartable counterpart.
+#[cfg(feature = "unwind")]
 pub(super) struct RestartableEntryFuncArg<F, A>
 where
     F: FnOnce(A) + Send + Sync + Clone + 'static,
@@ -57,6 +68,7 @@ where
     entry_arg: A,
 }
 
+#[cfg(feature = "unwind")]
 impl<F, A> RestartableEntryFuncArg<F, A>
 where
     F: FnOnce(A) + Send + Sync + Clone + 'static,
@@ -73,6 +85,7 @@ where
 /// The entry trampoline function of a restartable task. This function is
 /// invoked through an exception return, thus the ABI is marked as `extern "C"`
 /// and the argument is a raw pointer.
+#[cfg(feature = "unwind")]
 pub(super) extern "C" fn restartable_task_entry<F, A>(entry_closure_arg_ptr: *const u8)
 where
     F: FnOnce(A) + Send + Sync + Clone + 'static,
@@ -117,6 +130,7 @@ where
 
 /// Given a `&dyn Any` that points to a `RestartableEntryFuncArg` object,
 /// return a `*const u8` pointer that points to the object.
+#[cfg(feature = "unwind")]
 pub(super) fn downcast_to_ptr<F, A>(
     entry_closure_arg: &(dyn Any + Send + Sync + 'static),
 ) -> *const u8
