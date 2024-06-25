@@ -1,5 +1,6 @@
 [target.thumbv7em-none-eabihf]
 runner = "qemu-system-arm -serial tcp:localhost:4545 -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel "
+# runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel "
 
 rustflags = [
   # This is needed if your flash or ram addresses are not aligned to 0x10000 in memory.x

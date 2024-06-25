@@ -5,7 +5,12 @@ extern crate alloc;
 use hopter::{boot::main, debug::semihosting, hprintln, uart::*};
 use nb::block;
 use stm32f4xx_hal::{
-    gpio::GpioExt, pac::USART1, prelude::*, rcc::RccExt, serial::Serial, uart::Config,
+    gpio::GpioExt,
+    pac::USART1,
+    prelude::*,
+    rcc::RccExt,
+    serial::Serial,
+    uart::Config,
 };
 struct UartSerial(Serial<USART1>);
 
