@@ -22,5 +22,5 @@ jobs:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
-          test-name: initialization 
+          test-name: initialization
 
