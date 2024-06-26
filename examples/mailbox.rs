@@ -20,6 +20,9 @@ static mut G_BYTE: u8 = 0;
 // one argument which is the Cortex-M core peripherals.
 #[main]
 fn main(_: cortex_m::Peripherals) {
+    // Note that this example requires qemu to have a valid serial connection
+    // This can be enabled using the -serial tcp:localhost:4545 flag
+
     // Aquire the device peripherals and configure the gpio pins and clocks
     let dp = unsafe { stm32f4xx_hal::pac::Peripherals::steal() };
     let clocks = dp.RCC.constrain().cfgr.freeze();
@@ -61,14 +64,16 @@ fn main(_: cortex_m::Peripherals) {
 
     // If the mailbox is not signaled within 3000ms, the result will be false
     // Otherwise the interrupt handler will store the read byte in G_BYTE
-    let mailbox_result = unsafe { G_MAILBOX.wait_until_timeout(3000) };
+    for _ in 0..10 {
+        let mailbox_result = unsafe { G_MAILBOX.as_mut().unwrap().wait_until_timeout(3000) };
 
-    if mailbox_result {
-        hprintln!("Mailbox received data\n");
-        let byte = unsafe { G_BYTE };
-        hprintln!("Received byte: {}\n", byte);
-    } else {
-        hprintln!("Mailbox timeout\n");
+        if mailbox_result {
+            hprintln!("Mailbox received data\n");
+            let byte = unsafe { G_BYTE };
+            hprintln!("Received byte: {}\n", byte);
+        } else {
+            hprintln!("Mailbox timeout\n");
+        }
     }
 
     // When running with QEMU, this will cause the QEMU process to terminate.
@@ -83,6 +88,6 @@ fn main(_: cortex_m::Peripherals) {
 unsafe extern "C" fn usart1_handler() {
     cortex_m::interrupt::free(|_| {
         unsafe { G_BYTE = G_RX.as_mut().unwrap().read().unwrap() };
-        G_MAILBOX.notify_allow_isr();
+        G_MAILBOX.as_mut().unwrap().notify_allow_isr();
     });
 }
