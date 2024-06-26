@@ -1,4 +1,4 @@
-name: All Test Cases
+name: Run Tests for Mailbox
 
 on:
   workflow_call:
@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  sync:
-    uses: ./.github/workflows/sync.yaml
+  mailbox:
+    uses: ./.github/workflows/mailbox.yaml
     secrets:
       cookie: ${{ secrets.cookie }}

@@ -9,31 +9,48 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - name: Prepare Rust compiler toolchain
-        uses: ./.github/workflows/actions/prepare-rust-toolchain
-        with:
-          cookie: ${{ inputs.cookie }}
+    - name: Prepare Rust compiler toolchain
+      uses: ./.github/workflows/actions/prepare-rust-toolchain
+      with:
+        cookie: ${{ inputs.cookie }}
 
-      - name: Build Hopter
-        run: cargo +segstk-rust build --release
-        shell: bash
+    - name: Build Hopter
+      run: cargo +segstk-rust build --release
+      shell: bash
 
-      - name: Build test "hello world"
-        run: cargo +segstk-rust build --release --example hello_world
-        shell: bash
+    # *** Tests for sync - mailbox ***
 
-      - name: Upload test "hello world"
-        uses: actions/upload-artifact@v4
-        with:
-          name: hello_world
-          path: ./target/thumbv7em-none-eabihf/release/examples/hello_world
+    - name: Build test test-sync-mailbox-notify_by_task
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_by_task
 
-      - name: Build test sleep
-        run: cargo +segstk-rust build --release --example sleep
-        shell: bash
+    - name: Build test test-sync-mailbox-notify_in_advance
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_in_advance
 
-      - name: Upload test sleep
-        uses: actions/upload-artifact@v4
-        with:
-          name: sleep
-          path: ./target/thumbv7em-none-eabihf/release/examples/sleep
+    - name: Build test test-sync-mailbox-task_not_timeout
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: task_not_timeout
+
+    - name: Build test test-sync-mailbox-task_timeout
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: task_timeout
+
+    - name: Build test test-sync-mailbox-notify_in_advance_after_timeout
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_in_advance_after_timeout

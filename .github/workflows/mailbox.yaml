@@ -1,0 +1,81 @@
+name: Run Tests for Mailbox
+
+on:
+  workflow_call:
+    secrets:
+      cookie:
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  notify_by_task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test notify_by_task
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: mailbox
+          test-name: notify_by_task
+
+  notify_in_advance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test notify_in_advance
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: mailbox
+          test-name: notify_in_advance
+
+  task_not_timeout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test task_not_timeout
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: mailbox
+          test-name: task_not_timeout
+
+  task_timeout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test task_timeout
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: mailbox
+          test-name: task_timeout
+
+  notify_in_advance_after_timeout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test notify_in_advance_after_timeout
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: mailbox
+          test-name: notify_in_advance_after_timeout

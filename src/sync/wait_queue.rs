@@ -6,6 +6,7 @@ use crate::{
     interrupt::svc,
     schedule,
     task::{TaskListAdapter, TaskListInterfaces},
+    unrecoverable,
 };
 use core::sync::atomic::{AtomicUsize, Ordering};
 use intrusive_collections::LinkedList;
@@ -99,9 +100,9 @@ impl WaitQueue {
     #[allow(dead_code)]
     #[inline]
     pub fn wait(&self) {
-        die_if_in_isr();
+        unrecoverable::die_if_in_isr();
 
-        add_cur_task_to_block_queue(&self);
+        add_cur_task_to_block_queue(self);
 
         // We have put the current task to the wait queue.
         // Tell the scheduler to run another task.
@@ -140,7 +141,7 @@ impl WaitQueue {
     where
         F: FnMut() -> Option<R>,
     {
-        die_if_in_isr();
+        unrecoverable::die_if_in_isr();
 
         // Keep blocking until the predicate is satisfied.
         loop {
@@ -210,7 +211,7 @@ impl WaitQueue {
         G: UnlockableGuard<'a, LockType = L>,
         L: Lockable<GuardType<'a> = G> + 'a,
     {
-        die_if_in_isr();
+        unrecoverable::die_if_in_isr();
 
         // Keep blocking until the predicate is satisfied.
         loop {
@@ -287,18 +288,12 @@ impl WaitQueue {
                     schedule::make_task_ready_and_enqueue(task);
                 }
             }
-            // If someone else is running with the full access and we preempt it,
+            // If other context is running with the full access and we preempt it,
             // we get pend-only access. We increment the counter so that the full
             // access owner can later pop out the task on our behalf.
             Access::PendOnly { pend_access } => {
                 pend_access.notify_cnt.fetch_add(1, Ordering::SeqCst);
             }
         });
-    }
-}
-
-fn die_if_in_isr() {
-    if schedule::is_running_in_isr() {
-        loop {}
     }
 }

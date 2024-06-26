@@ -706,3 +706,12 @@ impl Drop for Task {
         }
     }
 }
+
+impl PartialEq for Task {
+    /// Different tasks are never considered equal. A task is only equal to
+    /// itself. Thus the function returns `true` only when the two references
+    /// point to the same address.
+    fn eq(&self, other: &Self) -> bool {
+        self as *const _ as usize == other as *const _ as usize
+    }
+}
