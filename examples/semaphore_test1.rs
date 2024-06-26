@@ -4,7 +4,7 @@
 extern crate alloc;
 use hopter::{boot::main, debug::semihosting, hprintln, time, sync::semaphores};
 
-static sema = semaphores::new(3,3)
+static SEMA = sema = semaphores::new(3,3)
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
