@@ -9,12 +9,12 @@ fn main(_: cortex_m::Peripherals) {
   for i in 1..5 {
         let semaphore = Semaphore::new(i, i);
     
-        if Semaphore.count != i {
+        if semaphore.count != i {
             hprintln!("Count Not Initialized Properly");
             semihosting::terminate(false);
         }
       
-        if Semaphore.max_count != i {
+        if semaphore.max_count != i {
             hprintln!("Max Count Not Initialized Properly");
             semihosting::terminate(false);
         }
