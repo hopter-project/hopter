@@ -1,4 +1,4 @@
-name: Run Tests for Mailbox
+name: Run Tests for Mailbox and Semaphore
 
 on:
   workflow_call:
@@ -12,5 +12,10 @@ env:
 jobs:
   mailbox:
     uses: ./.github/workflows/mailbox.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
+
+  semaphore:
+    uses: ./.github/workflows/semaphore.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
