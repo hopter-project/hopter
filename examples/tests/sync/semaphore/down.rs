@@ -9,7 +9,7 @@ use hopter::{boot::main, debug::semihosting, hprintln, sync::Semaphore};
 fn main(_: cortex_m::Peripherals) {
   let sema = Semaphore::new(3,3);
 
-  for i in 0..3 {
+  for _i in 0..3 {
     sema.down();
   }
 
