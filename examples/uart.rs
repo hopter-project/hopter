@@ -62,7 +62,7 @@ fn main(_: cortex_m::Peripherals) {
         request.push(i as u8).unwrap();
     }
 
-    let mut chunk = Chunk::new([0; MESSSAGE_SIZE], 0);
+    let mut chunk = Chunk::new([0; MESSAGE_SIZE], 0);
     chunk.compute_checksum();
     // uart_crc.send_data_size(request.len() as usize);
 

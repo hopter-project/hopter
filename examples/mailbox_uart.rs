@@ -5,15 +5,37 @@ extern crate alloc;
 
 use hopter::interrupt::handler;
 use hopter::sync::Mailbox;
-use hopter::{boot::main, debug::semihosting, hprintln};
+use hopter::uart::UartCrc;
+use hopter::uart::*;
+use hopter::{boot::main, debug::semihosting};
 use stm32f4xx_hal::pac::USART1;
 use stm32f4xx_hal::prelude::*;
 use stm32f4xx_hal::uart::Config;
-use stm32f4xx_hal::uart::Rx;
+use stm32f4xx_hal::uart::{Rx, Tx};
 
 static G_MAILBOX: Mailbox = Mailbox::new();
 static mut G_RX: Option<Rx<USART1>> = None;
-static mut G_BYTE: u8 = 0;
+static mut G_TX: Option<Tx<USART1>> = None;
+static mut G_RBYTE: heapless::Deque<u8, CHUNK_SIZE> = heapless::Deque::new();
+struct UartSerial();
+
+impl UartRW for UartSerial {
+    fn uart_read_byte(&mut self) -> Result<u8, UartError> {
+        let result = G_MAILBOX.wait_until_timeout(3000);
+        if result {
+            let byte = unsafe { G_RBYTE.pop_front().unwrap() };
+            Ok(byte)
+        } else {
+            Err(UartError::Timeout)
+        }
+    }
+    fn uart_write_byte(&mut self, byte: u8) -> Result<(), UartError> {
+        unsafe {
+            G_TX.as_mut().unwrap().write(byte).unwrap();
+        };
+        Ok(())
+    }
+}
 
 // Attribute `#[main]` marks the function as the entry function for the main
 // task. The function name can be arbitrary. The main function should accept
@@ -23,7 +45,7 @@ fn main(_: cortex_m::Peripherals) {
     // Note that this example requires qemu to have a valid serial connection
     // This can be enabled using the -serial tcp:localhost:4545 flag
 
-    // Aquire the device peripherals and configure the gpio pins and clocks
+    // Acquire the device peripherals and configure the gpio pins and clocks
     let dp = unsafe { stm32f4xx_hal::pac::Peripherals::steal() };
     let clocks = dp.RCC.constrain().cfgr.freeze();
     let gpioa = dp.GPIOA.split();
@@ -36,7 +58,7 @@ fn main(_: cortex_m::Peripherals) {
 
     // Initialize the USART1 peripheral with the pins and the baudrate
     // Split allows us to interact with tx and rx individually, for this example only rx is used
-    let (_tx, mut rx) = dp
+    let (tx, mut rx) = dp
         .USART1
         .serial(
             usart1_pins,
@@ -49,9 +71,11 @@ fn main(_: cortex_m::Peripherals) {
     // Listen for incoming USART1 interrupt events
     // Then store rx in a global variable to be accessed in the interrupt handler
     rx.listen();
+    // tx.listen();
 
     unsafe {
         G_RX = Some(rx);
+        G_TX = Some(tx);
         // Create a global mailbox which will be used in the interrupt handler to signal data has been read
     }
 
@@ -60,19 +84,23 @@ fn main(_: cortex_m::Peripherals) {
         cortex_m::peripheral::NVIC::unmask(stm32f4xx_hal::pac::Interrupt::USART1);
     }
 
-    // If the mailbox is not signaled within 3000ms, the result will be false
-    // Otherwise the interrupt handler will store the read byte in G_BYTE
-    for _ in 0..10 {
-        let mailbox_result = G_MAILBOX.wait_until_timeout(3000);
+    // Initialize the UartSerial, which now takes no input
+    let mut usart = UartSerial();
+    let mut usart = UartCrc::new(&mut usart);
 
-        if mailbox_result {
-            hprintln!("Mailbox received data\n");
-            let byte = unsafe { G_BYTE };
-            hprintln!("Received byte: {}\n", byte);
-        } else {
-            hprintln!("Mailbox timeout\n");
-        }
+    let mut request: heapless::Vec<u8, MAX_DATA_SIZE> = heapless::Vec::new();
+
+    for i in 0..50 {
+        request.push(i as u8).unwrap();
     }
+
+    let mut chunk = Chunk::new([0; MESSAGE_SIZE], 0);
+    chunk.compute_checksum();
+
+    usart.send_data(request).unwrap();
+
+    let binary: heapless::Vec<u8, MAX_DATA_SIZE> = usart.listen_for_data().unwrap();
+    print_data(&binary);
 
     // When running with QEMU, this will cause the QEMU process to terminate.
     // Do not include this line when running with OpenOCD, because it will
@@ -85,7 +113,11 @@ fn main(_: cortex_m::Peripherals) {
 #[handler(USART1)]
 unsafe extern "C" fn usart1_handler() {
     cortex_m::interrupt::free(|_| {
-        unsafe { G_BYTE = G_RX.as_mut().unwrap().read().unwrap() };
-        G_MAILBOX.as_mut().unwrap().notify_allow_isr();
+        unsafe {
+            let _ = G_RBYTE.push_back(G_RX.as_mut().unwrap().read().unwrap());
+        };
+
+        // Notify the mailbox that a byte is available to read by incrementing the counter
+        G_MAILBOX.notify_allow_isr();
     });
 }
