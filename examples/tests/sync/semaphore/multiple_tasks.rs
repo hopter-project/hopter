@@ -2,9 +2,9 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, time, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, time, schedule, sync::Semaphore};
 
-static SEMA = sema = Semaphore::new(3,3)
+static SEMA = Semaphore::new(3,3);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -17,13 +17,13 @@ fn main(_: cortex_m::Peripherals) {
 fn task1() {
     hprintln!("Task 1 started").unwrap();
 
-    sema.down();
+    SEMA.down();
     hprintln!("Task 1 acquired semaphore").unwrap();
 
     time::sleep_ms(1000);
 
     hprintln!("Task 1 releasing semaphore").unwrap();
-    sema.up();
+    SEMA.up();
 
     hprintln!("Task 1 completed").unwrap();
 
@@ -32,42 +32,46 @@ fn task1() {
 fn task2() {
     hprintln!("Task 2 started").unwrap();
 
-    sema.down();
+    SEMA.down();
     hprintln!("Task 2 acquired semaphore").unwrap();
 
     time::sleep_ms(1000);
 
     hprintln!("Task 2 releasing semaphore").unwrap();
-    sema.up();
+    SEMA.up();
 
     hprintln!("Task 2 completed").unwrap();
+    semihosting::terminate(true);
 }
 
 
 fn task3() {
     hprintln!("Task 3 started").unwrap();
 
-    sema.down();
+    SEMA.down();
     hprintln!("Task 3 acquired semaphore").unwrap();
 
     time::sleep_ms(1000);
 
     hprintln!("Task 3 releasing semaphore").unwrap();
-    sema.up();
+    SEMA.up();
 
     hprintln!("Task 3 completed").unwrap();
+    semihosting::terminate(true);
 }
 
 fn task4() {
     hprintln!("Task 4 started").unwrap();
 
-    sema.down();
+    SEMA.down();
     hprintln!("Task 4 acquired semaphore").unwrap();
 
     time::sleep_ms(1000);
 
     hprintln!("Task 4 releasing semaphore").unwrap();
-    sema.up();
+    SEMA.up();
 
     hprintln!("Task 4 completed").unwrap();
+    semihosting::terminate(true);
+    
 }
