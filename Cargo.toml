@@ -85,3 +85,7 @@ path = "examples/tests/sync/semaphore/down.rs"
 [[example]]
 name = "test-sync-semaphore-up"
 path = "examples/tests/sync/semaphore/up.rs"
+
+[[example]]
+name = "test-sync-semaphore-multiple_tasks"
+path = "examples/tests/sync/semaphore/multiple_tasks.rs"
