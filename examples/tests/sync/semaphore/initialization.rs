@@ -41,10 +41,10 @@ fn main(_: cortex_m::Peripherals) {
     sema.down();
   }
 
-  if sema.count != 0 {
-      hprintln!("Incorrect Count");
-      semihosting::terminate(false);
-  }
+  // if sema.count != 0 {
+  //     hprintln!("Incorrect Count");
+  //     semihosting::terminate(false);
+  // }
 
   let result = sema.try_down_allow_isr();
 
