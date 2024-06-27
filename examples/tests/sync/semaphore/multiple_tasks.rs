@@ -4,7 +4,7 @@
 extern crate alloc;
 use hopter::{boot::main, debug::semihosting, hprintln, time, schedule, sync::Semaphore};
 
-static SEMA = Semaphore::new(3,3);
+static Semaphore: sema = Semaphore::new(3,3);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -17,13 +17,13 @@ fn main(_: cortex_m::Peripherals) {
 fn task1() {
     hprintln!("Task 1 started");
 
-    SEMA.down();
+    sema.down();
     hprintln!("Task 1 acquired semaphore");
 
     time::sleep_ms(1000);
 
     hprintln!("Task 1 releasing semaphore");
-    SEMA.up();
+    sema.up();
 
     hprintln!("Task 1 completed");
 
@@ -32,13 +32,13 @@ fn task1() {
 fn task2() {
     hprintln!("Task 2 started");
 
-    SEMA.down();
+    sema.down();
     hprintln!("Task 2 acquired semaphore");
 
     time::sleep_ms(1000);
 
     hprintln!("Task 2 releasing semaphore");
-    SEMA.up();
+    sema.up();
 
     hprintln!("Task 2 completed");
     semihosting::terminate(true);
@@ -48,13 +48,13 @@ fn task2() {
 fn task3() {
     hprintln!("Task 3 started");
 
-    SEMA.down();
+    sema.down();
     hprintln!("Task 3 acquired semaphore");
 
     time::sleep_ms(1000);
 
     hprintln!("Task 3 releasing semaphore");
-    SEMA.up();
+    sema.up();
 
     hprintln!("Task 3 completed");
     semihosting::terminate(true);
@@ -63,13 +63,13 @@ fn task3() {
 fn task4() {
     hprintln!("Task 4 started");
 
-    SEMA.down();
+    sema.down();
     hprintln!("Task 4 acquired semaphore");
 
     time::sleep_ms(1000);
 
     hprintln!("Task 4 releasing semaphore");
-    SEMA.up();
+    sema.up();
 
     hprintln!("Task 4 completed");
     semihosting::terminate(true);
