@@ -7,17 +7,13 @@ use hopter::{boot::main, debug::semihosting, hprintln, sync::Semaphore};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-  let sema = semaphore::new(3,3);
+  let sema = Semaphore::new(3,3);
 
   for i in 0..3 {
     sema.down();
   }
 
-  if sema.count != 0 {
-      hprintln!("Incorrect Count");
-      semihosting::terminate(false);
-  }
-
+ // should return Err(()) since the count is 0
   let result = sema.try_down_allow_isr();
 
   match result {
