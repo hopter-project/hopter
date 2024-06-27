@@ -15,63 +15,63 @@ fn main(_: cortex_m::Peripherals) {
 }
 
 fn task1() {
-    hprintln!("Task 1 started").unwrap();
+    hprintln!("Task 1 started")
 
     SEMA.down();
-    hprintln!("Task 1 acquired semaphore").unwrap();
+    hprintln!("Task 1 acquired semaphore")
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 1 releasing semaphore").unwrap();
+    hprintln!("Task 1 releasing semaphore")
     SEMA.up();
 
-    hprintln!("Task 1 completed").unwrap();
+    hprintln!("Task 1 completed")
 
   }
 
 fn task2() {
-    hprintln!("Task 2 started").unwrap();
+    hprintln!("Task 2 started")
 
     SEMA.down();
-    hprintln!("Task 2 acquired semaphore").unwrap();
+    hprintln!("Task 2 acquired semaphore")
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 2 releasing semaphore").unwrap();
+    hprintln!("Task 2 releasing semaphore")
     SEMA.up();
 
-    hprintln!("Task 2 completed").unwrap();
+    hprintln!("Task 2 completed")
     semihosting::terminate(true);
 }
 
 
 fn task3() {
-    hprintln!("Task 3 started").unwrap();
+    hprintln!("Task 3 started")
 
     SEMA.down();
-    hprintln!("Task 3 acquired semaphore").unwrap();
+    hprintln!("Task 3 acquired semaphore")
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 3 releasing semaphore").unwrap();
+    hprintln!("Task 3 releasing semaphore")
     SEMA.up();
 
-    hprintln!("Task 3 completed").unwrap();
+    hprintln!("Task 3 completed")
     semihosting::terminate(true);
 }
 
 fn task4() {
-    hprintln!("Task 4 started").unwrap();
+    hprintln!("Task 4 started")
 
     SEMA.down();
-    hprintln!("Task 4 acquired semaphore").unwrap();
+    hprintln!("Task 4 acquired semaphore")
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 4 releasing semaphore").unwrap();
+    hprintln!("Task 4 releasing semaphore")
     SEMA.up();
 
-    hprintln!("Task 4 completed").unwrap();
+    hprintln!("Task 4 completed")
     semihosting::terminate(true);
     
 }
