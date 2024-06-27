@@ -61,3 +61,10 @@ runs:
         category: sync
         sub-category: semaphore
         test-name: down
+
+    - name: Build test test-sync-semaphore-up
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: up
