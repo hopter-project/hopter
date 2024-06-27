@@ -77,3 +77,7 @@ path = "examples/tests/sync/mailbox/task_not_timeout.rs"
 [[example]]
 name = "test-sync-mailbox-notify_in_advance_after_timeout"
 path = "examples/tests/sync/mailbox/notify_in_advance_after_timeout.rs"
+
+[[example]]
+name = "test-sync-semaphore-initalization"
+path = "examples/tests/sync/semaphore/initalization.rs"
