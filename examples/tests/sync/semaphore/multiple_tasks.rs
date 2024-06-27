@@ -1,4 +1,5 @@
 #![no_main]
+#![no_std]
 
 extern crate alloc;
 use hopter::{boot::main, debug::semihosting, hprintln, time, sync::Semaphore};
