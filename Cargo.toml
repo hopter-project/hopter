@@ -93,3 +93,7 @@ path = "examples/tests/sync/semaphore/init_0_blocking_down.rs"
 [[example]]
 name = "test-sync-semaphore-4_tasks_down_contend_init_3"
 path = "examples/tests/sync/semaphore/4_tasks_down_contend_init_3.rs"
+
+[[example]]
+name = "test-sync-semaphore-new_test_draft"
+path = "examples/tests/sync/semaphore/new_test_draft.rs"
