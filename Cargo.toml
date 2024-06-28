@@ -79,12 +79,12 @@ name = "test-sync-mailbox-notify_in_advance_after_timeout"
 path = "examples/tests/sync/mailbox/notify_in_advance_after_timeout.rs"
 
 [[example]]
-name = "test-sync-semaphore-down"
-path = "examples/tests/sync/semaphore/down.rs"
+name = "test-sync-semaphore-down_0_then_try_down"
+path = "examples/tests/sync/semaphore/down_0_then_try_down.rs"
 
 [[example]]
-name = "test-sync-semaphore-up"
-path = "examples/tests/sync/semaphore/up.rs"
+name = "test-sync-semaphore-up_max_then_try_up"
+path = "examples/tests/sync/semaphore/up_max_then_try_up.rs"
 
 [[example]]
 name = "test-sync-semaphore-init_0_blocking_down"
