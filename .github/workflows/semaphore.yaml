@@ -44,10 +44,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test multiple_tasks
+      - name: Run test 4_tasks_down_contend_init_3
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: 4_tasks_down_contend_init_3
+
+  init_0_blocking_down:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test init_0_blocking_down
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: init_0_blocking_down
