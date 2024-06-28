@@ -11,7 +11,6 @@ fn main(_: cortex_m::Peripherals) {
   let result = SEMAPHORE.try_down_allow_isr();
 
   match result {
-      Ok(()) => continue,
       Err(()) => 
       {
            hprintln!("Did not decremented");
