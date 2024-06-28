@@ -14,7 +14,7 @@ fn main(_: cortex_m::Peripherals) {
 
 fn acquire()
 {
-  hprintln("attempting to acquire semaphore..");
+  hprintln!("attempting to acquire semaphore..");
   SEMAPHORE.down();
   hprintln("semaphore acquired");
   semihosting::terminate(true);
@@ -24,6 +24,6 @@ fn acquire()
 fn release()
 {
   SEMAPHORE.up();
-  hprintln("semaphore released");
+  hprintln!("semaphore released");
 }
 
