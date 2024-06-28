@@ -10,33 +10,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  down:
+  down_0_then_try_down:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test down
+      - name: Run test down_0_then_try_down
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
-          test-name: down
+          test-name: down_0_then_try_down
 
-  up:
+  up_max_then_try_up:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test up
+      - name: Run test up_max_then_try_up
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
-          test-name: up
+          test-name: up_max_then_try_up
   
   _4_tasks_down_contend_init_3:
     runs-on: ubuntu-latest
