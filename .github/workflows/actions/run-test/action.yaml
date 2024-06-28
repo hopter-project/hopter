@@ -46,8 +46,25 @@ runs:
       run: cat output.txt
       shell: bash
 
+    # - name: Check test output
+    #   run: |
+    #     diff output.txt \
+    #       "examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}/${{ inputs.test-name }}.txt"
+    #   shell: bash
+
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
     - name: Check test output
       run: |
-        diff output.txt \
-          "examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}/${{ inputs.test-name }}.txt"
-      shell: bash
+        test_file="examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}/${{ inputs.test-name }}"
+        
+        if [[ "${test_file}" == *.txt ]]; then
+          diff output.txt "${test_file}.txt"
+        elif [[ "${test_file}" == *.py ]]; then
+          python3 "${test_file}.py" output.txt
+        fi
+    shell: bash
