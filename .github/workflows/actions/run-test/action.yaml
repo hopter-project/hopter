@@ -53,7 +53,7 @@ runs:
 
     - name: Check test output
       run: |
-        test_file="examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}/${{ inputs.test-name }}_GT".*
+        test_file="examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}/${{ inputs.test-name }}
         
         if [[ "${test_file}" == *.txt ]]; then
           diff output.txt "${test_file}.txt"
