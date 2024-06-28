@@ -8,8 +8,8 @@ static SEMAPHORE: Semaphore = Semaphore::new(1,0);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-  schedule::start_task(2, |_| acquire(), (), 0. 4).unwrap();
-  schedule::start_task(2, |_| release(), (), 0. 4).unwrap();
+  schedule::start_task(2, |_| acquire(), (), 0, 4).unwrap();
+  schedule::start_task(2, |_| release(), (), 0, 4).unwrap();
 }
 
 fn acquire()
@@ -17,6 +17,8 @@ fn acquire()
   hprintln("attempting to acquire semaphore..");
   SEMAPHORE.down();
   hprintln("semaphore acquired");
+  semihosting::terminate(true);
+
 }
 
 fn release()
@@ -25,4 +27,3 @@ fn release()
   hprintln("semaphore released");
 }
 
-semihosting::terminate(true);
