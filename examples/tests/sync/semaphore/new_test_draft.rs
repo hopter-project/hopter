@@ -11,7 +11,8 @@ fn main(_: cortex_m::Peripherals) {
   let result = SEMAPHORE.try_down_allow_isr();
 
   match result {
-      Err(()) => 
+    Ok(()) => {}
+    Err(()) => 
       {
            hprintln!("Did not decremented");
            semihosting::terminate(false);
