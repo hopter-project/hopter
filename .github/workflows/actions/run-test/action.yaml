@@ -53,10 +53,10 @@ runs:
 
     - name: Check test output
       run: |
-        test_dir="examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}/${{ inputs.test-name }}"
+        test_dir="examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}"
     
         # Find the non-Rust file (either .py or .txt) in the directory
-        nonrust_file=$(find "$test_dir" -type f \( -name "*.py" -o -name "*.txt" \) -print -quit)
+        nonrust_file=$(find "$test_dir" -type f \( -name "${{ inputs.test-name }}.py" -o -name "${{ inputs.test-name }}.txt" \) -print -quit)
     
         if [ -z "$nonrust_file" ]; then
           echo "Error: No non-Rust (py or txt) file found in directory."
