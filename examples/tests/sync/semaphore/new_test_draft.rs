@@ -16,7 +16,7 @@ fn main(_: cortex_m::Peripherals) {
       {
            hprintln!("Did not decremented");
            semihosting::terminate(false);
-      };
+      }
     }
 
   // SEMAPHORE count should be 2
@@ -35,7 +35,7 @@ let second_result = SEMAPHORE.try_down_allow_isr();
       {
            hprintln!("Test Passed");
            semihosting::terminate(true);
-      };
+      }
     }
   
 }
