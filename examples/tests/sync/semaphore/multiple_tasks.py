@@ -20,9 +20,6 @@ def validate_output(output):
 
 
 
-
-
-
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python multiple_tasks.py <path_to_output_file>")
