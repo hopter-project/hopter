@@ -38,7 +38,7 @@ jobs:
           sub-category: semaphore
           test-name: up
   
-  multiple_tasks:
+  _4_tasks_down_contend_init_3:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -50,4 +50,4 @@ jobs:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
-          test-name: multiple_tasks
+          test-name: 4_tasks_down_contend_init_3
