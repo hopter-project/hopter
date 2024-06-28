@@ -55,19 +55,21 @@ runs:
         sub-category: mailbox
         test-name: notify_in_advance_after_timeout
 
-    - name: Build test test-sync-semaphore-down
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: semaphore
-        test-name: down
+    # *** Tests for sync - semaphore ***
 
-    - name: Build test test-sync-semaphore-up
+    - name: Build test test-sync-semaphore-down_0_then_try_down
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: semaphore
-        test-name: up
+        test-name: down_0_then_try_down
+
+    - name: Build test test-sync-semaphore-up_max_then_try_up
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: up_max_then_try_up
 
     - name: Build test test-sync-semaphore-4_tasks_down_contend_init_3
       uses: ./.github/workflows/actions/build-test
