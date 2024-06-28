@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, time, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
 
 static SEMAPHORE: Semaphore = Semaphore::new(1,0);
 
@@ -16,7 +16,7 @@ fn acquire()
 {
   hprintln!("attempting to acquire semaphore..");
   SEMAPHORE.down();
-  hprintln("semaphore acquired");
+  hprintln!("semaphore acquired");
   semihosting::terminate(true);
 
 }
