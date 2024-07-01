@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, time, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
