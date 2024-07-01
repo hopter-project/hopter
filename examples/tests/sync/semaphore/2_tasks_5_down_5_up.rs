@@ -8,7 +8,7 @@ use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore
 fn main(_: cortex_m::Peripherals) {
   schedule::start_task(2, |_| task1(), (), 0, 4).unwrap();
   schedule::start_task(2, |_| task2(), (), 0, 4).unwrap();
-  semihosting::terminate(true);
+  
 }
 
 static SEMAPHORE: Semaphore = Semaphore::new(3,3);
@@ -30,4 +30,5 @@ fn task2() {
             hprintln!("Up {}", i);
         }
     hprintln!("Task2 completed");
+    semihosting::terminate(true);
   }
