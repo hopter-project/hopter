@@ -93,3 +93,17 @@ jobs:
           category: sync
           sub-category: semaphore
           test-name: try_down_Ok_then_Err
+
+  _2_tasks_5_down_5_up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test 2_tasks_5_down_5_up
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: 2_tasks_5_down_5_up
