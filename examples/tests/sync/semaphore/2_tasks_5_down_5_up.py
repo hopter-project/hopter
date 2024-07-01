@@ -11,8 +11,8 @@ def validate_output(output):
   for line in output.splitlines():
     if semaphore_down_pattern.search(line):
       down_count += 1
-      if down_count > max_count:
-        max_count = down_count
+      if down_count > max_down:
+        max_down = down_count
       elif semaphore_up_pattern.search(line):
         down_count -= 1
 
