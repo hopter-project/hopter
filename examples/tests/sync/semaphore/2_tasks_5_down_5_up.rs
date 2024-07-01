@@ -15,7 +15,7 @@ static SEMAPHORE: Semaphore = Semaphore::new(3,3);
 
 fn task1() {
       hprintln!("Task 1 started");
-      for i in 0..5 {
+      for i in 1..5 {
             SEMAPHORE.down();
             hprintln!("Down {}", i);
         }
@@ -25,7 +25,7 @@ fn task1() {
 
 fn task2() {
       hprintln!("Task 2 started");
-      for i in 0..5 {
+      for i in 1..5 {
             SEMAPHORE.up();
             hprintln!("Up {}", i);
         }
