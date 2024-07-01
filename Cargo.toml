@@ -105,3 +105,7 @@ path = "examples/tests/sync/semaphore/try_down_Ok_then_Err.rs"
 [[example]]
 name = "test-sync-semaphore-2_tasks_5_down_5_up"
 path = "examples/tests/sync/semaphore/2_tasks_5_down_5_up.rs"
+
+[[example]]
+name = "test-sync-semaphore-stress_test"
+path = "examples/tests/sync/semaphore/stress_test.rs"
