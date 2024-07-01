@@ -6,8 +6,9 @@ use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-  for _ in 0..100:
+  for _ in 0..100{
     schedule::start_task(2, |_| task(), (), 0, 4).unwrap();
+  }
   semihosting::terminate(true);
 }
 
