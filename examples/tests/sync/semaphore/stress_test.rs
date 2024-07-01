@@ -8,14 +8,15 @@ use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore
 fn main(_: cortex_m::Peripherals) {
   for _ in 0..100:
     schedule::start_task(2, |_| task(), (), 0, 4).unwrap();
+  semihosting::terminate(true);
 }
 
 static SEMAPHORE: Semaphore = Semaphore::new(10,5);
 
 fn task() {
     for _ in 0..100 {
-      semaphore.up();
-      semaphore.down();
+      SEMAPHORE.up();
+      SEMAPHORE.down();
   }
   hprintln!("Task completed");
 }
