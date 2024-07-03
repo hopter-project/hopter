@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     
     if validate_output(rust_output):
-        print("Test passed: No more than three tasks acquired the semaphore simultaneously.")
+        print("Test Passed")
     else:
-        print("Test failed: More than three tasks acquired the semaphore simultaneously.")
+        print("Test Failed")
 
