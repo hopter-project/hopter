@@ -63,11 +63,20 @@ runs:
           exit 1
         fi
     
-        # Determine the file type and perform comparison
+        # Determine the file type and perform a comparison
         if [[ "$nonrust_file" == *.txt ]]; then
           diff output.txt "$nonrust_file"
         elif [[ "$nonrust_file" == *.py ]]; then
-          python3 "$nonrust_file" output.txt
+          output=$(python3 "$nonrust_file" output.txt)
+          echo "$output"
+    
+          # Check if the output contains "Test Passed"
+          if [[ "$output" == *"Test Passed"* ]]; then
+            echo "Test Passed"
+          else
+            echo "Test Failed"
+            exit 1
+          fi
         else
           echo "Unsupported file extension for non-Rust file. Only .txt and .py are supported."
           exit 1
