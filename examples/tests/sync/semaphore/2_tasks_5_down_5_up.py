@@ -35,6 +35,6 @@ if __name__ == "__main__":
 
     
     if validate_output(rust_output):
-        print("Test passed")
+        print("Test Passed")
     else:
-        print("Test failed")
+        print("Test Failed")
