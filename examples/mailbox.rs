@@ -10,7 +10,6 @@ use stm32f4xx_hal::pac::USART1;
 use stm32f4xx_hal::prelude::*;
 use stm32f4xx_hal::uart::Config;
 use stm32f4xx_hal::uart::Rx;
-
 static G_MAILBOX: Mailbox = Mailbox::new();
 static mut G_RX: Option<Rx<USART1>> = None;
 static mut G_BYTE: u8 = 0;
@@ -23,7 +22,7 @@ fn main(_: cortex_m::Peripherals) {
     // Note that this example requires qemu to have a valid serial connection
     // This can be enabled using the -serial tcp:localhost:4545 flag
 
-    // Aquire the device peripherals and configure the gpio pins and clocks
+    // Acquire the device peripherals and configure the gpio pins and clocks
     let dp = unsafe { stm32f4xx_hal::pac::Peripherals::steal() };
     let clocks = dp.RCC.constrain().cfgr.freeze();
     let gpioa = dp.GPIOA.split();
@@ -62,16 +61,8 @@ fn main(_: cortex_m::Peripherals) {
 
     // If the mailbox is not signaled within 3000ms, the result will be false
     // Otherwise the interrupt handler will store the read byte in G_BYTE
-    for _ in 0..10 {
-        let mailbox_result = G_MAILBOX.wait_until_timeout(3000);
-
-        if mailbox_result {
-            hprintln!("Mailbox received data\n");
-            let byte = unsafe { G_BYTE };
-            hprintln!("Received byte: {}\n", byte);
-        } else {
-            hprintln!("Mailbox timeout\n");
-        }
+    for i in 0..10 {
+        read_with_timeout((10 - i) * 100);
     }
 
     // When running with QEMU, this will cause the QEMU process to terminate.
@@ -86,6 +77,28 @@ fn main(_: cortex_m::Peripherals) {
 unsafe extern "C" fn usart1_handler() {
     cortex_m::interrupt::free(|_| {
         unsafe { G_BYTE = G_RX.as_mut().unwrap().read().unwrap() };
-        G_MAILBOX.as_mut().unwrap().notify_allow_isr();
+        G_MAILBOX.notify_allow_isr();
     });
+}
+
+#[no_mangle]
+fn read_with_timeout(timeout: u32) -> bool {
+    let mailbox_result = G_MAILBOX.wait_until_timeout(timeout);
+    if mailbox_result {
+        waste_time(2);
+        hprintln!("Mailbox received data\n");
+        let byte = unsafe { G_BYTE };
+        hprintln!("Received byte: {}\n", byte);
+    } else {
+        hprintln!("Mailbox timeout\n");
+        
+    }
+    return true;
+}
+
+#[no_mangle]
+fn waste_time(t: u32) {
+    for _ in 0..t {
+        cortex_m::asm::nop();
+    }
 }

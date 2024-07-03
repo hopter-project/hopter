@@ -26,10 +26,10 @@ impl UartRW for Serial<USART1> {
     }
 }
 
-const MESSSAGE_SIZE: usize = 59;
+const MESSAGE_SIZE: usize = 59;
 const CHECKSUM_SIZE: usize = 4;
 const FLAGS_SIZE: usize = 1;
-const CHUNK_SIZE: usize = MESSSAGE_SIZE + FLAGS_SIZE + CHECKSUM_SIZE;
+const CHUNK_SIZE: usize = MESSAGE_SIZE + FLAGS_SIZE + CHECKSUM_SIZE;
 const MAX_DATA_SIZE: usize = 1024;
 
 fn print_data(vec: &heapless::Vec<u8, MAX_DATA_SIZE>) {
@@ -58,12 +58,12 @@ pub enum Sequence {
 }
 
 struct Chunk {
-    message: [u8; MESSSAGE_SIZE],
+    message: [u8; MESSAGE_SIZE],
     flags: u8,
     checksum: u32,
 }
 impl Chunk {
-    pub fn new(message: [u8; MESSSAGE_SIZE], flags: u8) -> Self {
+    pub fn new(message: [u8; MESSAGE_SIZE], flags: u8) -> Self {
         Chunk {
             message,
             flags,
@@ -152,11 +152,11 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
 
     pub fn send_chunk(&mut self, chunk: &Chunk) {
         let mut buf: [u8; CHUNK_SIZE] = [0; CHUNK_SIZE];
-        buf[0..MESSSAGE_SIZE].copy_from_slice(&chunk.message);
+        buf[0..MESSAGE_SIZE].copy_from_slice(&chunk.message);
 
-        buf[MESSSAGE_SIZE] = chunk.flags;
+        buf[MESSAGE_SIZE] = chunk.flags;
 
-        buf[(MESSSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]
+        buf[(MESSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]
             .copy_from_slice(&chunk.checksum.to_le_bytes());
         for i in 0..CHUNK_SIZE {
             self.serial.uart_write(buf[i]);
@@ -168,14 +168,14 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
         for i in 0..CHUNK_SIZE {
             buf[i] = self.serial.uart_read();
         }
-        let message = buf[0..MESSSAGE_SIZE].try_into().unwrap();
-        let flags = buf[MESSSAGE_SIZE];
+        let message = buf[0..MESSAGE_SIZE].try_into().unwrap();
+        let flags = buf[MESSAGE_SIZE];
 
         let mut message_checksum_b: [u8; CHECKSUM_SIZE] = [0; CHECKSUM_SIZE];
-        message_checksum_b.copy_from_slice(&buf[(MESSSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]);
+        message_checksum_b.copy_from_slice(&buf[(MESSAGE_SIZE + FLAGS_SIZE)..CHUNK_SIZE]);
         let message_checksum = u32::from_le_bytes(message_checksum_b);
 
-        let checksum = crc32fast::hash(&buf[0..MESSSAGE_SIZE]);
+        let checksum = crc32fast::hash(&buf[0..MESSAGE_SIZE]);
         if checksum != message_checksum {
             panic!("Checksum mismatch");
         }
@@ -205,17 +205,17 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
             let chunk = self.listen_for_chunk();
             self.send_ack();
 
-            if data_size - current_read_size > MESSSAGE_SIZE as u64 {
+            if data_size - current_read_size > MESSAGE_SIZE as u64 {
                 data.extend_from_slice(&chunk.message);
             } else {
                 data.extend_from_slice(&chunk.message[0..(data_size - current_read_size) as usize]);
             }
-            current_read_size += MESSSAGE_SIZE as u64;
+            current_read_size += MESSAGE_SIZE as u64;
         }
         data
     }
     pub fn send_data_size(&mut self, datasize: usize) {
-        let mut message = [0; MESSSAGE_SIZE];
+        let mut message = [0; MESSAGE_SIZE];
         message[0..8].copy_from_slice(&(datasize as u64).to_le_bytes());
         let flags = Flags::new(None, Some(Sequence::Odd));
         let checksum = crc32fast::hash(&message);
@@ -235,12 +235,12 @@ impl<'a, T: UartRW> UartCrc<'a, T> {
         let mut current_write_size: usize = 0;
 
         while current_write_size < data_size {
-            let mut message: [u8; MESSSAGE_SIZE] = [0; MESSSAGE_SIZE];
-            if (current_write_size + MESSSAGE_SIZE) < data_size {
+            let mut message: [u8; MESSAGE_SIZE] = [0; MESSAGE_SIZE];
+            if (current_write_size + MESSAGE_SIZE) < data_size {
                 message.copy_from_slice(
-                    &data[current_write_size..(current_write_size + MESSSAGE_SIZE)],
+                    &data[current_write_size..(current_write_size + MESSAGE_SIZE)],
                 );
-                current_write_size += MESSSAGE_SIZE;
+                current_write_size += MESSAGE_SIZE;
             } else {
                 let diff = data_size - current_write_size;
                 message[0..diff]
@@ -301,7 +301,7 @@ fn main(_: cortex_m::Peripherals) {
         request.push(i as u8).unwrap();
     }
 
-    let mut chunk = Chunk::new([0; MESSSAGE_SIZE], 0);
+    let mut chunk = Chunk::new([0; MESSAGE_SIZE], 0);
     chunk.compute_checksum();
     // uart_crc.send_data_size(request.len() as usize);
 
