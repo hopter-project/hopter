@@ -8,13 +8,12 @@ use cortex_m::asm::delay;
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
-const TOTAL_TASKS: usize = 10;
+const TOTAL_TASKS: usize = 100;
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
     // Start 100 tasks
     for _i in 0..TOTAL_TASKS {
-            hprintln!("In main");
         schedule::start_task(2, |_| task(), (), 0, 1).unwrap();
     }
 }
@@ -22,8 +21,7 @@ fn main(_: cortex_m::Peripherals) {
 
 // Task function that will run independently
 fn task() {
-    hprintln!("In task");
-    for _ in 0..10 {
+    for _ in 0..100 {
         SEMAPHORE.up();
         SEMAPHORE.down();
     }
