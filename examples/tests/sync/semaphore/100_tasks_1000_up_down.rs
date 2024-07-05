@@ -34,7 +34,7 @@ fn task() {
 
 fn check() {
     check_counter += 1
-    hprintln!("check_counter = {}", check_counter};
+    hprintln!("check_counter = {}", check_counter);
     let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
 
     if completed_tasks == TOTAL_TASKS {
