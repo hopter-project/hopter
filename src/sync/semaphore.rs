@@ -33,6 +33,11 @@ impl Semaphore {
         }
     }
 
+    /// getter function for the count
+    pub fn count(&self) -> AtomicUsize {
+        return self.count.load(Ordering::SeqCst)
+    }
+
     /// Increment the counter value by 1. Block if the counter value is already
     /// at the maximum until it is decremented by someone else.
     ///
