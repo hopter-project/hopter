@@ -4,11 +4,10 @@
 extern crate alloc;
 use hopter::{boot::main, debug::semihosting, schedule, hprintln, sync::Semaphore};
 use core::sync::atomic::{AtomicUsize, Ordering};
-use cortex_m::asm::delay;
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
-const TOTAL_TASKS: usize = 10;
+const TOTAL_TASKS: usize = 100;
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -21,7 +20,7 @@ fn main(_: cortex_m::Peripherals) {
 
 // Task function that will run independently
 fn task() {
-    for _ in 0..10 {
+    for _ in 0..1000 {
         SEMAPHORE.up();
         SEMAPHORE.down();
     }
@@ -34,55 +33,11 @@ fn task() {
             let final_count = SEMAPHORE.count();
             // Check if the count matches the initial value
             if final_count == 5 {
+                hprintln!("Test Passed");
                 semihosting::terminate(true);
             } else {
+                hprintln!("Test Failed");
                 semihosting::terminate(false);
             }
         }
 }
-
-
-// #![no_main]
-// #![no_std]
-
-// extern crate alloc;
-// use hopter::{boot::main, debug::semihosting, schedule, sync::Semaphore};
-// use core::sync::atomic::{AtomicUsize, Ordering};
-
-// static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
-// static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
-// const TOTAL_TASKS: usize = 10;
-
-// #[main]
-// fn main(_: cortex_m::Peripherals) {
-//     // Start 100 tasks
-//     for _ in 0..TOTAL_TASKS {
-//         schedule::start_task(2, move |_| task(), (), 0, 4).unwrap();
-//     }
-
-//     // loop to check for task completion
-//     loop {
-//         if TASK_COMPLETION_COUNTER.load(Ordering::SeqCst) == TOTAL_TASKS {
-//             // All tasks completed, check semaphore count
-//             let final_count = SEMAPHORE.count();
-//              // Check if the count matches the initial value
-//             if final_count == 5 {
-//                 semihosting::terminate(true);
-//             }
-//             else {
-//                 semihosting::terminate(false);
-//             }
-//         }
-//         break;
-//     }
-// }
-
-// // Task function that will run independently
-// fn task() {
-//     for _ in 0..10 {
-//         SEMAPHORE.up();
-//         SEMAPHORE.down();
-//     }
-//     // Increment the task completion counter
-//     TASK_COMPLETION_COUNTER.fetch_add(1, Ordering::SeqCst);
-// }
