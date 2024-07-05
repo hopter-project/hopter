@@ -34,7 +34,7 @@ fn main(_: cortex_m::Peripherals) {
         }
 
         // Introduce a small delay
-        delay(100_000);
+        break;
     }
 }
 
