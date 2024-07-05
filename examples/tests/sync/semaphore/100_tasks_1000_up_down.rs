@@ -3,6 +3,7 @@
 
 extern crate alloc;
 use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
