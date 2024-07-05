@@ -25,10 +25,10 @@ fn main(_: cortex_m::Peripherals) {
             let final_count = SEMAPHORE.count();
             // Check if the count matches the initial value
             if final_count == 5 {
-                hprintln!("Test Passed").unwrap();
+                hprintln!("Test Passed");
                 semihosting::terminate(true);
             } else {
-                hprintln!("Test Failed").unwrap();
+                hprintln!("Test Failed");
                 semihosting::terminate(false);
             }
         }
