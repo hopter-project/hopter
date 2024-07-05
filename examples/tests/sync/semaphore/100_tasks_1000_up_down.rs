@@ -13,8 +13,8 @@ const TOTAL_TASKS: usize = 10;
 #[main]
 fn main(_: cortex_m::Peripherals) {
     // Start 100 tasks
-    for _ in 0..TOTAL_TASKS {
-        schedule::start_task(2, move |_| task(), (), 0, 4).unwrap();
+    for _i in 0..TOTAL_TASKS {
+        schedule::start_task(2, |_| task(), (), 0, 4).unwrap();
     }
 
     // Loop to check for task completion
@@ -36,7 +36,7 @@ fn main(_: cortex_m::Peripherals) {
 
         hprintln!("Completed Tasks {}", completed_tasks);
         // Introduce a small delay to allow other tasks to run
-        delay(100_000);
+        delay(100_000_000);
     }
 }
 
