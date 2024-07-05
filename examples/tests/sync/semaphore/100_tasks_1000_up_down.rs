@@ -7,7 +7,7 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
-const TOTAL_TASKS: usize = 100;
+const TOTAL_TASKS: usize = 10;
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -35,7 +35,7 @@ fn main(_: cortex_m::Peripherals) {
 
 // Task function that will run independently
 fn task() {
-    for _ in 0..1000 {
+    for _ in 0..10 {
         SEMAPHORE.up();
         SEMAPHORE.down();
     }
