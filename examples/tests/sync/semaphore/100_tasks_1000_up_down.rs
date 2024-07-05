@@ -28,6 +28,7 @@ fn main(_: cortex_m::Peripherals) {
                 hprintln!("Test Failed");
                 semihosting::terminate(false);
             }
+        }
     }
 
     // // Loop to check for task completion
