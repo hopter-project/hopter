@@ -49,6 +49,8 @@ fn task() {
     }
     // Increment the task completion counter
     TASK_COMPLETION_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
+    hprintln!("Completed Tasks {}", completed_tasks);
 }
 
 
