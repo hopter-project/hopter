@@ -14,7 +14,7 @@ const TOTAL_TASKS: usize = 10;
 fn main(_: cortex_m::Peripherals) {
     // Start 100 tasks
     for _i in 0..TOTAL_TASKS {
-        schedule::start_task(2, |_| task(), (), 0, 4).unwrap();
+        schedule::start_task(2, |_| task(), (), 0, 1).unwrap();
         let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
         hprintln!("Completed Tasks {}", completed_tasks);
         if completed_tasks == TOTAL_TASKS {
