@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, schedule, sync::Semaphore};
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
@@ -20,7 +20,7 @@ fn main(_: cortex_m::Peripherals) {
     loop {
         if TASK_COMPLETION_COUNTER.load(Ordering::SeqCst) == TOTAL_TASKS {
             // All tasks completed, check semaphore count
-            let final_count = SEMAPHORE.count.load(Ordering::SeqCst);
+            let final_count = SEMAPHORE.count().load(Ordering::SeqCst);
              // Check if the count matches the initial value
             if final_count == 5 {
                 semihosting::terminate(true);
