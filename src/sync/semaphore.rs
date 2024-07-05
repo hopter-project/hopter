@@ -34,7 +34,7 @@ impl Semaphore {
     }
 
     /// getter function for the count
-    pub fn count(&self) -> AtomicUsize {
+    pub fn count(&self) -> usize {
         return self.count.load(Ordering::SeqCst)
     }
 
