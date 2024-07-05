@@ -13,8 +13,8 @@ def validate_output(output):
       down_count += 1
       if down_count > max_down:
         max_down = down_count
-      elif semaphore_up_pattern.search(line):
-        down_count -= 1
+    elif semaphore_up_pattern.search(line):
+      down_count -= 1
 
   return max_down <= 3
 
