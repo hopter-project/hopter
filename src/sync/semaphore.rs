@@ -38,6 +38,11 @@ impl Semaphore {
         return self.count.load(Ordering::SeqCst)
     }
 
+    /// getter function for the max_count
+    pub fn count(&self) -> usize {
+        return self.max_count
+    }
+
     /// Increment the counter value by 1. Block if the counter value is already
     /// at the maximum until it is decremented by someone else.
     ///
