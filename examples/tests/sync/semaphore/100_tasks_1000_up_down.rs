@@ -33,7 +33,8 @@ fn main(_: cortex_m::Peripherals) {
                 semihosting::terminate(false);
             }
         }
-        
+
+        hprintln!("Completed Tasks {}", completed_tasks);
         // Introduce a small delay to allow other tasks to run
         delay(100_000);
     }
