@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, schedule, hprintln, sync::Semaphore};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use cortex_m::asm::delay;
 
