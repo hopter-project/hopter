@@ -20,7 +20,7 @@ fn main(_: cortex_m::Peripherals) {
     loop {
         if TASK_COMPLETION_COUNTER.load(Ordering::SeqCst) == TOTAL_TASKS {
             // All tasks completed, check semaphore count
-            let final_count = SEMAPHORE.count().load(Ordering::SeqCst);
+            let final_count = SEMAPHORE.count()
              // Check if the count matches the initial value
             if final_count == 5 {
                 semihosting::terminate(true);
