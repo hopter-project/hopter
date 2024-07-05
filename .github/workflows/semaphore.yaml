@@ -107,3 +107,19 @@ jobs:
           category: sync
           sub-category: semaphore
           test-name: 2_tasks_5_down_5_up
+
+  _10_tasks_100_up_down:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test 10_tasks_100_up_down
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: 10_tasks_100_up_down
+
+
