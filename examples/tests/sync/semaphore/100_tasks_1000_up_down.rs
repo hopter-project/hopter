@@ -20,7 +20,7 @@ fn main(_: cortex_m::Peripherals) {
     // Loop to check for task completion
     loop {
         let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
-        hprintln!("Completed tasks: {}", completed_tasks).unwrap();
+        hprintln!("Completed tasks: {}", completed_tasks);
 
         if completed_tasks == TOTAL_TASKS {
             // All tasks completed, check semaphore count
