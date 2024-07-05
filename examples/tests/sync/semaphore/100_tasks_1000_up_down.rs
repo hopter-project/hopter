@@ -4,6 +4,7 @@
 extern crate alloc;
 use hopter::{boot::main, debug::semihosting, schedule, hprintln, sync::Semaphore};
 use core::sync::atomic::{AtomicUsize, Ordering};
+use cortex_m::asm::delay;
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -32,6 +33,9 @@ fn main(_: cortex_m::Peripherals) {
                 semihosting::terminate(false);
             }
         }
+        
+        // Introduce a small delay to allow other tasks to run
+        delay(100_000);
     }
 }
 
