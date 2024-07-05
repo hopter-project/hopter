@@ -42,6 +42,7 @@ fn main(_: cortex_m::Peripherals) {
 
 // Task function that will run independently
 fn task() {
+    hprintln!("In task");
     for _ in 0..10 {
         SEMAPHORE.up();
         SEMAPHORE.down();
