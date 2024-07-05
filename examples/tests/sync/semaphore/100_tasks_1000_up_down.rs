@@ -12,17 +12,15 @@ const TOTAL_TASKS: usize = 10;
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    // Start 100 tasks
+    // Start 10 tasks
     for i in 0..TOTAL_TASKS {
         schedule::start_task(2, |_| task(), (), 0, 4).unwrap();
-        hprintln!("created task {}", i);
     }
 }
 
 
 // Task function that will run independently
 fn task() {
-    hprintln!("in task");
     for _ in 0..100 {
         SEMAPHORE.up();
         SEMAPHORE.down();
