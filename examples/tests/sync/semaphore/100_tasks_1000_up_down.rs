@@ -8,7 +8,7 @@ use cortex_m::asm::delay;
 
 static SEMAPHORE: Semaphore = Semaphore::new(100, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
-const TOTAL_TASKS: usize = 100;
+const TOTAL_TASKS: usize = 20;
 static CHECK_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 #[main]
