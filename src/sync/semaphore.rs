@@ -39,7 +39,7 @@ impl Semaphore {
     }
 
     /// getter function for the max_count
-    pub fn count(&self) -> usize {
+    pub fn max_count(&self) -> usize {
         return self.max_count
     }
 
