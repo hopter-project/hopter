@@ -11,7 +11,7 @@ fn main(_: cortex_m::Peripherals) {
     {
       for j in 5..10 {
         let semaphore = Semaphore::new(j, i);
-        if semaphore.count() != i or semaphore.max_count() != j {
+        if semaphore.count() != i || semaphore.max_count() != j {
             hprintln!("Test Failed");
             semihosting::terminate(false);
           }  
