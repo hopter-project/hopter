@@ -32,6 +32,7 @@ fn main(_: cortex_m::Peripherals) {
                 hprintln!("Test Failed");
                 semihosting::terminate(false);
             }
+        }
     }
 }
 
