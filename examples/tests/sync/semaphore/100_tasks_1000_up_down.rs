@@ -17,25 +17,6 @@ fn main(_: cortex_m::Peripherals) {
         schedule::start_task(2, move |_| task(), (), 0, 4).unwrap();
     }
 
-    // Loop to check for task completion
-    loop {
-        let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
-        hprintln!("Completed tasks: {}", completed_tasks);
-
-        if completed_tasks == TOTAL_TASKS {
-            // All tasks completed, check semaphore count
-            let final_count = SEMAPHORE.count();
-            // Check if the count matches the initial value
-            if final_count == 5 {
-                semihosting::terminate(true);
-            } else {
-                semihosting::terminate(false);
-            }
-        }
-
-        // Introduce a small delay
-        break;
-    }
 }
 
 // Task function that will run independently
@@ -46,6 +27,18 @@ fn task() {
     }
     // Increment the task completion counter
     TASK_COMPLETION_COUNTER.fetch_add(1, Ordering::SeqCst);
+
+    let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
+    if completed_tasks == TOTAL_TASKS {
+            // All tasks completed, check semaphore count
+            let final_count = SEMAPHORE.count();
+            // Check if the count matches the initial value
+            if final_count == 5 {
+                semihosting::terminate(true);
+            } else {
+                semihosting::terminate(false);
+            }
+        }
 }
 
 
