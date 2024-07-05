@@ -105,3 +105,11 @@ runs:
         category: sync
         sub-category: semaphore
         test-name: 2_tasks_5_down_5_up
+
+    - name: Build test test-sync-semaphore-10_tasks_100_up_down
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: 10_tasks_100_up_down
+
