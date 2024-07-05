@@ -15,7 +15,7 @@ static CHECK_COUNTER: AtomicUsize = AtomicUsize::new(0);
 fn main(_: cortex_m::Peripherals) {
     // Start 100 tasks
     for i in 0..TOTAL_TASKS {
-        schedule::start_task(i, |_| task(), (), 0, 4).unwrap();
+        schedule::start_task(i.try_into().unwrap(), |_| task(), (), 0, 4).unwrap();
          hprintln!("created task {}", i);
     }
 }
