@@ -15,6 +15,19 @@ fn main(_: cortex_m::Peripherals) {
     // Start 100 tasks
     for _i in 0..TOTAL_TASKS {
         schedule::start_task(2, |_| task(), (), 0, 4).unwrap();
+        let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
+        hprintln!("Completed Tasks {}", completed_tasks);
+        if completed_tasks == TOTAL_TASKS {
+            // All tasks completed, check semaphore count
+            let final_count = SEMAPHORE.count();
+            // Check if the count matches the initial value
+            if final_count == 5 {
+                hprintln!("Test Passed");
+                semihosting::terminate(true);
+            } else {
+                hprintln!("Test Failed");
+                semihosting::terminate(false);
+            }
     }
 
     // // Loop to check for task completion
@@ -49,8 +62,8 @@ fn task() {
     }
     // Increment the task completion counter
     TASK_COMPLETION_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
-    hprintln!("Completed Tasks {}", completed_tasks);
+    // let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
+    // hprintln!("Completed Tasks {}", completed_tasks);
 }
 
 
