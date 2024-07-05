@@ -10,6 +10,20 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  initialization:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test initialization
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: initialization
+          
   down_0_then_try_down:
     runs-on: ubuntu-latest
     steps:
