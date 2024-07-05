@@ -28,8 +28,8 @@ fn main(_: cortex_m::Peripherals) {
             else {
                 semihosting::terminate(false);
             }
-            break;
         }
+        break;
     }
 }
 
