@@ -9,6 +9,7 @@ use cortex_m::asm::delay;
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
 const TOTAL_TASKS: usize = 100;
+check_counter = 0
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -32,6 +33,8 @@ fn task() {
 }
 
 fn check() {
+    check_counter += 1
+    hprintln!("check_counter = {}", check_counter};
     let completed_tasks = TASK_COMPLETION_COUNTER.load(Ordering::SeqCst);
 
     if completed_tasks == TOTAL_TASKS {
