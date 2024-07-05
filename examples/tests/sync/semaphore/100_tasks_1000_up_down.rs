@@ -8,7 +8,7 @@ use cortex_m::asm::delay;
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
-const TOTAL_TASKS: usize = 10;
+const TOTAL_TASKS: usize = 9;
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
