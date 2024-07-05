@@ -6,7 +6,7 @@ use hopter::{boot::main, debug::semihosting, schedule, hprintln, sync::Semaphore
 use core::sync::atomic::{AtomicUsize, Ordering};
 use cortex_m::asm::delay;
 
-static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
+static SEMAPHORE: Semaphore = Semaphore::new(100, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
 const TOTAL_TASKS: usize = 100;
 static CHECK_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -15,8 +15,8 @@ static CHECK_COUNTER: AtomicUsize = AtomicUsize::new(0);
 fn main(_: cortex_m::Peripherals) {
     // Start 100 tasks
     for i in 0..TOTAL_TASKS {
-        schedule::start_task(i.try_into().unwrap(), |_| task(), (), 0, 4).unwrap();
-         hprintln!("created task {}", i);
+        schedule::start_task(2, |_| task(), (), 0, 4).unwrap();
+        hprintln!("created task {}", i);
     }
 }
 
