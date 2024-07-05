@@ -20,7 +20,7 @@ fn main(_: cortex_m::Peripherals) {
 
 // Task function that will run independently
 fn task() {
-    for _ in 0..1000 {
+    for _ in 0..100 {
         SEMAPHORE.up();
         SEMAPHORE.down();
     }
