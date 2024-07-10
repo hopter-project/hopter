@@ -1,4 +1,4 @@
-use crate::{
+use super::{
     link::Link,
     packet::{self, Acknowledge, Packet, PacketContent, PacketError, Scratchpad, Sequence},
     serial::Serial,
@@ -139,7 +139,6 @@ where
         timeout_ms: u32,
     ) -> Result<(), SessionError<S::ReadError, S::WriteError>> {
         let update_timeout = self.get_updated_timeout(timeout_ms);
-
         self.initiate_session(data.len(), timeout_ms)?;
 
         let updated_timeout = update_timeout(&mut self.link.get_timer())?;

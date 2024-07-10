@@ -48,7 +48,7 @@
 //!   byte before getting a [`POSTAMBLE`] byte. This can happen if the
 //!   [`POSTAMBLE`] byte is lost and the sender starts to send a new frame.
 
-use crate::{
+use super::{
     serial::{Serial, SerialError},
     timer::Timer,
 };
