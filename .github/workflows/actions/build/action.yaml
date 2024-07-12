@@ -91,19 +91,19 @@ runs:
         sub-category: semaphore
         test-name: init_0_blocking_down
 
-    - name: Build test test-sync-semaphore-try_up_Ok_then_Err
+    - name: Build test test-sync-semaphore-try_up_ok_then_err
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: semaphore
-        test-name: try_up_Ok_then_Err
+        test-name: try_up_ok_then_err
 
-    - name: Build test test-sync-semaphore-try_down_Ok_then_Err
+    - name: Build test test-sync-semaphore-try_down_ok_then_err
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: semaphore
-        test-name: try_down_Ok_then_Err
+        test-name: try_down_ok_then_err
 
     - name: Build test test-sync-semaphore-2_tasks_5_down_5_up
       uses: ./.github/workflows/actions/build-test

@@ -33,14 +33,15 @@ impl Semaphore {
         }
     }
 
-    /// getter function for the count
+    /// Return the current counter value. Note that the read value may become
+    /// stale immediately after it is read.
     pub fn count(&self) -> usize {
-        return self.count.load(Ordering::SeqCst)
+        return self.count.load(Ordering::SeqCst);
     }
 
-    /// getter function for the max_count
-    pub fn max_count(&self) -> usize {
-        return self.max_count
+    /// Return the maximum allowed counter value.
+    pub const fn max_count(&self) -> usize {
+        return self.max_count;
     }
 
     /// Increment the counter value by 1. Block if the counter value is already

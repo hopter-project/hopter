@@ -80,33 +80,33 @@ jobs:
           sub-category: semaphore
           test-name: init_0_blocking_down
 
-  try_up_Ok_then_Err:
+  try_up_ok_then_err:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test try_up_Ok_then_Err
+      - name: Run test try_up_ok_then_err
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
-          test-name: try_up_Ok_then_Err
+          test-name: try_up_ok_then_err
 
-  try_down_Ok_then_Err:
+  try_down_ok_then_err:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test try_down_Ok_then_Err
+      - name: Run test try_down_ok_then_err
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
-          test-name: try_down_Ok_then_Err
+          test-name: try_down_ok_then_err
 
   _2_tasks_5_down_5_up:
     runs-on: ubuntu-latest

@@ -95,12 +95,12 @@ name = "test-sync-semaphore-4_tasks_down_contend_init_3"
 path = "examples/tests/sync/semaphore/4_tasks_down_contend_init_3.rs"
 
 [[example]]
-name = "test-sync-semaphore-try_up_Ok_then_Err"
-path = "examples/tests/sync/semaphore/try_up_Ok_then_Err.rs"
+name = "test-sync-semaphore-try_up_ok_then_err"
+path = "examples/tests/sync/semaphore/try_up_ok_then_err.rs"
 
 [[example]]
-name = "test-sync-semaphore-try_down_Ok_then_Err"
-path = "examples/tests/sync/semaphore/try_down_Ok_then_Err.rs"
+name = "test-sync-semaphore-try_down_ok_then_err"
+path = "examples/tests/sync/semaphore/try_down_ok_then_err.rs"
 
 [[example]]
 name = "test-sync-semaphore-2_tasks_5_down_5_up"
@@ -113,5 +113,3 @@ path = "examples/tests/sync/semaphore/10_tasks_100_up_down.rs"
 [[example]]
 name = "test-sync-semaphore-initialization"
 path = "examples/tests/sync/semaphore/initialization.rs"
-
-

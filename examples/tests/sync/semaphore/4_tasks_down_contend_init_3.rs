@@ -2,16 +2,16 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, time, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore, time};
 
-static SEMAPHORE: Semaphore = Semaphore::new(3,3);
+static SEMAPHORE: Semaphore = Semaphore::new(3, 3);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
     schedule::start_task(2, |_| task1(), (), 0, 4).unwrap();
-    schedule::start_task(2, |_| task2(), (), 0, 4).unwrap();
-    schedule::start_task(2, |_| task3(), (), 0, 4).unwrap();
-    schedule::start_task(2, |_| task4(), (), 0, 4).unwrap();
+    schedule::start_task(3, |_| task2(), (), 0, 4).unwrap();
+    schedule::start_task(4, |_| task3(), (), 0, 4).unwrap();
+    schedule::start_task(5, |_| task4(), (), 0, 4).unwrap();
 }
 
 fn task1() {
@@ -26,8 +26,7 @@ fn task1() {
     SEMAPHORE.up();
 
     hprintln!("Task 1 completed");
-
-  }
+}
 
 fn task2() {
     hprintln!("Task 2 started");
@@ -43,7 +42,6 @@ fn task2() {
     hprintln!("Task 2 completed");
     semihosting::terminate(true);
 }
-
 
 fn task3() {
     hprintln!("Task 3 started");
@@ -73,5 +71,4 @@ fn task4() {
 
     hprintln!("Task 4 completed");
     semihosting::terminate(true);
-    
 }
