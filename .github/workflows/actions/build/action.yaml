@@ -54,3 +54,68 @@ runs:
         category: sync
         sub-category: mailbox
         test-name: notify_in_advance_after_timeout
+
+    # *** Tests for sync - semaphore ***
+    - name: Build test test-sync-semaphore-initialization
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: initialization
+
+    - name: Build test test-sync-semaphore-down_0_then_try_down
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: down_0_then_try_down
+
+    - name: Build test test-sync-semaphore-up_max_then_try_up
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: up_max_then_try_up
+
+    - name: Build test test-sync-semaphore-4_tasks_down_contend_init_3
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: 4_tasks_down_contend_init_3
+
+    - name: Build test test-sync-semaphore-init_0_blocking_down
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: init_0_blocking_down
+
+    - name: Build test test-sync-semaphore-try_up_ok_then_err
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_up_ok_then_err
+
+    - name: Build test test-sync-semaphore-try_down_ok_then_err
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_down_ok_then_err
+
+    - name: Build test test-sync-semaphore-2_tasks_5_down_5_up
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: 2_tasks_5_down_5_up
+
+    - name: Build test test-sync-semaphore-10_tasks_100_up_down
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: 10_tasks_100_up_down
+

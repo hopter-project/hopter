@@ -33,6 +33,17 @@ impl Semaphore {
         }
     }
 
+    /// Return the current counter value. Note that the read value may become
+    /// stale immediately after it is read.
+    pub fn count(&self) -> usize {
+        return self.count.load(Ordering::SeqCst);
+    }
+
+    /// Return the maximum allowed counter value.
+    pub const fn max_count(&self) -> usize {
+        return self.max_count;
+    }
+
     /// Increment the counter value by 1. Block if the counter value is already
     /// at the maximum until it is decremented by someone else.
     ///

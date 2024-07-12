@@ -46,8 +46,39 @@ runs:
       run: cat output.txt
       shell: bash
 
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
     - name: Check test output
       run: |
-        diff output.txt \
-          "examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}/${{ inputs.test-name }}.txt"
+        test_dir="examples/tests/${{ inputs.category }}/${{ inputs.sub-category }}"
+    
+        # finds the non-Rust file (.py or .txt) in the directory
+        nonrust_file=$(find "$test_dir" -type f \( -name "${{ inputs.test-name }}.py" -o -name "${{ inputs.test-name }}.txt" \) -print -quit)
+    
+        if [ -z "$nonrust_file" ]; then
+          echo "Error: No non-Rust (py or txt) file found in directory."
+          exit 1
+        fi
+    
+        # Determine the file type and perform a comparison
+        if [[ "$nonrust_file" == *.txt ]]; then
+          diff output.txt "$nonrust_file"
+        elif [[ "$nonrust_file" == *.py ]]; then
+          output=$(python3 "$nonrust_file" output.txt)
+          echo "$output"
+    
+          # Check if the output contains "Test Passed"
+          if [[ "$output" == *"Test Passed"* ]]; then
+            echo "Test Passed"
+          else
+            echo "Test Failed"
+            exit 1
+          fi
+        else
+          echo "Unsupported file extension for non-Rust file. Only .txt and .py are supported."
+          exit 1
+        fi
       shell: bash
