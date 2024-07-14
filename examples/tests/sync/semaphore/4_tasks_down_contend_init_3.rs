@@ -12,6 +12,8 @@ fn main(_: cortex_m::Peripherals) {
     schedule::start_task(3, |_| task2(), (), 0, 4).unwrap();
     schedule::start_task(4, |_| task3(), (), 0, 4).unwrap();
     schedule::start_task(5, |_| task4(), (), 0, 4).unwrap();
+    schedule::change_current_task_priority(10).unwrap();
+    semihosting::terminate(true);
 }
 
 fn task1() {
@@ -40,7 +42,6 @@ fn task2() {
     SEMAPHORE.up();
 
     hprintln!("Task 2 completed");
-    semihosting::terminate(true);
 }
 
 fn task3() {
@@ -55,7 +56,6 @@ fn task3() {
     SEMAPHORE.up();
 
     hprintln!("Task 3 completed");
-    semihosting::terminate(true);
 }
 
 fn task4() {
@@ -70,5 +70,4 @@ fn task4() {
     SEMAPHORE.up();
 
     hprintln!("Task 4 completed");
-    semihosting::terminate(true);
 }
