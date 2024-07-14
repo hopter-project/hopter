@@ -212,7 +212,7 @@ where
         // notified has higher priority than the current task, without having the spin
         // lock guard dropped first, the woken up high priority task will immediately
         // go back to block state again, causing a deadlock.
-        self.guard.take();
+        core::mem::drop(self.guard.take());
 
         // Notify a task on the waitqueue that the lock is released, which occurs
         // automatically when the inner `guard` is dropped after this method executes.

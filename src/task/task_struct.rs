@@ -645,6 +645,11 @@ impl Task {
         self.priority.load()
     }
 
+    pub(crate) fn change_intrinsic_priority(&self, prio: u8) {
+        let new_prio = TaskPriority::change_intrinsic(&self.priority.load(), prio);
+        self.priority.store(new_prio);
+    }
+
     /// If the other given task has higher priority, inherit it. Otherwise,
     /// keep the current priority.
     ///

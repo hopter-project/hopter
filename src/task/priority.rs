@@ -84,6 +84,34 @@ impl TaskPriority {
     pub(crate) fn restore_intrinsic(this: &Self) -> Self {
         Self::new_intrinsic(this.intrinsic_priority())
     }
+
+    /// Construct a new `TaskPriority` struct that has the given new intrinsic
+    /// priority.
+    ///
+    /// The function signature intends to clarify that it returns a new
+    /// `TaskPriority` struct instead of modifying the existing one.
+    pub(crate) fn change_intrinsic(this: &Self, prio: u8) -> Self {
+        match this.0 {
+            // If the previous priority is intrinsic, just return a new one
+            // with the new intrinsic value.
+            PriorityVariant::Intrinsic(_) => TaskPriority(PriorityVariant::Intrinsic(prio)),
+            // If the previous priority is inherited, continue to inherit if
+            // the new intrinsic priority is lower than the inherited one.
+            // Otherwise, stop inheriting and use the new intrinsic value as
+            // the effective priority.
+            PriorityVariant::Inherited { inherited, .. } => {
+                if inherited < prio {
+                    TaskPriority(PriorityVariant::Inherited {
+                        inherited,
+                        intrinsic: prio,
+                    })
+                } else {
+                    TaskPriority(PriorityVariant::Intrinsic(prio))
+                }
+            }
+            PriorityVariant::_Padding(_) => unrecoverable::die(),
+        }
+    }
 }
 
 /// `TaskPriority` struct establishes the ordering with its effective priority.

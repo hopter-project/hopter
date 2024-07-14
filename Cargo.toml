@@ -113,3 +113,7 @@ path = "examples/tests/sync/semaphore/10_tasks_100_up_down.rs"
 [[example]]
 name = "test-sync-semaphore-initialization"
 path = "examples/tests/sync/semaphore/initialization.rs"
+
+[[example]]
+name = "test-task-priority-reduce_priority"
+path = "examples/tests/task/priority/reduce_priority.rs"

@@ -210,7 +210,7 @@ pub(crate) extern "C" fn schedule() -> *mut TaskCtxt {
 ///
 /// Safety: This function should only be called at system initialization stage
 /// when the system is still running with MSP.
-pub unsafe fn start_scheduler() -> ! {
+pub(crate) unsafe fn start_scheduler() -> ! {
     let mut idle_task = Task::build_idle();
 
     let stack_bottom = idle_task.get_sp();
@@ -339,13 +339,22 @@ pub fn yield_current_task() {
     svc::svc_yield_current_task();
 }
 
+pub fn change_current_task_priority(prio: u8) -> Result<(), ()> {
+    if prio >= config::TASK_PRIORITY_LEVELS - 1 {
+        return Err(());
+    }
+    super::with_current_task(|cur_task| cur_task.change_intrinsic_priority(prio));
+    svc::svc_yield_current_task();
+    Ok(())
+}
+
 static CONTEXT_SWITCH_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-pub fn request_context_switch() {
+pub(crate) fn request_context_switch() {
     CONTEXT_SWITCH_REQUESTED.store(true, Ordering::SeqCst);
 }
 
-pub fn yield_for_preemption() {
+pub(crate) fn yield_for_preemption() {
     if !CONTEXT_SWITCH_REQUESTED.load(Ordering::SeqCst)
         || SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) > 0
     {

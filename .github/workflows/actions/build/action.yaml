@@ -119,3 +119,11 @@ runs:
         sub-category: semaphore
         test-name: 10_tasks_100_up_down
 
+    # *** Tests for task - priority ***
+
+    - name: Build test test-task-priority-reduce_priority
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: priority
+        test-name: reduce_priority
