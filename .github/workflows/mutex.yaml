@@ -38,7 +38,7 @@ jobs:
           sub-category: mutex
           test-name: multiple_tasks_try_lock
         
-  10_tasks_10_edits_each:
+  _10_tasks_10_edits_each:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
