@@ -56,6 +56,7 @@ runs:
         test-name: notify_in_advance_after_timeout
 
     # *** Tests for sync - semaphore ***
+
     - name: Build test test-sync-semaphore-initialization
       uses: ./.github/workflows/actions/build-test
       with:
@@ -118,6 +119,43 @@ runs:
         category: sync
         sub-category: semaphore
         test-name: 10_tasks_100_up_down
+
+    # *** Tests for sync - mutex ***
+   
+    - name: Build test test-sync-mutex-single_task
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: single_task
+
+    - name: Build test test-sync-mutex-multiple_tasks_try_lock
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: multiple_tasks_try_lock
+
+    - name: Build test test-sync-mutex-10_tasks_10_edits_each
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: 10_tasks_10_edits_each
+
+    - name: Build test test-sync-mutex-mut_priority_scheduling
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: mut_priority_scheduling
+
+    - name: Build test test-sync-mutex-poisoned
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: poisoned
 
     # *** Tests for task - priority ***
 

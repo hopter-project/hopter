@@ -19,3 +19,8 @@ jobs:
     uses: ./.github/workflows/semaphore.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
+
+  mutex:
+    uses: ./.github/workflows/mutex.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}

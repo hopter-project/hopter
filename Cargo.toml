@@ -115,6 +115,34 @@ name = "test-sync-semaphore-initialization"
 path = "examples/tests/sync/semaphore/initialization.rs"
 
 [[example]]
+name = "test-sync-semaphore-down_priority_scheduling"
+path = "examples/tests/sync/semaphore/down_priority_scheduling.rs"
+
+[[example]]
+name = "test-sync-semaphore-up_priority_scheduling"
+path = "examples/tests/sync/semaphore/up_priority_scheduling.rs"
+
+[[example]]
+name = "test-sync-mutex-single_task"
+path = "examples/tests/sync/mutex/single_task.rs"
+
+[[example]]
+name = "test-sync-mutex-multiple_tasks_try_lock"
+path = "examples/tests/sync/mutex/multiple_tasks_try_lock.rs"
+
+[[example]]
+name = "test-sync-mutex-10_tasks_10_edits_each"
+path = "examples/tests/sync/mutex/10_tasks_10_edits_each.rs"
+
+[[example]]
+name = "test-sync-mutex-mut_priority_scheduling"
+path = "examples/tests/sync/mutex/mut_priority_scheduling.rs"
+
+[[example]]
+name = "test-sync-mutex-poisoned"
+path = "examples/tests/sync/mutex/poisoned.rs"
+
+[[example]]
 name = "test-task-priority-reduce_priority"
 path = "examples/tests/task/priority/reduce_priority.rs"
 
