@@ -1,8 +1,8 @@
-mod context_switch;
+pub mod context_switch;
 pub mod default;
 pub(super) mod svc;
-mod svc_handler;
-mod systick;
+pub mod svc_handler;
+pub mod systick;
 #[cfg(feature = "exti1_panic")]
 mod test;
 pub mod trap_frame;

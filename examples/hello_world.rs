@@ -11,10 +11,17 @@ use hopter::{boot::main, debug::semihosting, hprintln};
 fn main(_: cortex_m::Peripherals) {
     // Print via semihosting. When using QEMU with semihosting option enabled,
     // the characters will appear on the QEMU console.
-    hprintln!("hello world!");
+    say_hello_fn();
 
     // When running with QEMU, this will cause the QEMU process to terminate.
     // Do not include this line when running with OpenOCD, because it will
     // clobber its internal states.
     semihosting::terminate(true);
+}
+
+#[no_mangle]
+fn say_hello_fn() {
+    for i in 0..10 {
+        hprintln!("Hello, world! {}", i);
+    }
 }

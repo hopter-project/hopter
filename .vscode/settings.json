@@ -23,6 +23,7 @@
         "gpioa",
         "GPIOA",
         "heapless",
+        "heprintln",
         "Kalman",
         "LOADADDR",
         "LTDC",

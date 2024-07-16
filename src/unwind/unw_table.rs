@@ -2,8 +2,13 @@
 //! stored in `.ARM.exidx` and `.ARM.extab` section. It follows the ARM official
 //! document: Exception Handling ABI for the Arm Architecture. The chapters
 //! mentioned in below comments all refer to this document.
-
-use crate::unrecoverable::{self, Lethal};
+//!
+//!
+use crate::{
+    hprintln,
+    unrecoverable::{self, Lethal},
+};
+use serde::{Deserialize, Serialize};
 
 /// Prel31 offset is a position relative pointer. The value represented
 /// by a prel31 offset is *the address of the prel31 data itself plus
@@ -202,7 +207,7 @@ impl<'a> ExIdxEntry<'a> {
 }
 
 /// The type of a personality function.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum PersonalityType {
     /// The compact variant. The enclosed value is the selector
     /// to compact personality routines. Valid range [0, 15].
@@ -344,7 +349,7 @@ impl UnwindInstruction {
 ///   significant one to the most significant one.
 /// - Inside each word, read from the most significant byte to
 ///   the least significant byte.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UnwindByteIter<'a> {
     bytes: &'a [u8],
     pos: usize,
@@ -381,8 +386,9 @@ impl<'a> Iterator for UnwindByteIter<'a> {
 /// An iterator that yields unwind instructions by reading from either the exception
 /// table or the exception indicies. This iterator uses `UnwindByteIter` to get the
 /// raw bytes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnwindInstrIter<'a> {
+    #[serde(borrow)]
     byte_iter: UnwindByteIter<'a>,
 }
 
@@ -407,12 +413,15 @@ impl<'a> UnwindInstrIter<'a> {
 /// followed by a sequence of unwind instructions, and then optionally
 /// a LSDA (language specific data area). This structure only deals with
 /// the language agnostic part, deferring parsing the LSDA to other module.
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ExTabEntry<'a> {
     /// The personality routine. Can be either the compact model
     /// or the generic model.
     personality: PersonalityType,
 
     /// An iterator that yields unwind instructions.
+    #[serde(borrow)]
     unw_instr_iter: UnwindInstrIter<'a>,
 }
 
@@ -437,7 +446,6 @@ impl<'a> ExTabEntry<'a> {
         let personality;
         let mut iter;
         let lsda_offset;
-
         // Read the most significant byte in the first word. It distinguishes
         // the compact model between the generic model.
         let raw_pers = extab[entry_offset + 3];

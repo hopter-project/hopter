@@ -22,7 +22,6 @@ pub mod schedule;
 pub mod sync;
 pub mod task;
 pub mod time;
+pub mod uart;
 mod unrecoverable;
 pub mod unwind;
-pub mod uart;
-pub mod hadusos;

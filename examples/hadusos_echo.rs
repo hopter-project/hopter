@@ -6,8 +6,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::vec;
 use core::cmp::max;
-use hopter::hadusos::*;
-use hopter::interrupt::handler;
+use hadusos::*;
 use hopter::sync::Mailbox;
 use hopter::time::*;
 use hopter::unwind::unwind::save_and_clear_isr_unwinding;
@@ -20,9 +19,22 @@ use stm32f4xx_hal::uart::{Rx, Tx};
 static G_MAILBOX: Mailbox = Mailbox::new();
 static mut G_RX: Option<Rx<USART1>> = None;
 static mut G_MAX_SIZE: usize = 0;
-// static mut G_TX: Option<Tx<USART1>> = None;
 const TIMEOUT_MS: u32 = 10000;
 static mut G_RBYTE: heapless::Deque<u8, 128> = heapless::Deque::new();
+use hopter::interrupt::handler;
+
+#[handler(USART1)]
+unsafe extern "C" fn usart1_handler() {
+    cortex_m::interrupt::free(|_| {
+        unsafe {
+            let _ = G_RBYTE.push_back(G_RX.as_mut().unwrap().read().unwrap());
+        };
+        // hprintln!("{}", G_RBYTE.len());
+        // hprintln!("Interrupt");
+        // Notify the mailbox that a byte is available to read by incrementing the counter
+        G_MAILBOX.notify_allow_isr();
+    });
+}
 
 #[derive(Debug)]
 struct RError;
@@ -48,7 +60,7 @@ impl Serial for UsartSerial {
 
     fn read_byte_with_timeout(
         &mut self,
-        TIMEOUT_MS: u32,
+        timeout_ms: u32,
     ) -> Result<u8, SerialError<Self::ReadError, Self::WriteError>> {
         let result = G_MAILBOX.wait_until_timeout(TIMEOUT_MS);
         if result {
@@ -126,19 +138,6 @@ fn main(_: cortex_m::Peripherals) {
         hprintln!("Max size: {}", G_MAX_SIZE);
     }
     semihosting::terminate(true);
-}
-
-#[handler(USART1)]
-unsafe extern "C" fn usart1_handler() {
-    cortex_m::interrupt::free(|_| {
-        unsafe {
-            let _ = G_RBYTE.push_back(G_RX.as_mut().unwrap().read().unwrap());
-        };
-        // hprintln!("{}", G_RBYTE.len());
-        // hprintln!("Interrupt");
-        // Notify the mailbox that a byte is available to read by incrementing the counter
-        G_MAILBOX.notify_allow_isr();
-    });
 }
 
 pub fn print_data(vec: &[u8]) {

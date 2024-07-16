@@ -29,11 +29,11 @@
 //!   catch block, it halts.
 //!
 //! The implementation is inspired by `libunwind` and Theseus OS's unwinder.
-
 use super::{
     unw_lsda::{self, LSDA},
     unw_table::{
-        ExIdxEntry, ExTabEntry, PersonalityType, Prel31, UnwindInstrIter, UnwindInstruction,
+        ExIdxEntry, ExTabEntry, PersonalityType, Prel31, UnwindByteIter, UnwindInstrIter,
+        UnwindInstruction,
     },
 };
 use crate::{
@@ -44,6 +44,7 @@ use crate::{
         SVCNum,
     },
     schedule, task,
+    uart::{new_byte_slice, G_UART_SESSION, TIMEOUT_MS},
     unrecoverable::{self, Lethal},
 };
 use alloc::boxed::Box;
@@ -57,10 +58,11 @@ use core::{
     panic::PanicInfo,
     sync::atomic::{AtomicBool, Ordering},
 };
+use cortex_m_semihosting::{hprint, hprintln, nr::TIME};
 use gimli::{EndianSlice, LittleEndian};
 
 #[cfg(feature = "debug_unwind")]
-use crate::eprintln;
+use crate::heprintln;
 
 /// If a stack frame can be unwound, its `UnwindInfo` describes how to unwind.
 #[allow(unused)]
@@ -121,13 +123,46 @@ impl<'a> UnwindAbility<'a> {
             let extab_entry_addr = exidx_entry.get_extab_entry_addr() as usize;
             let extab_start_addr = &extab[0] as *const u8 as usize;
             let entry_offset = extab_entry_addr - extab_start_addr;
+
+            hprintln!("entry offset: {}", entry_offset);
+            // this is where we substitute data from the server. Need to have the bytes stored in extab
             let (extab_entry, lsda_slice) = ExTabEntry::from_bytes(extab, entry_offset)?;
+
             let lsda =
                 unw_lsda::LSDA::new(lsda_slice, gimli::LittleEndian, exidx_entry.get_func_addr());
 
+            // ALEX CHANGES
+            let data = (entry_offset as u32).to_le_bytes();
+
+            let mut session = match unsafe { G_UART_SESSION.as_mut() } {
+                Some(s) => s,
+                None => {
+                    hprintln!("No session");
+                    return Ok(Self::CantUnwind);
+                }
+            };
+
+            hprintln!("session established");
+            match session.send(&data, TIMEOUT_MS) {
+                Ok(_) => hprintln!("Sent extab entry address"),
+                Err(e) => hprintln!("Error: {:?}", e),
+            };
+            hprintln!("Sent extab entry address");
+
+            let size = session.listen(TIMEOUT_MS).unwrap();
+            // let size = unsafe { G_UART_SESSION.as_mut().unwrap().listen(TIMEOUT_MS).unwrap() };
+            let mut extab_entry_bytes = new_byte_slice(size as usize);
+            match session.receive(&mut extab_entry_bytes, TIMEOUT_MS) {
+                Ok(_) => hprintln!("Received data"),
+                Err(e) => hprintln!("Error: {:?}", e),
+            }
+            let extab_entry_d: ExTabEntry = postcard::from_bytes(&extab_entry_bytes).unwrap();
+            hprintln!("extab_entry: {:?}", extab_entry_d);
+            hprintln!("extab_entry: {:?}", extab_entry);
             Ok(Self::CanUnwind(UnwindInfo {
                 func_addr: exidx_entry.get_func_addr(),
                 personality: extab_entry.get_personality(),
+                // unw_instr_iter: downloaded.unw_instr_iter()
                 unw_instr_iter: extab_entry.get_unw_instr_iter(),
                 lsda: Some(lsda),
             }))
@@ -749,8 +784,8 @@ fn print_stack_trace(init_ctxt: &UnwindInitContext) {
     loop {
         // This is not the final stack frame.
         if !state.has_finished() {
-            eprintln!("print_stack_trace: current state:");
-            eprintln!("{:#?}", state);
+            heprintln!("print_stack_trace: current state:");
+            heprintln!("{:#?}", state);
 
             // Get unwind information.
             let unw_info = match &mut state.unw_ability {
@@ -768,21 +803,21 @@ fn print_stack_trace(init_ctxt: &UnwindInitContext) {
                     .map_err(|_| "print_stack_trace: can't get callsite iterator.")
                     .unwrap_or_die();
                 while let Ok(Some(entry)) = callsite_iter.next() {
-                    eprintln!("{:?}", entry);
+                    heprintln!("{:?}", entry);
                 }
             }
-            eprintln!("");
-            eprintln!("");
+            heprintln!("");
+            heprintln!("");
 
             // Advance to the next stack frame.
             state.step().unwrap_or_die();
 
         // This is the final stack frame.
         } else {
-            eprintln!("print_stack_trace: final state:");
-            eprintln!("{:#?}", state);
-            eprintln!("");
-            eprintln!("");
+            heprintln!("print_stack_trace: final state:");
+            heprintln!("{:#?}", state);
+            heprintln!("");
+            heprintln!("");
             break;
         }
     }
@@ -965,8 +1000,8 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
 
     #[cfg(feature = "debug_unwind")]
     {
-        eprintln!("continue_unwind: current state:");
-        eprintln!("{:#?}", unw_state);
+        heprintln!("continue_unwind: current state:");
+        heprintln!("{:#?}", unw_state);
     }
 
     // Get unwind information.
@@ -989,7 +1024,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
                 // the next stack frame.
                 Err(_) => {
                     #[cfg(feature = "debug_unwind")]
-                    eprintln!("continue_unwind: no matching call site table entry.");
+                    heprintln!("continue_unwind: no matching call site table entry.");
 
                     return None;
                 }
@@ -1000,7 +1035,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         // so we continue to the next stack frame.
         None => {
             #[cfg(feature = "debug_unwind")]
-            eprintln!("continue_unwind: no LSDA.");
+            heprintln!("continue_unwind: no LSDA.");
 
             return None;
         }
@@ -1015,7 +1050,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         // so we continue to the next stack frame.
         None => {
             #[cfg(feature = "debug_unwind")]
-            eprintln!("continue_unwind: no landing pad address.");
+            heprintln!("continue_unwind: no landing pad address.");
 
             return None;
         }
@@ -1025,7 +1060,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
     unw_state.save_unw_state_ptr(unw_state_ptr);
 
     #[cfg(feature = "debug_unwind")]
-    eprintln!("continue_unwind: landing to {:010x}", land_addr);
+    heprintln!("continue_unwind: landing to {:010x}", land_addr);
 
     return Some(land_addr);
 }

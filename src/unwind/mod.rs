@@ -1,9 +1,9 @@
 #[cfg(feature = "unwind")]
 pub mod unw_catch;
 #[cfg(feature = "unwind")]
-mod unw_lsda;
+pub mod unw_lsda;
 #[cfg(feature = "unwind")]
-mod unw_table;
+pub mod unw_table;
 #[cfg(feature = "unwind")]
 pub mod unwind;
 
