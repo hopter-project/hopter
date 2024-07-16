@@ -615,6 +615,10 @@ impl Task {
         self.has_restarted.load(Ordering::SeqCst)
     }
 
+    pub(crate) fn is_restartable(&self) -> bool {
+        self.entry_closure_arg.is_some()
+    }
+
     /// Lock the task context and return the mutable raw pointer to the
     /// context. This is used when the scheduler picks a task to run.
     /// See [`Task`] for the invariants of the context.

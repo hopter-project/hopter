@@ -505,7 +505,9 @@ impl UnwindState<'static> {
 
         // Try concurrent restart if we panic in a task but not in an ISR.
         if !schedule::is_running_in_isr() {
-            try_concurrent_restart();
+            if schedule::with_current_task(|cur_task| cur_task.is_restartable()) {
+                try_concurrent_restart();
+            }
         }
 
         // Continue to initialize register states to what they are just before the
