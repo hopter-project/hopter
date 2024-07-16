@@ -20,19 +20,7 @@ def validate_output(output):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python multiple_tasks.py <path_to_output_file>")
-        sys.exit(1)
-
-    output_file_path = sys.argv[1]
-
-    try:
-        with open(output_file_path, "r") as file:
-            rust_output = file.read()
-    except FileNotFoundError:
-        print(f"File not found: {output_file_path}")
-        sys.exit(1)
-
+    rust_output = sys.stdin.read()
     
     if validate_output(rust_output):
         print("Test Passed")

@@ -67,7 +67,7 @@ runs:
         if [[ "$nonrust_file" == *.txt ]]; then
           diff output.txt "$nonrust_file"
         elif [[ "$nonrust_file" == *.py ]]; then
-          output=$(python3 "$nonrust_file" output.txt)
+          output=$(python3 "$nonrust_file" < output.txt)
           echo "$output"
     
           # Check if the output contains "Test Passed"
