@@ -147,7 +147,7 @@ pub(crate) struct Task {
     /*** Fields for segmented stack hot-split alleviation. ***/
     /// The recorded information used to alleviate the hot-split problem of
     /// segmented stacks.
-    hsab: Spin<HotSplitAlleviationBlock>,
+    hsab: Option<Box<Spin<HotSplitAlleviationBlock>>>,
 
     /*** Fields for priority scheduling and sleeping. ***/
     /// See [`TaskPriority`].
@@ -293,7 +293,7 @@ impl Task {
             #[cfg(feature = "unwind")]
             restarted_from: None,
             init_stklet_size: 0,
-            hsab: Spin::new(HotSplitAlleviationBlock::default()),
+            hsab: Some(Box::new(Spin::new(HotSplitAlleviationBlock::default()))),
             priority: AtomicCell::new(TaskPriority::new_intrinsic(
                 config::TASK_PRIORITY_LEVELS - 1,
             )),
@@ -620,7 +620,7 @@ impl Task {
 
     /// Return the lock guard for accessing the hot-split alleviation block.
     pub(crate) fn lock_hsab(&self) -> SpinGuard<HotSplitAlleviationBlock> {
-        self.hsab.lock_now_or_die()
+        self.hsab.as_ref().unwrap_or_die().lock_now_or_die()
     }
 }
 
