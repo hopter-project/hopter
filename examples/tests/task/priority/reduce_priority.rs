@@ -5,14 +5,14 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule};
+use hopter::{boot::main, debug::semihosting, hprintln, task};
 
 /// The main task always starts with the highest priority (numerical value 0).
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, task, 0, 4).unwrap();
+    task::build().set_entry(task).spawn().unwrap();
     hprintln!("one");
-    schedule::change_current_task_priority(10).unwrap();
+    task::change_current_priority(10).unwrap();
     hprintln!("three");
     semihosting::terminate(true);
 }

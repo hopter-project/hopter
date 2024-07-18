@@ -3,7 +3,7 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, task::TaskBuilder};
+use hopter::{boot::main, debug::semihosting, hprintln, schedule, task};
 
 // Attribute `#[main]` marks the function as the entry function for the main
 // task. The function name can be arbitrary. The main function should accept
@@ -13,13 +13,8 @@ fn main(_: cortex_m::Peripherals) {
     // Start a task running the `will_panic` function.
     // The task is restartable. When the panic occurs, the task's stack will be
     // unwound, and the task will be restarted.
-    // schedule::start_restartable_task(2, |_| will_panic(), (), 0, 4).unwrap();
-
-    TaskBuilder::new()
-        .entry(|_| will_panic())
-        .arg(())
-        .set_stack_size(0)
-        .set_priority(4)
+    task::build()
+        .set_entry(will_panic)
         .spawn_restartable()
         .unwrap();
 }

@@ -1,4 +1,4 @@
-use crate::{allocator, config, schedule};
+use crate::{allocator, config, schedule, task, unrecoverable::Lethal};
 use alloc::boxed::Box;
 use core::sync::atomic::AtomicPtr;
 use cortex_m::peripheral::scb::SystemHandler;
@@ -47,13 +47,13 @@ pub extern "C" fn entry() -> ! {
     }
 
     unsafe {
-        schedule::start_task(
-            1,
-            move || __main_trampoline(raw_cp),
-            config::MAIN_TASK_INITIAL_STACK_SIZE,
-            config::MAIN_TASK_PRIORITY,
-        )
-        .unwrap();
+        task::build()
+            .set_id(1)
+            .set_entry(move || __main_trampoline(raw_cp))
+            .set_stack_size(config::MAIN_TASK_INITIAL_STACK_SIZE)
+            .set_priority(config::MAIN_TASK_PRIORITY)
+            .spawn()
+            .unwrap_or_die();
         schedule::start_scheduler();
     }
 }

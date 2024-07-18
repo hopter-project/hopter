@@ -2,13 +2,15 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Semaphore, task};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, task1, 0, 4).unwrap();
-    schedule::start_task(3, task2, 0, 4).unwrap();
-    schedule::change_current_task_priority(10).unwrap();
+    task::build().set_entry(task1).spawn().unwrap();
+    task::build().set_entry(task2).spawn().unwrap();
+
+    task::change_current_priority(10).unwrap();
+
     semihosting::terminate(true);
 }
 

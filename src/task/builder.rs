@@ -1,41 +1,48 @@
-use crate::schedule;
+use super::Task;
+use crate::schedule::scheduler;
+use alloc::sync::Arc;
 
 const DEFAULT_TASK_ID: u8 = 255;
 
-pub struct TaskBuilder<F, A>
+const TASK_DEFAULT_PRIORITY: u8 = 8;
+
+pub struct TaskBuilder<F>
 where
-    F: FnOnce(A) + Send + 'static,
-    A: Send + 'static,
+    F: FnOnce() + Send + 'static,
 {
     entry_closure: Option<F>,
-    entry_arg: Option<A>,
     init_stklet_size: Option<usize>,
     priority: Option<u8>,
     id: Option<u8>,
 }
 
-impl<F, A> TaskBuilder<F, A>
+pub fn build<F>() -> TaskBuilder<F>
 where
-    F: FnOnce(A) + Send + 'static,
-    A: Send + 'static,
+    F: FnOnce() + Send + 'static,
 {
-    pub const fn new() -> Self {
+    TaskBuilder::new()
+}
+
+impl<F> TaskBuilder<F>
+where
+    F: FnOnce() + Send + 'static,
+{
+    const fn new() -> Self {
         Self {
             entry_closure: None,
-            entry_arg: None,
             init_stklet_size: None,
             priority: None,
             id: None,
         }
     }
 
-    pub fn entry(mut self, closure: F) -> Self {
-        self.entry_closure.replace(closure);
+    pub fn set_id(mut self, id: u8) -> Self {
+        self.id.replace(id);
         self
     }
 
-    pub fn arg(mut self, arguments: A) -> Self {
-        self.entry_arg.replace(arguments);
+    pub fn set_entry(mut self, closure: F) -> Self {
+        self.entry_closure.replace(closure);
         self
     }
 
@@ -50,43 +57,36 @@ where
     }
 
     pub fn spawn(self) -> Result<(), ()> {
-        match (
-            self.entry_closure,
-            self.entry_arg,
-            self.init_stklet_size,
-            self.priority,
-        ) {
-            (Some(entry_closure), Some(entry_arg), Some(init_stklet_size), Some(priority)) => {
-                schedule::start_task(233, entry_closure, entry_arg, init_stklet_size, priority)
-            }
-            _ => return Err(()),
-        }
+        let entry_closure = self.entry_closure.ok_or(())?;
+        let id = self.id.unwrap_or(DEFAULT_TASK_ID);
+        let prio = self.priority.unwrap_or(TASK_DEFAULT_PRIORITY);
+        let init_stklet_size = self.init_stklet_size.unwrap_or(0);
+        let new_task = Task::build(id, entry_closure, init_stklet_size, prio)?;
+        scheduler::make_new_task_ready(id, Arc::new(new_task))
     }
 }
 
-impl<F, A> TaskBuilder<F, A>
+impl<F> TaskBuilder<F>
 where
-    F: FnOnce(A) + Send + Sync + Clone + 'static,
-    A: Send + Sync + Clone + 'static,
+    F: FnOnce() + Send + Sync + Clone + 'static,
 {
+    #[cfg(feature = "unwind")]
     pub fn spawn_restartable(self) -> Result<(), ()> {
-        match (
-            self.entry_closure,
-            self.entry_arg,
-            self.init_stklet_size,
-            self.priority,
-        ) {
-            (Some(entry_closure), Some(entry_arg), Some(init_stklet_size), Some(priority)) => {
-                let id = self.id.unwrap_or(DEFAULT_TASK_ID);
-                schedule::start_restartable_task(
-                    id,
-                    entry_closure,
-                    entry_arg,
-                    init_stklet_size,
-                    priority,
-                )
-            }
-            _ => return Err(()),
-        }
+        let entry_closure = self.entry_closure.ok_or(())?;
+        let id = self.id.unwrap_or(DEFAULT_TASK_ID);
+        let prio = self.priority.unwrap_or(TASK_DEFAULT_PRIORITY);
+        let init_stklet_size = self.init_stklet_size.unwrap_or(0);
+        let new_task = Task::build_restartable(id, entry_closure, init_stklet_size, prio)?;
+        scheduler::make_new_task_ready(id, Arc::new(new_task))
     }
+}
+
+/// Start a new task from a previously failed task.
+#[cfg(feature = "unwind")]
+pub(crate) fn spawn_restarted_from_task(prev_task: Arc<Task>) -> Result<(), ()> {
+    let id = prev_task.get_id();
+    let new_task = Task::build_restarted(prev_task)?;
+
+    // FIXME: should check for available task slot in advance but not here.
+    scheduler::make_new_task_ready(id, Arc::new(new_task))
 }

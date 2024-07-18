@@ -1,7 +1,7 @@
 //! __aeabi_mem*() function implementation intended to use with segmented
 //! stack (-fsplit-stack) on ARM EABI. These functions simply jump to
 //! generic implementations of each operation.
-//! 
+//!
 //! These functions should *NOT* consume any stack space. See [`memops`] for
 //! details.
 

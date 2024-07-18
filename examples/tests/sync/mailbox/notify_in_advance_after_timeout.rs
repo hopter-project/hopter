@@ -4,13 +4,13 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Mailbox};
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Mailbox, task};
 
 static MAILBOX: Mailbox = Mailbox::new();
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, listener, 0, 4).unwrap();
+    task::build().set_entry(listener).spawn().unwrap();
 }
 
 fn listener() {

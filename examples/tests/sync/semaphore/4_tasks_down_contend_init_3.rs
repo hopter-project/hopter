@@ -2,17 +2,18 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore, time};
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Semaphore, task, time};
 
 static SEMAPHORE: Semaphore = Semaphore::new(3, 3);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, task1, 0, 4).unwrap();
-    schedule::start_task(3, task2, 0, 4).unwrap();
-    schedule::start_task(4, task3, 0, 4).unwrap();
-    schedule::start_task(5, task4, 0, 4).unwrap();
-    schedule::change_current_task_priority(10).unwrap();
+    task::build().set_entry(task1).spawn().unwrap();
+    task::build().set_entry(task2).spawn().unwrap();
+    task::build().set_entry(task3).spawn().unwrap();
+    task::build().set_entry(task4).spawn().unwrap();
+
+    task::change_current_priority(10).unwrap();
     semihosting::terminate(true);
 }
 

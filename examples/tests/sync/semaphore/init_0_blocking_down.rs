@@ -2,14 +2,14 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Semaphore, task};
 
 static SEMAPHORE: Semaphore = Semaphore::new(1, 0);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, acquire, 0, 4).unwrap();
-    schedule::start_task(3, release, 0, 4).unwrap();
+    task::build().set_entry(acquire).spawn().unwrap();
+    task::build().set_entry(release).spawn().unwrap();
 }
 
 fn acquire() {

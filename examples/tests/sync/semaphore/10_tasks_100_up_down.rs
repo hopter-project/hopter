@@ -3,8 +3,7 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use cortex_m::asm::delay;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Semaphore, task};
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -13,10 +12,10 @@ const TOTAL_TASKS: usize = 10;
 #[main]
 fn main(_: cortex_m::Peripherals) {
     // Start 10 tasks
-    for i in 0..TOTAL_TASKS {
-        schedule::start_task((2 + i) as u8, task, 0, 4).unwrap();
+    for _ in 0..TOTAL_TASKS {
+        task::build().set_entry(task).spawn().unwrap();
     }
-    schedule::change_current_task_priority(10).unwrap();
+    task::change_current_priority(10).unwrap();
     check();
 }
 

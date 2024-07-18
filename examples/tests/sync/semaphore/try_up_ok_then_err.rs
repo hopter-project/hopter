@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore};
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Semaphore};
 
 static SEMAPHORE: Semaphore = Semaphore::new(5, 2);
 

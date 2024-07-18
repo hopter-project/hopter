@@ -401,8 +401,8 @@ fn try_concurrent_restart() {
             }
         }
 
-        // Otherwise, we concurrent restart the task.
-        schedule::restart_from_task(cur_task)
+        // Otherwise, we concurrently restart the task.
+        task::spawn_restarted_from_task(cur_task)
     });
 
     // Concurrent restart failed.

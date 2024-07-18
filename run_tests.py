@@ -50,26 +50,58 @@ def main():
     tests = enumerate_tests()
 
     for (category, subcategory, file_no_ext), answer in tqdm(tests):
+        # Build the test case with `cargo build --example`
+        run_result = subprocess.run([
+            'cargo', 'build', '--release',
+            '--example', f'test-{category}-{subcategory}-{file_no_ext}'
+        ], capture_output=True)
+
+        # Error handling for build error.
+        if run_result.returncode != 0:
+            print(
+                f'Error: Test case {category}-{subcategory}-{file_no_ext} failed to build.',
+                file=sys.stderr
+            )
+
+            print('Output from stdout:', file=sys.stderr)
+            print(str(run_result.stdout, encoding='utf-8'))
+            print('Output from stderr:', file=sys.stderr)
+            print(str(run_result.stderr, encoding='utf-8'))
+            exit(1)
+
         # Run the test case with `cargo run --example`
-        test_case_output = subprocess.run([
-                    'cargo', 'run', '--release',
-                    '--example', f'test-{category}-{subcategory}-{file_no_ext}'
-                ], capture_output=True).stdout
-        
+        run_result = subprocess.run([
+            'cargo', 'run', '--release',
+            '--example', f'test-{category}-{subcategory}-{file_no_ext}'
+        ], capture_output=True)
+
+        # Error handling for execution error.
+        if run_result.returncode != 0:
+            print(
+                f'Error: Test case {category}-{subcategory}-{file_no_ext} failed to run.',
+                file=sys.stderr
+            )
+
+            print('Output from stdout:', file=sys.stderr)
+            print(str(run_result.stdout, encoding='utf-8'))
+            print('Output from stderr:', file=sys.stderr)
+            print(str(run_result.stderr, encoding='utf-8'))
+            exit(1)
+
         # If the groundtruth is provided by a .txt file, compare the output against it.
         if answer.endswith('.txt'):
             with open(answer, 'rb') as f:
                 answer = f.read()
-            if answer != test_case_output:
+            if answer != run_result.stdout:
                 print(
                     f'Error: Test case {category}-{subcategory}-{file_no_ext} failed.',
                     file=sys.stderr
                 )
                 sys.exit(1)
-        
+
         # If the output is to be examined by a python script, run the script.
         elif answer.endswith('.py'):
-            decision = subprocess.run(['python', answer], input=test_case_output, capture_output=True).stdout
+            decision = subprocess.run(['python', answer], input=run_result.stdout, capture_output=True).stdout
             if decision != 'Test Passed\n'.encode('utf-8'):
                 print(
                     f'Error: Test case {category}-{subcategory}-{file_no_ext} failed.',

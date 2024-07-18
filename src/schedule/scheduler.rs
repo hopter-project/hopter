@@ -98,7 +98,7 @@ static EXIST_TASK_NUM: AtomicUsize = AtomicUsize::new(0);
 /// Make a new task ready. Return `Ok(())` if the new task is ready to be run
 /// by the scheduler, otherwise `Err(())` if the maximum number of tasks has been
 /// reached or the `id` is not acceptable.
-pub(super) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
+pub(crate) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
     // ID 0 is reserved for the idle task.
     if id == 0 {
         return Err(());
@@ -333,19 +333,6 @@ pub(crate) fn yield_cur_task_from_isr() {
 
 pub(crate) fn block_cur_task_from_isr() {
     yield_cur_task_from_isr()
-}
-
-pub fn yield_current_task() {
-    svc::svc_yield_current_task();
-}
-
-pub fn change_current_task_priority(prio: u8) -> Result<(), ()> {
-    if prio >= config::TASK_PRIORITY_LEVELS - 1 {
-        return Err(());
-    }
-    super::with_current_task(|cur_task| cur_task.change_intrinsic_priority(prio));
-    svc::svc_yield_current_task();
-    Ok(())
 }
 
 static CONTEXT_SWITCH_REQUESTED: AtomicBool = AtomicBool::new(false);

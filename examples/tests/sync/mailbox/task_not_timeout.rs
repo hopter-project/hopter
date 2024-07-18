@@ -4,15 +4,25 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Mailbox, time};
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Mailbox, task, time};
 
 static MAILBOX: Mailbox = Mailbox::new();
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
     MAILBOX.notify_allow_isr();
-    schedule::start_task(2, listener, 0, 4).unwrap();
-    schedule::start_task(2, notifier, 0, 8).unwrap();
+
+    task::build()
+        .set_entry(listener)
+        .set_priority(4)
+        .spawn()
+        .unwrap();
+
+    task::build()
+        .set_entry(notifier)
+        .set_priority(8)
+        .spawn()
+        .unwrap();
 }
 
 fn listener() {
