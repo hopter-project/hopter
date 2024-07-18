@@ -1,10 +1,6 @@
 use super::Task;
-use crate::schedule::scheduler;
+use crate::{config, schedule::scheduler};
 use alloc::sync::Arc;
-
-const DEFAULT_TASK_ID: u8 = 255;
-
-const TASK_DEFAULT_PRIORITY: u8 = 8;
 
 pub struct TaskBuilder<F>
 where
@@ -58,8 +54,8 @@ where
 
     pub fn spawn(self) -> Result<(), ()> {
         let entry_closure = self.entry_closure.ok_or(())?;
-        let id = self.id.unwrap_or(DEFAULT_TASK_ID);
-        let prio = self.priority.unwrap_or(TASK_DEFAULT_PRIORITY);
+        let id = self.id.unwrap_or(config::DEFAULT_TASK_ID);
+        let prio = self.priority.unwrap_or(config::DEFAULT_TASK_PRIORITY);
         let init_stklet_size = self.init_stklet_size.unwrap_or(0);
         let new_task = Task::build(id, entry_closure, init_stklet_size, prio)?;
         scheduler::make_new_task_ready(id, Arc::new(new_task))
@@ -73,8 +69,8 @@ where
     #[cfg(feature = "unwind")]
     pub fn spawn_restartable(self) -> Result<(), ()> {
         let entry_closure = self.entry_closure.ok_or(())?;
-        let id = self.id.unwrap_or(DEFAULT_TASK_ID);
-        let prio = self.priority.unwrap_or(TASK_DEFAULT_PRIORITY);
+        let id = self.id.unwrap_or(config::DEFAULT_TASK_ID);
+        let prio = self.priority.unwrap_or(config::DEFAULT_TASK_PRIORITY);
         let init_stklet_size = self.init_stklet_size.unwrap_or(0);
         let new_task = Task::build_restartable(id, entry_closure, init_stklet_size, prio)?;
         scheduler::make_new_task_ready(id, Arc::new(new_task))

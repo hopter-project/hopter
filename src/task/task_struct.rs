@@ -258,7 +258,7 @@ impl Task {
         // assembly sequence when starting the scheduler.
         idle_task
             .initialize(
-                0,
+                config::IDLE_TASK_ID,
                 || unrecoverable::die(),
                 config::IDLE_TASK_INITIAL_STACK_SIZE,
                 config::IDLE_TASK_PRIORITY,

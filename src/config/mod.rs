@@ -219,8 +219,16 @@ const_assert!(IDLE_TASK_PRIORITY < TASK_PRIORITY_LEVELS);
 pub use hopter_conf_params::MAIN_TASK_PRIORITY;
 assert_value_type!(MAIN_TASK_PRIORITY, u8);
 
-// The idle task's priority should be one of the allowed priority levels.
+// The main task's priority should be one of the allowed priority levels.
 const_assert!(MAIN_TASK_PRIORITY < TASK_PRIORITY_LEVELS);
+
+/// The priority for a task when the priority is not explicitly set during
+/// task creation.
+pub use hopter_conf_params::DEFAULT_TASK_PRIORITY;
+assert_value_type!(DEFAULT_TASK_PRIORITY, u8);
+
+// The default priority should be one of the allowed priority levels.
+const_assert!(DEFAULT_TASK_PRIORITY < TASK_PRIORITY_LEVELS);
 
 /// A panicked task will get its priority reduced to the unwind priority,
 /// which is very low but still higher than idle priority.
@@ -229,3 +237,17 @@ assert_value_type!(UNWIND_PRIORITY, u8);
 
 // Unwind priority should be higher than idle priority.
 const_assert!(UNWIND_PRIORITY < IDLE_TASK_PRIORITY);
+
+/// The ID for the idle task. Other tasks must not use the same ID as the idle
+/// task.
+pub use hopter_conf_params::IDLE_TASK_ID;
+assert_value_type!(IDLE_TASK_ID, u8);
+
+/// The ID for a task when the ID is not explicitly set during task creation.
+/// Tasks can have the same ID as long as the ID is different from the idle
+/// task's ID.
+pub use hopter_conf_params::DEFAULT_TASK_ID;
+assert_value_type!(DEFAULT_TASK_ID, u8);
+
+// The idle task ID must be unique in all tasks.
+const_assert!(DEFAULT_TASK_ID != IDLE_TASK_ID);

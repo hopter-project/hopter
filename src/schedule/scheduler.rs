@@ -4,7 +4,7 @@ use crate::{
     interrupt::svc,
     sync::{Access, AllowPendOp, Interruptable, RunPendedOp, Spin},
     task::{Task, TaskCtxt, TaskListAdapter, TaskListInterfaces, TaskState},
-    unrecoverable::Lethal,
+    unrecoverable::{self, Lethal},
 };
 use alloc::sync::Arc;
 use core::{
@@ -99,8 +99,7 @@ static EXIST_TASK_NUM: AtomicUsize = AtomicUsize::new(0);
 /// by the scheduler, otherwise `Err(())` if the maximum number of tasks has been
 /// reached or the `id` is not acceptable.
 pub(crate) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
-    // ID 0 is reserved for the idle task.
-    if id == 0 {
+    if id == config::IDLE_TASK_ID {
         return Err(());
     }
 
@@ -133,7 +132,7 @@ static CUR_TASK_ID: AtomicU8 = AtomicU8::new(0);
 #[no_mangle]
 pub(crate) extern "C" fn schedule() -> *mut TaskCtxt {
     if SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
-        loop {}
+        unrecoverable::die();
     }
 
     // Release the lock on the current task registers.
@@ -173,14 +172,14 @@ pub(crate) extern "C" fn schedule() -> *mut TaskCtxt {
                 let locked_callbacks = idle::lock_idle_callbacks();
 
                 // When the idle task is switched out of CPU.
-                if prev_id == 0 {
+                if prev_id == config::IDLE_TASK_ID {
                     for callback in locked_callbacks.iter() {
                         callback.idle_end_callback();
                     }
                 }
 
                 // When the idle task is switched on to the CPU.
-                if cand_id == 0 {
+                if cand_id == config::IDLE_TASK_ID {
                     for callback in locked_callbacks.iter() {
                         callback.idle_begin_callback();
                     }
