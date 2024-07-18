@@ -8,10 +8,10 @@ static SEMAPHORE: Semaphore = Semaphore::new(3, 3);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, |_| task1(), (), 0, 4).unwrap();
-    schedule::start_task(3, |_| task2(), (), 0, 4).unwrap();
-    schedule::start_task(4, |_| task3(), (), 0, 4).unwrap();
-    schedule::start_task(5, |_| task4(), (), 0, 4).unwrap();
+    schedule::start_task(2, task1, 0, 4).unwrap();
+    schedule::start_task(3, task2, 0, 4).unwrap();
+    schedule::start_task(4, task3, 0, 4).unwrap();
+    schedule::start_task(5, task4, 0, 4).unwrap();
     schedule::change_current_task_priority(10).unwrap();
     semihosting::terminate(true);
 }

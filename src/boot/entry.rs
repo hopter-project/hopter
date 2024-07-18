@@ -49,8 +49,7 @@ pub extern "C" fn entry() -> ! {
     unsafe {
         schedule::start_task(
             1,
-            move |_| __main_trampoline(raw_cp),
-            (),
+            move || __main_trampoline(raw_cp),
             config::MAIN_TASK_INITIAL_STACK_SIZE,
             config::MAIN_TASK_PRIORITY,
         )

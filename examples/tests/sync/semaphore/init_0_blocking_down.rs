@@ -8,8 +8,8 @@ static SEMAPHORE: Semaphore = Semaphore::new(1, 0);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, |_| acquire(), (), 0, 4).unwrap();
-    schedule::start_task(3, |_| release(), (), 0, 4).unwrap();
+    schedule::start_task(2, acquire, 0, 4).unwrap();
+    schedule::start_task(3, release, 0, 4).unwrap();
 }
 
 fn acquire() {

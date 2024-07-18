@@ -61,7 +61,7 @@ extern "C" fn irq_handler_trampoline(handler_func_ptr: u32) {
 
     #[cfg(feature = "unwind")]
     {
-        let _ = unwind::unw_catch::catch_unwind_with_arg(|_| handler_func(), ());
+        let _ = unwind::unw_catch::catch_unwind(|| handler_func());
         unwind::unwind::set_isr_unwinding(saved_is_handler_unwinding);
     }
 }

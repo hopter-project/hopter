@@ -13,7 +13,7 @@ fn main(_: cortex_m::Peripherals) {
     // Start a task running the `will_panic` function.
     // The task is restartable. When the panic occurs, the task's stack will be
     // unwound, and the task will be restarted.
-    schedule::start_restartable_task(2, |_| will_panic(), (), 0, 4).unwrap();
+    schedule::start_restartable_task(2, will_panic, 0, 4).unwrap();
 }
 
 fn will_panic() {

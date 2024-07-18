@@ -1,7 +1,7 @@
 use super::{
     priority::TaskPriority,
     segmented_stack::{self, HotSplitAlleviationBlock},
-    trampoline::{self, EntryClosureArg},
+    trampoline,
 };
 use crate::{
     config,
@@ -125,14 +125,13 @@ pub(crate) struct Task {
     has_restarted: AtomicBool,
 
     /*** Fields present only for restartable tasks. ***/
-    /// An `Arc` pointing to the bundled struct containing the tak entry
-    /// closure and arguments. The types of the closure and arguments are
-    /// erased using `Arc<dyn Any>`, so that all task structs will have an
-    /// identical type `Task`, rather than `Task<F, A>` with different `F` and
-    /// `A`.
+    /// An `Arc` pointing to the bundled struct containing the task entry
+    /// closure. The type of the closure are erased using `Arc<dyn Any>`, so
+    /// that all task structs will have an identical type `Task`, rather than
+    /// `Task<F>` with different `F`.
     #[cfg(feature = "unwind")]
-    entry_closure_arg: Option<Arc<dyn Any + Send + Sync + 'static>>,
-    /// A function that can cast the `entry_closure_arg` field from an
+    entry_closure: Option<Arc<dyn Any + Send + Sync + 'static>>,
+    /// A function that can cast the `entry_closure` field from an
     /// `Arc<dyn Any>` to `*const u8`. The resulting raw pointer is used in
     /// the task entry trampoline function.
     #[cfg(feature = "unwind")]
@@ -179,63 +178,57 @@ impl Task {
     /// - `id`: The ID of the new task. Cannot be 0.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
-    pub(crate) fn build<F, A>(
+    pub(crate) fn build<F>(
         id: u8,
         entry_closure: F,
-        entry_arg: A,
         init_stklet_size: usize,
         priority: u8,
     ) -> Result<Self, ()>
     where
-        F: FnOnce(A) + Send + 'static,
-        A: Send + 'static,
+        F: FnOnce() + Send + 'static,
     {
         let mut task = Self::new();
-        task.initialize(id, entry_closure, entry_arg, init_stklet_size, priority)?;
+        task.initialize(id, entry_closure, init_stklet_size, priority)?;
         Ok(task)
     }
 
     /// Build a new restartable task struct. Return `Ok(())` if successful,
     /// otherwise `Err(())`. When the built task panics during its execution,
     /// the task's stack will be unwound, and then the task will be *restarted*.
-    /// The restarted task will start its execution again from the entry
-    /// closure using the same entry arguments.
+    /// The restarted task will start its execution again from the same entry
+    /// closure.
     ///
     /// - `id`: The ID of the new task. Cannot be 0.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
-    pub(crate) fn build_restartable<F, A>(
+    pub(crate) fn build_restartable<F>(
         id: u8,
         entry_closure: F,
-        entry_arg: A,
         reserve_stack_size: usize,
         priority: u8,
     ) -> Result<Self, ()>
     where
-        F: FnOnce(A) + Send + Sync + Clone + 'static,
-        A: Send + Sync + Clone + 'static,
+        F: FnOnce() + Send + Sync + Clone + 'static,
     {
         let mut task = Self::new();
-        task.initialize_restartable(id, entry_closure, entry_arg, reserve_stack_size, priority)?;
+        task.initialize_restartable(id, entry_closure, reserve_stack_size, priority)?;
         Ok(task)
     }
 
     /// Build a new task struct as the restarted instance of a previously
     /// panicked task. The new task will start its execution from the same
-    /// closure using the same arguments as the panicked task.
+    /// closure as the panicked task.
     #[cfg(feature = "unwind")]
     pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Result<Self, ()> {
         let mut new_task = Self::new();
@@ -266,8 +259,7 @@ impl Task {
         idle_task
             .initialize(
                 0,
-                |_| unrecoverable::die(),
-                (),
+                || unrecoverable::die(),
                 config::IDLE_TASK_INITIAL_STACK_SIZE,
                 config::IDLE_TASK_PRIORITY,
             )
@@ -293,7 +285,7 @@ impl Task {
             #[cfg(feature = "unwind")]
             has_restarted: AtomicBool::new(false),
             #[cfg(feature = "unwind")]
-            entry_closure_arg: None,
+            entry_closure: None,
             #[cfg(feature = "unwind")]
             downcast_func: None,
             #[cfg(feature = "unwind")]
@@ -313,8 +305,7 @@ impl Task {
     /// The common part of initializing a task struct.
     ///
     /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
-    /// - `entry_closure_arg_ptr`: Raw pointer to the bundled entry closure and
-    ///   arguments.
+    /// - `entry_closure_ptr`: Raw pointer to the entry closure.
     /// - `entry_trampoline`: The address of the trampoline function of the new
     ///   task.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
@@ -325,7 +316,7 @@ impl Task {
     fn initialize_common(
         &mut self,
         id: u8,
-        entry_closure_arg_ptr: usize,
+        entry_closure_ptr: usize,
         entry_trampoline: usize,
         init_stklet_size: usize,
         priority: u8,
@@ -398,7 +389,7 @@ impl Task {
                 tf.gp_regs.lr = svc::svc_destroy_current_task as u32 | 1;
 
                 // Make set the trampoline function argument as the closure pointer.
-                tf.gp_regs.r0 = entry_closure_arg_ptr as u32;
+                tf.gp_regs.r0 = entry_closure_ptr as u32;
             }
         }
 
@@ -420,37 +411,34 @@ impl Task {
     /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
-    fn initialize<F, A>(
+    fn initialize<F>(
         &mut self,
         id: u8,
         entry_closure: F,
-        entry_arg: A,
         init_stklet_size: usize,
         priority: u8,
     ) -> Result<(), ()>
     where
-        F: FnOnce(A) + Send + 'static,
-        A: Send + 'static,
+        F: FnOnce() + Send + 'static,
     {
-        // Bundle the entry closure and arguments, and put them onto the heap.
-        let boxed_closure_arg = Box::new(EntryClosureArg::new(entry_closure, entry_arg));
+        // Bundle the entry closure, and put it onto the heap.
+        let boxed_closure = Box::new(entry_closure);
 
         // Get the raw pointer to the bundle.
-        let closure_arg_ptr = Box::into_raw(boxed_closure_arg) as usize;
+        let closure_ptr = Box::into_raw(boxed_closure) as usize;
 
         // Get the function address of the entry trampoline.
-        let entry_trampoline = trampoline::task_entry::<F, A> as usize;
+        let entry_trampoline = trampoline::task_entry::<F> as usize;
 
         // Perform other common initialization.
         self.initialize_common(
             id,
-            closure_arg_ptr,
+            closure_ptr,
             entry_trampoline,
             init_stklet_size,
             priority,
@@ -462,41 +450,36 @@ impl Task {
     /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
-    fn initialize_restartable<F, A>(
+    fn initialize_restartable<F>(
         &mut self,
         id: u8,
         entry_closure: F,
-        entry_arg: A,
         init_stklet_size: usize,
         priority: u8,
     ) -> Result<(), ()>
     where
-        F: FnOnce(A) + Send + Sync + Clone + 'static,
-        A: Send + Sync + Clone + 'static,
+        F: FnOnce() + Send + Sync + Clone + 'static,
     {
-        use super::trampoline::RestartableEntryFuncArg;
-
-        // Bundle the entry closure and arguments, and put them onto the heap.
-        let arc_closure_arg = Arc::new(RestartableEntryFuncArg::new(entry_closure, entry_arg));
+        // Bundle the entry closure, and put it onto the heap.
+        let arc_closure = Arc::new(entry_closure);
 
         // Store the bundle to the task struct, so that we can use it again
         // during task restart.
-        self.entry_closure_arg = Some(arc_closure_arg);
+        self.entry_closure = Some(arc_closure);
 
         // Use downcast function to get the raw pointer to the bundle.
-        let downcast_func = trampoline::downcast_to_ptr::<F, A>;
-        let closure_arg_ptr =
-            downcast_func(self.entry_closure_arg.as_ref().unwrap_or_die().as_ref()) as usize;
+        let downcast_func = trampoline::downcast_to_ptr::<F>;
+        let closure_ptr =
+            downcast_func(self.entry_closure.as_ref().unwrap_or_die().as_ref()) as usize;
 
         // Get the function address of the entry trampoline.
-        let entry_trampoline = trampoline::restartable_task_entry::<F, A>;
+        let entry_trampoline = trampoline::restartable_task_entry::<F>;
 
         // Store the downcast function to the task struct, so that we can call
         // it again during task restart.
@@ -509,7 +492,7 @@ impl Task {
         // Perform other common initialization.
         self.initialize_common(
             id,
-            closure_arg_ptr,
+            closure_ptr,
             entry_trampoline as usize,
             init_stklet_size,
             priority,
@@ -527,15 +510,14 @@ impl Task {
 
         // Clone restart relevant fields from the panicked task struct.
         self.downcast_func = prev_task.downcast_func.clone();
-        self.entry_closure_arg = prev_task.entry_closure_arg.clone();
+        self.entry_closure = prev_task.entry_closure.clone();
         self.restart_entry_trampoline = prev_task.restart_entry_trampoline.clone();
 
-        // Unwrap the downcast function and the bundled entry closure and
-        // arguments. Get the raw pointer to the bundle using the downcast
-        // function.
+        // Unwrap the downcast function and the entry closure and. Get the raw
+        // pointer to the closure using the downcast function.
         let downcast_func = self.downcast_func.unwrap_or_die();
-        let entry_closure_arg = self.entry_closure_arg.as_ref().unwrap_or_die();
-        let closure_arg_ptr = downcast_func(entry_closure_arg.as_ref()) as usize;
+        let entry_closure = self.entry_closure.as_ref().unwrap_or_die();
+        let closure_ptr = downcast_func(entry_closure.as_ref()) as usize;
 
         // Unwrap the entry trampoline function. Get its address.
         let entry_trampoline = self.restart_entry_trampoline.unwrap_or_die() as usize;
@@ -557,7 +539,7 @@ impl Task {
         // Perform other common initialization.
         self.initialize_common(
             id,
-            closure_arg_ptr,
+            closure_ptr,
             entry_trampoline,
             prev_task.init_stklet_size,
             priority,
@@ -616,7 +598,7 @@ impl Task {
     }
 
     pub(crate) fn is_restartable(&self) -> bool {
-        self.entry_closure_arg.is_some()
+        self.entry_closure.is_some()
     }
 
     /// Lock the task context and return the mutable raw pointer to the

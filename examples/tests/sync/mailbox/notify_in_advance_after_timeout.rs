@@ -10,7 +10,7 @@ static MAILBOX: Mailbox = Mailbox::new();
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, |_| listener(), (), 0, 4).unwrap();
+    schedule::start_task(2, listener, 0, 4).unwrap();
 }
 
 fn listener() {

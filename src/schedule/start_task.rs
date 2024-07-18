@@ -6,24 +6,16 @@ use alloc::sync::Arc;
 /// function. The task ID should be non-zero otherwise the function will
 /// return `Err(())`. `reserve_stack_size` is the extra bytes allocated
 /// to the initial stacklet.
-pub fn start_task<F, A>(
+pub fn start_task<F>(
     id: u8,
     entry_closure: F,
-    entry_argument: A,
     reserve_stack_size: usize,
     priority: u8,
 ) -> Result<(), ()>
 where
-    F: FnOnce(A) + Send + 'static,
-    A: Send + 'static,
+    F: FnOnce() + Send + 'static,
 {
-    let new_task = Task::build(
-        id,
-        entry_closure,
-        entry_argument,
-        reserve_stack_size,
-        priority,
-    )?;
+    let new_task = Task::build(id, entry_closure, reserve_stack_size, priority)?;
     scheduler::make_new_task_ready(id, Arc::new(new_task))
 }
 
@@ -33,26 +25,18 @@ where
 /// to the initial stacklet.
 ///
 /// When created task panics, it will automatically restart using the same
-/// entry function and argument, and thus both of them must implement `Clone`.
+/// entry function, and thus it must implement `Clone`.
 #[cfg(feature = "unwind")]
-pub fn start_restartable_task<F, A>(
+pub fn start_restartable_task<F>(
     id: u8,
     entry_closure: F,
-    entry_argument: A,
     reserve_stack_size: usize,
     priority: u8,
 ) -> Result<(), ()>
 where
-    F: FnOnce(A) + Send + Sync + Clone + 'static,
-    A: Send + Sync + Clone + 'static,
+    F: FnOnce() + Send + Sync + Clone + 'static,
 {
-    let new_task = Task::build_restartable(
-        id,
-        entry_closure,
-        entry_argument,
-        reserve_stack_size,
-        priority,
-    )?;
+    let new_task = Task::build_restartable(id, entry_closure, reserve_stack_size, priority)?;
     scheduler::make_new_task_ready(id, Arc::new(new_task))
 }
 

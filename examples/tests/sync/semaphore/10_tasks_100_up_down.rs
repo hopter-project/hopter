@@ -14,7 +14,7 @@ const TOTAL_TASKS: usize = 10;
 fn main(_: cortex_m::Peripherals) {
     // Start 10 tasks
     for i in 0..TOTAL_TASKS {
-        schedule::start_task((2 + i) as u8, |_| task(), (), 0, 4).unwrap();
+        schedule::start_task((2 + i) as u8, task, 0, 4).unwrap();
     }
     schedule::change_current_task_priority(10).unwrap();
     check();

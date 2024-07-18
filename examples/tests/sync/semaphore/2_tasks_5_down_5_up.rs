@@ -6,8 +6,8 @@ use hopter::{boot::main, debug::semihosting, hprintln, schedule, sync::Semaphore
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, |_| task1(), (), 0, 4).unwrap();
-    schedule::start_task(3, |_| task2(), (), 0, 4).unwrap();
+    schedule::start_task(2, task1, 0, 4).unwrap();
+    schedule::start_task(3, task2, 0, 4).unwrap();
     schedule::change_current_task_priority(10).unwrap();
     semihosting::terminate(true);
 }
