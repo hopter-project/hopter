@@ -26,6 +26,7 @@
         "heprintln",
         "Kalman",
         "LOADADDR",
+        "LSDA",
         "LTDC",
         "microcontrollers",
         "netduinoplus",

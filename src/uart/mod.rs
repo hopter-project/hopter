@@ -50,7 +50,7 @@ impl Serial for UsartSerial {
         &mut self,
         timeout_ms: u32,
     ) -> Result<u8, SerialError<Self::ReadError, Self::WriteError>> {
-        let result = G_UART_MAILBOX.wait_until_timeout(TIMEOUT_MS);
+        let result = G_UART_MAILBOX.wait_until_timeout(timeout_ms);
         if result {
             let byte = unsafe { G_UART_RBYTE.pop_front().unwrap() };
             unsafe { G_UART_MAX_SIZE = max(G_UART_RBYTE.len(), G_UART_MAX_SIZE) };
@@ -69,7 +69,7 @@ impl Serial for UsartSerial {
         Ok(())
     }
 }
-
+///     Create a new Box<[u8]> with the given size.
 pub fn new_byte_slice(size: usize) -> Box<[u8]> {
     vec![0; size].into_boxed_slice()
 }

@@ -5,9 +5,10 @@
 //!
 //!
 use crate::{
-    hprintln,
+    // hprintln,
     unrecoverable::{self, Lethal},
 };
+use alloc::boxed::Box;
 use serde::{Deserialize, Serialize};
 
 /// Prel31 offset is a position relative pointer. The value represented
@@ -62,7 +63,7 @@ impl Prel31 {
 /// The type of an exidx entry. There are three variants.
 /// Document chapter 6 (Index table entries).
 #[derive(Debug)]
-enum ExIdxEntryContent<'a> {
+enum ExIdxEntryContent {
     /// The generic variant. The value should be read as a
     /// prel31 offset. We store the decoded address here.
     ExTabEntryAddr(u32),
@@ -72,7 +73,7 @@ enum ExIdxEntryContent<'a> {
     /// Bits [23:16], [15:8], [7:0] are the data for the personality
     /// routine. In reality they are ARM unwind instructions.
     /// Other bits are reserved.
-    Compact(PersonalityType, UnwindInstrIter<'a>),
+    Compact(PersonalityType, UnwindInstrIter),
 
     /// The 0x0000_0001 bit pattern, indicating that this
     /// function cannot unwind. No unwind instruction is
@@ -80,7 +81,7 @@ enum ExIdxEntryContent<'a> {
     CantUnwind,
 }
 
-impl<'a> ExIdxEntryContent<'a> {
+impl<'a> ExIdxEntryContent {
     /// Extract the exidx entry type from a prel31 offset.
     fn from_raw(prel31: Prel31, bytes: &'a [u8; 4]) -> Self {
         // If the raw pattern is 0x0000_0001, then can't unwind.
@@ -116,16 +117,16 @@ impl<'a> ExIdxEntryContent<'a> {
 /// compound content. Entries are sorted according to the function address in
 /// the exidx section.
 #[derive(Debug)]
-pub struct ExIdxEntry<'a> {
+pub struct ExIdxEntry {
     /// The corresponding function address. We store the decoded address
     /// here rather than the raw prel31 offset.
     func_addr: u32,
 
     /// The content enum. It has three variants.
-    content: ExIdxEntryContent<'a>,
+    content: ExIdxEntryContent,
 }
 
-impl<'a> ExIdxEntry<'a> {
+impl<'a> ExIdxEntry {
     /// Construct a new exidx entry from raw bytes. Note that we must read
     /// the .ARM.exidx section in place without any data copy, because
     /// prel31 offset is relative to the address of itself.
@@ -174,7 +175,7 @@ impl<'a> ExIdxEntry<'a> {
 
     /// Get the unwind instructions from the compact representation.
     /// Precondition: `is_compact()` must return true.
-    pub fn get_unw_instr_iter(&self) -> UnwindInstrIter<'a> {
+    pub fn get_unw_instr_iter(&self) -> UnwindInstrIter {
         match &self.content {
             ExIdxEntryContent::Compact(_, iter) => iter.clone(),
             _ => unrecoverable::die_with_arg("ExIdxEntry::into_unw_instr_iter: not compact."),
@@ -349,24 +350,33 @@ impl UnwindInstruction {
 ///   significant one to the most significant one.
 /// - Inside each word, read from the most significant byte to
 ///   the least significant byte.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct UnwindByteIter<'a> {
-    bytes: &'a [u8],
+#[derive(Debug, Clone)]
+pub struct UnwindByteIter {
+    bytes: Box<[u8]>,
     pos: usize,
 }
 
-impl<'a> UnwindByteIter<'a> {
+impl<'a> UnwindByteIter {
     /// Create an unwind instruction iterator on its raw byte representation.
     /// Precondition: the byte length must be a multiple of 4.
-    fn from_bytes(bytes: &'a [u8]) -> Result<Self, &'static str> {
+    pub fn from_box(bytes: Box<[u8]>) -> Result<Self, &'static str> {
         if bytes.len() % 4 != 0 {
             return Err("UnwindInstrIter::from_bytes: bytes length not a multiple of 4.");
         }
         Ok(Self { bytes, pos: 0 })
     }
+    pub fn from_bytes(bytes: &'a [u8]) -> Result<Self, &'static str> {
+        if bytes.len() % 4 != 0 {
+            return Err("UnwindInstrIter::from_bytes: bytes length not a multiple of 4.");
+        }
+        Ok(Self {
+            bytes: bytes.to_vec().into_boxed_slice(),
+            pos: 0,
+        })
+    }
 }
 
-impl<'a> Iterator for UnwindByteIter<'a> {
+impl Iterator for UnwindByteIter {
     type Item = u8;
 
     /// Advance the iterator and return a byte. At 4-byte word level,
@@ -386,13 +396,12 @@ impl<'a> Iterator for UnwindByteIter<'a> {
 /// An iterator that yields unwind instructions by reading from either the exception
 /// table or the exception indicies. This iterator uses `UnwindByteIter` to get the
 /// raw bytes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UnwindInstrIter<'a> {
-    #[serde(borrow)]
-    byte_iter: UnwindByteIter<'a>,
+#[derive(Debug, Clone)]
+pub struct UnwindInstrIter {
+    byte_iter: UnwindByteIter,
 }
 
-impl<'a> Iterator for UnwindInstrIter<'a> {
+impl Iterator for UnwindInstrIter {
     type Item = UnwindInstruction;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -403,8 +412,8 @@ impl<'a> Iterator for UnwindInstrIter<'a> {
     }
 }
 
-impl<'a> UnwindInstrIter<'a> {
-    fn from_byte_iter(byte_iter: UnwindByteIter<'a>) -> Self {
+impl UnwindInstrIter {
+    pub fn from_byte_iter(byte_iter: UnwindByteIter) -> Self {
         Self { byte_iter }
     }
 }
@@ -414,18 +423,17 @@ impl<'a> UnwindInstrIter<'a> {
 /// a LSDA (language specific data area). This structure only deals with
 /// the language agnostic part, deferring parsing the LSDA to other module.
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ExTabEntry<'a> {
+#[derive(Debug, Clone)]
+pub struct ExTabEntry {
     /// The personality routine. Can be either the compact model
     /// or the generic model.
     personality: PersonalityType,
 
     /// An iterator that yields unwind instructions.
-    #[serde(borrow)]
-    unw_instr_iter: UnwindInstrIter<'a>,
+    unw_instr_iter: UnwindInstrIter,
 }
 
-impl<'a> ExTabEntry<'a> {
+impl<'a> ExTabEntry {
     /// Construct an exception table entry from raw bytes. The `entry_offset` is
     /// the offset into the `.ARM.extab` section. We can obtain it from binary
     /// searching the `.ARM.exidx` section.
@@ -530,7 +538,7 @@ impl<'a> ExTabEntry<'a> {
     }
 
     // Get the unwind instruction iterator.
-    pub fn get_unw_instr_iter(&self) -> UnwindInstrIter<'a> {
+    pub fn get_unw_instr_iter(&self) -> UnwindInstrIter {
         self.unw_instr_iter.clone()
     }
 }

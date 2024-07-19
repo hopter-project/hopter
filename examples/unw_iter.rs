@@ -4,39 +4,27 @@
 
 extern crate alloc;
 use alloc::boxed::Box;
-use alloc::vec;
-use core::cmp::max;
+// use alloc::vec;
+// use core::cmp::max;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use hadusos::*;
 use hopter::interrupt::handler;
-use hopter::sync::Mailbox;
-use hopter::unwind::unw_table::{UnwindByteIter, UnwindInstrIter};
+// use hopter::sync::Mailbox;
+// use hopter::unwind::unw_table::{UnwindByteIter, UnwindInstrIter};
 use hopter::{schedule, time::*};
-use postcard::from_bytes;
+// use postcard::from_bytes;
 // use hopter::unwind::*;
 use hopter::uart::*;
-use hopter::{boot::main, debug::semihosting, hprint, hprintln};
-use stm32f4xx_hal::pac::USART1;
+use hopter::{boot::main, debug::semihosting, hprintln};
+// use stm32f4xx_hal::pac::USART1;
 use stm32f4xx_hal::prelude::*;
 use stm32f4xx_hal::uart::Config;
-use stm32f4xx_hal::uart::{Rx, Tx};
+// use stm32f4xx_hal::uart::{Rx, Tx};
 
-const TIMEOUT_MS: u32 = 10000;
-
-pub fn print_data(vec: &[u8]) {
-    for (i, byte) in vec.iter().enumerate() {
-        hprint!("{:02x} ", byte);
-        if i % 16 == 15 {
-            hprintln!();
-        }
-    }
-    hprintln!();
-}
-
-fn new_byte_slice(size: usize) -> Box<[u8]> {
-    vec![0; size].into_boxed_slice()
-}
+// fn new_byte_slice(size: usize) -> Box<[u8]> {
+//     vec![0; size].into_boxed_slice()
+// }
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -69,8 +57,7 @@ fn main(_: cortex_m::Peripherals) {
     hprintln!("Starting");
     let usart_serial = UsartSerial { tx };
     let usart_timer = UsartTimer {};
-    let mut session: Session<UsartSerial, UsartTimer, 150, 2> =
-        Session::new(usart_serial, usart_timer);
+    let session: Session<UsartSerial, UsartTimer, 150, 2> = Session::new(usart_serial, usart_timer);
 
     unsafe { G_UART_SESSION = Some(session) };
 

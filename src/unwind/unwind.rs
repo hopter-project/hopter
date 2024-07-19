@@ -44,10 +44,10 @@ use crate::{
         SVCNum,
     },
     schedule, task,
-    uart::{new_byte_slice, G_UART_SESSION, TIMEOUT_MS},
+    uart::{G_UART_SESSION, TIMEOUT_MS},
     unrecoverable::{self, Lethal},
 };
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec};
 use core::{
     alloc::Layout,
     arch::asm,
@@ -58,7 +58,7 @@ use core::{
     panic::PanicInfo,
     sync::atomic::{AtomicBool, Ordering},
 };
-use cortex_m_semihosting::{hprint, hprintln, nr::TIME};
+use cortex_m_semihosting::hprintln;
 use gimli::{EndianSlice, LittleEndian};
 
 #[cfg(feature = "debug_unwind")]
@@ -75,7 +75,7 @@ pub struct UnwindInfo<'a> {
     /// personality routine.
     personality: PersonalityType,
     /// The iterator that yields unwind instructions to restore register values.
-    unw_instr_iter: UnwindInstrIter<'a>,
+    unw_instr_iter: UnwindInstrIter,
     /// The LSDA describing the cleanup routines and exception catch blocks.
     /// Compact model that embeds the unwind instructions into the
     /// exidx entry does not have LSDA, thus the field is optional.
@@ -124,17 +124,19 @@ impl<'a> UnwindAbility<'a> {
             let extab_start_addr = &extab[0] as *const u8 as usize;
             let entry_offset = extab_entry_addr - extab_start_addr;
 
-            hprintln!("entry offset: {}", entry_offset);
+            // hprintln!("entry offset: {}", entry_offset);
             // this is where we substitute data from the server. Need to have the bytes stored in extab
-            let (extab_entry, lsda_slice) = ExTabEntry::from_bytes(extab, entry_offset)?;
-
-            let lsda =
-                unw_lsda::LSDA::new(lsda_slice, gimli::LittleEndian, exidx_entry.get_func_addr());
+            let (_extab_entry, _lsda_slice) = ExTabEntry::from_bytes(extab, entry_offset)?;
+            let _lsda = unw_lsda::LSDA::new(
+                _lsda_slice,
+                gimli::LittleEndian,
+                exidx_entry.get_func_addr(),
+            );
 
             // ALEX CHANGES
             let data = (entry_offset as u32).to_le_bytes();
 
-            let mut session = match unsafe { G_UART_SESSION.as_mut() } {
+            let session = match unsafe { G_UART_SESSION.as_mut() } {
                 Some(s) => s,
                 None => {
                     hprintln!("No session");
@@ -147,24 +149,78 @@ impl<'a> UnwindAbility<'a> {
                 Ok(_) => hprintln!("Sent extab entry address"),
                 Err(e) => hprintln!("Error: {:?}", e),
             };
-            hprintln!("Sent extab entry address");
 
+            // in order receive:
+            // 1. The bytes of the ExTabEntry.UnwindInstrIter.UnwindByteIter.bytes (needs to be stepped once)
+            // 2. The lsda_slice as bytes
+            // 3. The personality as u32, with extra byte for generic vs compact
             let size = session.listen(TIMEOUT_MS).unwrap();
-            // let size = unsafe { G_UART_SESSION.as_mut().unwrap().listen(TIMEOUT_MS).unwrap() };
-            let mut extab_entry_bytes = new_byte_slice(size as usize);
+            let mut extab_entry_bytes = vec![0; size as usize].into_boxed_slice();
+
             match session.receive(&mut extab_entry_bytes, TIMEOUT_MS) {
-                Ok(_) => hprintln!("Received data"),
+                Ok(_) => hprintln!("Received byte_iter"),
                 Err(e) => hprintln!("Error: {:?}", e),
             }
-            let extab_entry_d: ExTabEntry = postcard::from_bytes(&extab_entry_bytes).unwrap();
-            hprintln!("extab_entry: {:?}", extab_entry_d);
-            hprintln!("extab_entry: {:?}", extab_entry);
+            let mut unw_byte_iter = UnwindByteIter::from_box(extab_entry_bytes).unwrap();
+            // need to cycle unw_byte_iter because we lose track of idx between server and MC
+            unw_byte_iter.next();
+
+            let unw_instr_iter = UnwindInstrIter::from_byte_iter(unw_byte_iter);
+
+            hprintln!("Byte iter d : {:?}", unw_instr_iter);
+            hprintln!("Byte iter   : {:?}", _extab_entry.get_unw_instr_iter());
+
+            // 2. The lsda_slice as bytes
+            let size = session.listen(TIMEOUT_MS).unwrap();
+            let mut lsda_slice_bytes = vec![0; size as usize].into_boxed_slice();
+
+            match session.receive(&mut lsda_slice_bytes, TIMEOUT_MS) {
+                Ok(_) => hprintln!("Received lsda"),
+                Err(e) => hprintln!("Error: {:?}", e),
+            }
+            let lsda_d = unw_lsda::LSDA::from_box(
+                lsda_slice_bytes,
+                gimli::LittleEndian,
+                exidx_entry.get_func_addr(),
+            );
+            hprintln!("LSDA d : {:?}", lsda_d);
+            hprintln!("LSDA   : {:?}", _lsda);
+            // 3. The personality as u32, assume always be generic
+            let size = session.listen(TIMEOUT_MS).unwrap();
+            if size != 5 {
+                hprintln!("Error: expected 5 bytes, got {}", size);
+            }
+            let mut personality_bytes = [0; 5];
+
+            match session.receive(&mut personality_bytes, TIMEOUT_MS) {
+                Ok(_) => hprintln!("Received personality"),
+                Err(e) => hprintln!("Error: {:?}", e),
+            }
+
+            let personality = match personality_bytes[0] {
+                0xAA => {
+                    let p = u32::from_le_bytes(personality_bytes[1..5].try_into().unwrap());
+                    PersonalityType::Compact(p as u8)
+                }
+                0xBB => {
+                    let p = u32::from_le_bytes(personality_bytes[1..5].try_into().unwrap());
+                    PersonalityType::Generic(p)
+                }
+                _ => panic!("Personality type not supported"),
+            };
+
+            hprintln!("Personality d : {:?}", personality);
+            hprintln!("Personality   : {:?}", _extab_entry.get_personality());
+
             Ok(Self::CanUnwind(UnwindInfo {
                 func_addr: exidx_entry.get_func_addr(),
-                personality: extab_entry.get_personality(),
-                // unw_instr_iter: downloaded.unw_instr_iter()
-                unw_instr_iter: extab_entry.get_unw_instr_iter(),
-                lsda: Some(lsda),
+                // personality: extab_entry.get_personality(),
+                personality: personality,
+                // unw_instr_iter: extab_entry_d.get_unw_instr_iter(),
+                unw_instr_iter: unw_instr_iter,
+                // unw_instr_iter: extab_entry.get_unw_instr_iter(),
+                lsda: Some(lsda_d),
+                // lsda: Some(lsda_owned),
             }))
         }
     }
