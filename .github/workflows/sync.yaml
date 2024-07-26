@@ -24,3 +24,8 @@ jobs:
     uses: ./.github/workflows/mutex.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
+
+  channel:
+    uses: ./.github/workflows/channel.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}

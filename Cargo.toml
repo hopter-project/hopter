@@ -144,11 +144,36 @@ path = "examples/tests/sync/mutex/priority.rs"
 name = "test-sync-mutex-poison"
 path = "examples/tests/sync/mutex/poison.rs"
 
-# *** Tests for task - priority ***
+# *** Tests for sync - channel ***
+
+[[example]]
+name = "test-sync-channel-produce_with_overflow"
+path = "examples/tests/sync/channel/produce_with_overflow.rs"
+
+[[example]]
+name = "test-sync-channel-try_consume"
+path = "examples/tests/sync/channel/try_consume.rs"
+
+[[example]]
+name = "test-sync-channel-multiple_producers"
+path = "examples/tests/sync/channel/multiple_producers.rs"
+
+[[example]]
+name = "test-sync-channel-concurrency_and_stress"
+path = "examples/tests/sync/channel/concurrency_and_stress.rs"
+
+[[example]]
+name = "test-sync-channel-multiple_consumers"
+path = "examples/tests/sync/channel/multiple_consumers.rs"
 
 [[example]]
 name = "test-task-priority-reduce_priority"
 path = "examples/tests/task/priority/reduce_priority.rs"
+
+# *** Tests for task - priority ***
+[[example]]
+name = "test-sync-channel-produce_consume_single_task"
+path = "examples/tests/sync/channel/produce_consume_single_task.rs"
 
 # *** Tests for task - unwind ***
 
