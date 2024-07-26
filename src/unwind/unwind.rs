@@ -121,18 +121,18 @@ impl<'a> UnwindAbility<'a> {
         // by an LSDA.
         } else {
             let extab_entry_addr = exidx_entry.get_extab_entry_addr() as usize;
-            let extab_start_addr = &extab[0] as *const u8 as usize;
-            let entry_offset = extab_entry_addr - extab_start_addr;
+            // let extab_start_addr = &extab[0] as *const u8 as usize;
+            // let entry_offset = extab_entry_addr - extab_start_addr;
             // hprintln!("extab_entry_addr: 0x{:x?}", extab_entry_addr);
             // hprintln!("extab_start_addr: 0x{:x?}", extab_start_addr);
             // hprintln!("entry_offset: 0x{:x?}", entry_offset);
             // this is where we substitute data from the server. Need to have the bytes stored in extab
-            let (_extab_entry, _lsda_slice) = ExTabEntry::from_bytes(extab, entry_offset)?;
-            let _lsda = unw_lsda::LSDA::new(
-                _lsda_slice,
-                gimli::LittleEndian,
-                exidx_entry.get_func_addr(),
-            );
+            // let (_extab_entry, _lsda_slice) = ExTabEntry::from_bytes(extab, entry_offset)?;
+            // let _lsda = unw_lsda::LSDA::new(
+            //     _lsda_slice,
+            //     gimli::LittleEndian,
+            //     exidx_entry.get_func_addr(),
+            // );
 
             // ALEX CHANGES
             let data = (extab_entry_addr as u32).to_le_bytes();
@@ -219,7 +219,6 @@ impl<'a> UnwindAbility<'a> {
                 // personality: _extab_entry.get_personality(),
                 // unw_instr_iter: _extab_entry.get_unw_instr_iter(),
                 // lsda: Some(_lsda),
-
                 lsda: Some(lsda_d),
                 personality: personality,
                 unw_instr_iter: unw_instr_iter,
@@ -630,7 +629,8 @@ impl UnwindState<'static> {
         // Find the unwind ability for the last function before
         // the unwinder is invoked.
         let exidx = boot::get_exidx();
-        let extab = boot::get_extab();
+        // let extab = boot::get_extab();
+        let extab: &[u8] = &[0; 0];
         unw_state
             .unw_ability
             .get_for_pc(unw_state.gp_regs[ARMGPReg::PC] as u32, exidx, extab)
@@ -810,8 +810,11 @@ impl<'a> UnwindState<'a> {
         }
 
         // Update unwind ability information.
+        // this is the one that triggers during unw_iter
         let exidx = boot::get_exidx();
-        let extab = boot::get_extab();
+        // let extab = boot::get_extab();
+        // hprintln!("extab: {:?}", extab);
+        let extab: &[u8] = &[0; 0];
         self.unw_ability
             .get_for_pc(self.gp_regs[ARMGPReg::PC] as u32, exidx, extab)?;
 
