@@ -14,7 +14,6 @@ fn main(_: cortex_m::Peripherals) {
     for i in 0..4
     {
         producer.produce(i);
-        hprintln!("{}", i);
     }
 
     // attempt to push values 4-7
