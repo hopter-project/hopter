@@ -3,7 +3,6 @@
 #![feature(naked_functions)]
 
 extern crate alloc;
-use alloc::boxed::Box;
 // use alloc::vec;
 // use core::cmp::max;
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -28,6 +27,7 @@ use stm32f4xx_hal::uart::Config;
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
+    // for remote unwinder to work, this section must be executed before any other code
     let dp = unsafe { stm32f4xx_hal::pac::Peripherals::steal() };
     let clocks = dp.RCC.constrain().cfgr.freeze();
     let gpioa = dp.GPIOA.split();
@@ -61,26 +61,7 @@ fn main(_: cortex_m::Peripherals) {
 
     unsafe { G_UART_SESSION = Some(session) };
 
-    // let extab_entry_addr: u32 = 24;
-    // let data = extab_entry_addr.to_le_bytes();
-    // unsafe {
-    //     G_UART_SESSION
-    //         .as_mut()
-    //         .unwrap()
-    //         .send(&data, TIMEOUT_MS)
-    //         .unwrap();
-    // }
-    // let size = unsafe { G_UART_SESSION.as_mut().unwrap().listen(TIMEOUT_MS).unwrap() };
-    // let mut unw_iter_bytes = new_byte_slice(size as usize);
-    // unsafe {
-    //     G_UART_SESSION
-    //         .as_mut()
-    //         .unwrap()
-    //         .receive(&mut unw_iter_bytes, TIMEOUT_MS)
-    //         .unwrap();
-    // }
-    // let byte_iter: UnwindByteIter = postcard::from_bytes(&unw_iter_bytes).unwrap();
-    // hprintln!("Byte iter: {:?}", byte_iter);
+    // now we can panic and get restarted
     match schedule::start_restartable_task(2, |_| will_panic(), (), 0, 4) {
         Ok(_) => {
             hprintln!("Task started");
@@ -89,22 +70,28 @@ fn main(_: cortex_m::Peripherals) {
             hprintln!("Error: {:?}", e);
         }
     }
+    sleep_ms(60000);
+    hprintln!("finished with restarting tasks, exiting");
+    semihosting::terminate(true);
 }
 fn will_panic() {
     static CNT: AtomicUsize = AtomicUsize::new(0);
 
     // Every time the task runs we increment it by 1.
     let cnt = CNT.fetch_add(1, Ordering::SeqCst);
-
-    // hprintln!("Current count: {}", cnt);
-
-    // Panic and get restarted for 5 times.
-    if cnt < 1 {
-        hprintln!("Panic!");
-        panic!();
+    hprintln!("will_panic {}", cnt);
+    if cnt > 0 {
+        hprintln!("task sleeping {}", cnt);
+        sleep_ms(10000);
     }
+    hprintln!("task woke up {}", cnt);
+    if cnt < 2 {
+        hprintln!("Panic number: {}", cnt);
+        panic!("Panic number: {}", cnt);
+    }
+
+    hprintln!("panic passed {}", cnt);
     sleep_ms(10000);
-    semihosting::terminate(true);
 }
 #[handler(USART1)]
 unsafe extern "C" fn usart1_handler() {

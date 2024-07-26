@@ -12,7 +12,7 @@
 
 #![allow(nonstandard_style)]
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box};
 use core::{fmt::Formatter, ops::Range};
 use fallible_iterator::FallibleIterator;
 use gimli::{constants::*, DwEhPe, EndianSlice, Endianity, Reader};
@@ -38,6 +38,7 @@ impl<'input, Endian: Endianity> LSDA<EndianSlice<'input, Endian>> {
     /// must also be provided, because this is often used as the default
     /// base address for the landing pad from which all offsets are calculated.
     pub fn from_box(data: Box<[u8]>, endian: Endian, function_start_address: u32) -> Self {
+        // let data: Vec<u8> = data.into_vec();
         let data: &'static [u8] = Box::leak(data);
         LSDA {
             reader: EndianSlice::new(data, endian),

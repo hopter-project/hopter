@@ -123,8 +123,9 @@ impl<'a> UnwindAbility<'a> {
             let extab_entry_addr = exidx_entry.get_extab_entry_addr() as usize;
             let extab_start_addr = &extab[0] as *const u8 as usize;
             let entry_offset = extab_entry_addr - extab_start_addr;
-
-            // hprintln!("entry offset: {}", entry_offset);
+            // hprintln!("extab_entry_addr: 0x{:x?}", extab_entry_addr);
+            // hprintln!("extab_start_addr: 0x{:x?}", extab_start_addr);
+            // hprintln!("entry_offset: 0x{:x?}", entry_offset);
             // this is where we substitute data from the server. Need to have the bytes stored in extab
             let (_extab_entry, _lsda_slice) = ExTabEntry::from_bytes(extab, entry_offset)?;
             let _lsda = unw_lsda::LSDA::new(
@@ -134,7 +135,7 @@ impl<'a> UnwindAbility<'a> {
             );
 
             // ALEX CHANGES
-            let data = (entry_offset as u32).to_le_bytes();
+            let data = (extab_entry_addr as u32).to_le_bytes();
 
             let session = match unsafe { G_UART_SESSION.as_mut() } {
                 Some(s) => s,
@@ -168,7 +169,7 @@ impl<'a> UnwindAbility<'a> {
             let unw_instr_iter = UnwindInstrIter::from_byte_iter(unw_byte_iter);
 
             hprintln!("Byte iter d : {:?}", unw_instr_iter);
-            hprintln!("Byte iter   : {:?}", _extab_entry.get_unw_instr_iter());
+            // hprintln!("Byte iter   : {:?}", _extab_entry.get_unw_instr_iter());
 
             // 2. The lsda_slice as bytes
             let size = session.listen(TIMEOUT_MS).unwrap();
@@ -184,7 +185,7 @@ impl<'a> UnwindAbility<'a> {
                 exidx_entry.get_func_addr(),
             );
             hprintln!("LSDA d : {:?}", lsda_d);
-            hprintln!("LSDA   : {:?}", _lsda);
+            // hprintln!("LSDA   : {:?}", _lsda);
             // 3. The personality as u32, assume always be generic
             let size = session.listen(TIMEOUT_MS).unwrap();
             if size != 5 {
@@ -210,17 +211,18 @@ impl<'a> UnwindAbility<'a> {
             };
 
             hprintln!("Personality d : {:?}", personality);
-            hprintln!("Personality   : {:?}", _extab_entry.get_personality());
+            // hprintln!("Personality   : {:?}", _extab_entry.get_personality());
 
             Ok(Self::CanUnwind(UnwindInfo {
                 func_addr: exidx_entry.get_func_addr(),
-                // personality: extab_entry.get_personality(),
-                personality: personality,
-                // unw_instr_iter: extab_entry_d.get_unw_instr_iter(),
-                unw_instr_iter: unw_instr_iter,
-                // unw_instr_iter: extab_entry.get_unw_instr_iter(),
+
+                // personality: _extab_entry.get_personality(),
+                // unw_instr_iter: _extab_entry.get_unw_instr_iter(),
+                // lsda: Some(_lsda),
+
                 lsda: Some(lsda_d),
-                // lsda: Some(lsda_owned),
+                personality: personality,
+                unw_instr_iter: unw_instr_iter,
             }))
         }
     }
