@@ -216,7 +216,7 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     let stk_arg_size = get_stack_arg_size(tf);
 
     // The current stacklet boundary.
-    let bound = ctxt.stklet_bound;
+    let bound = ctxt.tls.stklet_bound;
 
     // Retrieve the current stacklet metadata.
     let cur_meta_ptr = bound_to_stklet_meta(bound as usize);
@@ -251,7 +251,7 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         // The metadata is placed at the lowest address inside the chunk.
         let meta_ptr = stacklet_ptr as *mut StackletMeta;
         meta_ptr.write(StackletMeta {
-            prev_stklet_bound: ctxt.stklet_bound,
+            prev_stklet_bound: ctxt.tls.stklet_bound,
             prev_sp: ctxt.sp,
             extend_cnt: 0,
         });
@@ -298,7 +298,7 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         let new_bound = stacklet_ptr as usize + OVERHEAD_SIZE;
 
         // Update the stacklet boundary and stack pointer for the current task.
-        ctxt.stklet_bound = new_bound as u32;
+        ctxt.tls.stklet_bound = new_bound as u32;
         ctxt.sp = new_tf_ptr as u32;
 
         // We should resume execution from the function body. See the instruction
@@ -321,7 +321,7 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     }
 
     // The current stacklet boundary.
-    let bound = ctxt.stklet_bound;
+    let bound = ctxt.tls.stklet_bound;
 
     unsafe {
         // Retrieve the previous stacklet information.
@@ -341,7 +341,7 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
         prev_tf.gp_regs.pc = prev_tf.gp_regs.lr;
 
         // Restore the stacklet boundary and stack pointer to the previous stacklet.
-        ctxt.stklet_bound = meta.prev_stklet_bound;
+        ctxt.tls.stklet_bound = meta.prev_stklet_bound;
         ctxt.sp = meta.prev_sp;
 
         // Update hot split alleviation information.
@@ -371,7 +371,7 @@ pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     // code structure of the unwinder, this is the only stacklet that has not
     // been freed by the unwinder, because this is the initial stacklet when the
     // unwinder starts to run.
-    let unwinder_stklet_bound = ctxt.stklet_bound;
+    let unwinder_stklet_bound = ctxt.tls.stklet_bound;
 
     // Calculate the pointer pointing to the stacklet chunk.
     let unwinder_stklet_ptr = bound_to_stklet_ptr(unwinder_stklet_bound as usize);
@@ -411,7 +411,7 @@ pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     prev_tf.gp_regs.pc = land_addr;
 
     // Update the stacklet boundary when we exception return to the task.
-    ctxt.stklet_bound = unw_state.stklet_boundary;
+    ctxt.tls.stklet_bound = unw_state.stklet_boundary;
 
     // And let the task's stack pointer point to the trap frame we just built.
     ctxt.sp = prev_sp;

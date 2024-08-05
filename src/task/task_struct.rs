@@ -73,14 +73,35 @@ struct CalleeSavedFPRegs {
     s31: u32,
 }
 
+/// The task local storage to support the segmented stack and deferred panic.
+#[repr(C)]
+#[derive(Default)]
+pub(crate) struct TaskLocalStorage {
+    /// The boundary address of the top stacklet.
+    pub(crate) stklet_bound: u32,
+    /// The number of drop functions that are currently present in the function
+    /// call stack. The modified compiler toolchain generates a prologue for
+    /// each drop function that increments the counter as well as an epilogue
+    /// that decrements it. Note that drop functions may nest so the value can
+    /// be greater than 1.
+    pub(crate) nested_drop_cnt: u32,
+    /// A boolean flag indicating if a panic call is pending. We cannot inject
+    /// a panic to a task if the task is running a drop handler function, in
+    /// which case we just set the panic pending flag. The modified compiler
+    /// toolchain generates an epilogue that checks this flag if the
+    /// [`nested_drop_cnt`](Self::nested_drop_cnt) is zero and diverts to panic
+    /// if the flag is set to true.
+    pub(crate) panic_pending: u32,
+}
+
 #[repr(C)]
 #[derive(Default)]
 /// The context of a task managed by the kernel. The struct does not store
 /// caller-saved registers because these registers are pushed to the user stack
 /// before context switch.
 pub(crate) struct TaskCtxt {
-    /// The boundary address of the top stacklet.
-    stklet_bound: u32,
+    /// Preserved task local storage fields.
+    tls: TaskLocalStorage,
     /// The stack pointer value.
     sp: u32,
     /// Preserved callee-saved general purpose registers.
@@ -396,7 +417,7 @@ impl Task {
         // Set relevant infomation in the task context.
         let ctxt = self.ctxt.get_mut();
         ctxt.sp = sp as u32;
-        ctxt.stklet_bound = segmented_stack::stklet_ptr_to_bound(stklet_begin) as u32;
+        ctxt.tls.stklet_bound = segmented_stack::stklet_ptr_to_bound(stklet_begin) as u32;
 
         // Set other task information.
         self.id.store(id, Ordering::SeqCst);
@@ -554,7 +575,7 @@ impl Task {
     }
 
     pub(crate) fn get_stk_bound(&mut self) -> u32 {
-        self.ctxt.get_mut().stklet_bound
+        self.ctxt.get_mut().tls.stklet_bound
     }
 
     pub(crate) fn get_state(&self) -> TaskState {

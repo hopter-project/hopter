@@ -827,7 +827,7 @@ pub extern "C" fn start_unwind_entry() {
             // after the following SVC.
             "mov    r0, lr",                // Copy `lr` to `r0`.
             "mov    r1, sp",                // Copy `sp` to `r1`.
-            "ldr    r2, ={stkbnd_mem_addr}",// Let `r2` hold the stacklet boundary of the
+            "ldr    r2, ={tls_mem_addr}",   // Let `r2` hold the stacklet boundary of the
             "ldr    r2, [r2]",              // task before the unwinder in invoked.
 
             // If we are in an ISR, skip the following SVC, because we need not a new
@@ -844,7 +844,7 @@ pub extern "C" fn start_unwind_entry() {
 
             // Prepare arguments in the stack.
             "0:",
-            "ldr    r3, ={stkbnd_mem_addr}",// The execution starts here after the
+            "ldr    r3, ={tls_mem_addr}",   // The execution starts here after the
             "ldr    r3, [r3]",              // system call is completed. We save the
                                             // boundary of the unwinder's stacklet
                                             // into `r3`.
@@ -895,7 +895,7 @@ pub extern "C" fn start_unwind_entry() {
             "bx     r1",                    // Jump to the landing address.
             create_unwind_state = sym UnwindState::create_unwind_state,
             resume_unwind = sym resume_unwind,
-            stkbnd_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
+            tls_mem_addr = const config::TLS_MEM_ADDR,
             task_unwind_prep = const(SVCNum::TaskUnwindPrepare as u8),
             task_unwind_land = const(SVCNum::TaskUnwindLand as u8),
             options(noreturn)

@@ -74,18 +74,22 @@ extern "C" fn irq_handler_trampoline(handler_func_ptr: u32) {
 #[naked]
 pub unsafe extern "C" fn fast_irq_entry(handler_func_ptr: u32) {
     asm!(
-        // Preserve the user task's stacklet boundary and exception return value.
-        "ldr r3, ={stklet_boundary_mem_addr}",
-        "ldr r1, [r3]",
-        "push {{r1, lr}}",
-        // Set the kernel stacklet boundary.
-        "ldr r2, ={kern_stk_boundary}",
-        "str r2, [r3]",
+        // Preserve the task local storage (TLS) fields and exception return
+        // value.
+        "ldr   r12, ={tls_mem_addr}",
+        "ldmia r12, {{r1-r3}}",
+        "push  {{r1-r3, lr}}",
+        // Set the kernel stacklet boundary and clear out other fields in the
+        // TLS.
+        "ldr   r1, ={kern_stk_boundary}",
+        "mov   r2, #0",
+        "mov   r3, #0",
+        "stmia r12, {{r1-r3}}",
         // Let the handler return to the exit sequence.
-        "ldr lr, ={irq_fast_exit}",
+        "ldr   lr, ={irq_fast_exit}",
         // Run the IRQ handler.
-        "b   {handler_trampoline}",
-        stklet_boundary_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
+        "b     {handler_trampoline}",
+        tls_mem_addr = const config::TLS_MEM_ADDR,
         kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
         irq_fast_exit = sym fast_irq_exit,
         handler_trampoline = sym irq_handler_trampoline,
@@ -98,13 +102,14 @@ pub unsafe extern "C" fn fast_irq_entry(handler_func_ptr: u32) {
 #[naked]
 pub unsafe extern "C" fn fast_irq_exit() {
     asm!(
-        // Restore user task's stacklet boundary.
-        "pop {{r1, lr}}",
-        "ldr r2, ={stklet_boundary_mem_addr}",
-        "str r1, [r2]",
+        // Restore the task local storage (TLS) fields and exception return
+        // value.
+        "pop   {{r1-r3, lr}}",
+        "ldr   r12, ={tls_mem_addr}",
+        "stmia r12, {{r1-r3}}",
         // Exception return.
-        "bx  lr",
-        stklet_boundary_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
+        "bx    lr",
+        tls_mem_addr = const config::TLS_MEM_ADDR,
         options(noreturn)
     )
 }

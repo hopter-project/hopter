@@ -25,18 +25,6 @@ const_assert!(CONTIGUOUS_STACK_BOTTOM % 8 == 0);
 pub use hopter_conf_params::ALLOW_DYNAMIC_STACK;
 assert_value_type!(ALLOW_DYNAMIC_STACK, bool);
 
-/// The address in memory where the active stacklet boundary is stored.
-pub use hopter_conf_params::STACKLET_BOUNDARY_MEM_ADDR;
-assert_value_type!(STACKLET_BOUNDARY_MEM_ADDR, u32);
-
-// The boundary value is 4-byte so should be 4-byte aligned.
-const_assert!(STACKLET_BOUNDARY_MEM_ADDR % 4 == 0);
-// The memory address should be encodable as a thumb2 instruction constant,
-// so that we can use a `mov.w` instruction to load the address into a register.
-const_assert!(helper::is_thumb2_allowed_constant(
-    STACKLET_BOUNDARY_MEM_ADDR
-));
-
 /// The extra size added to a stacklet allocation request in addition to the
 /// allocation size requested by the function prologue.
 pub use hopter_conf_params::STACKLET_ADDITION_ALLOC_SIZE;
@@ -186,6 +174,17 @@ const_assert!(PENDSV_PRIORITY < IRQ_ENABLE_BASEPRI_PRIORITY);
 /* ### Task Configurations ### */
 /* ########################### */
 
+/// The address in memory where the task local storage is placed. Currently
+/// this must be the fixed value `0x2000_0000` because the compiler toolchain
+/// assumes this value.
+pub use hopter_conf_params::TLS_MEM_ADDR;
+assert_value_type!(TLS_MEM_ADDR, u32);
+const_assert_eq!(TLS_MEM_ADDR, 0x2000_0000);
+
+// The memory address should be encodable as a thumb2 instruction constant,
+// so that we can use a `mov.w` instruction to load the address into a register.
+const_assert!(helper::is_thumb2_allowed_constant(TLS_MEM_ADDR));
+
 /// The maximum number of tasks. Must be a power of 2.
 pub use hopter_conf_params::MAX_TASK_NUMBER;
 assert_value_type!(MAX_TASK_NUMBER, usize);
@@ -247,6 +246,7 @@ assert_value_type!(IDLE_TASK_ID, u8);
 /// Tasks can have the same ID as long as the ID is different from the idle
 /// task's ID.
 pub use hopter_conf_params::DEFAULT_TASK_ID;
+use static_assertions::const_assert_eq;
 assert_value_type!(DEFAULT_TASK_ID, u8);
 
 // The idle task ID must be unique in all tasks.

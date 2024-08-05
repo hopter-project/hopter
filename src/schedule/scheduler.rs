@@ -224,7 +224,7 @@ pub(crate) unsafe fn start_scheduler() -> ! {
     let cur_task_regs = super::lock_cur_task_regs();
     CUR_TASK_REGS.store(cur_task_regs, Ordering::SeqCst);
 
-    // The idle task is an existing task.
+    // Make the idle task an existing task.
     EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
 
     unsafe {
@@ -232,9 +232,12 @@ pub(crate) unsafe fn start_scheduler() -> ! {
         asm!(
             // Set the idle task's stack pointer.
             "msr psp, r0",
-            // Set the idle task's stacklet boundary.
-            "ldr r0, ={stklet_boundary_mem_addr}",
+            // Set the idle task's TLS fields.
+            "ldr r0, ={tls_mem_addr}",
             "str r1, [r0]",
+            "mov r1, #0",
+            "str r1, [r0, #4]",
+            "str r1, [r0, #8]",
             // Start to use PSP instead of MSP.
             // PSP is for running tasks.
             // MSP is for the kernel.
@@ -253,7 +256,7 @@ pub(crate) unsafe fn start_scheduler() -> ! {
             // Jump to the idle function.
             "b {idle}",
             idle = sym super::idle,
-            stklet_boundary_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
+            tls_mem_addr = const config::TLS_MEM_ADDR,
             kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
             in("r0") stack_bottom,
             in("r1") idle_stk_bound,
