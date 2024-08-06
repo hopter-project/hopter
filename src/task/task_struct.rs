@@ -6,7 +6,7 @@ use super::{
 use crate::{
     config,
     interrupt::{svc, trap_frame::TrapFrame},
-    sync::{AtomicCell, Spin, SpinGuard},
+    sync::{AtomicCell, Spin},
     unrecoverable::{self, Lethal},
 };
 use alloc::{boxed::Box, sync::Arc};
@@ -202,19 +202,28 @@ impl Task {
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
+    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
+    ///   by allocating new stacklets.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     pub(crate) fn build<F>(
         id: u8,
         entry_closure: F,
         init_stklet_size: usize,
+        is_dynamic_stack: bool,
         priority: u8,
     ) -> Result<Self, ()>
     where
         F: FnOnce() + Send + 'static,
     {
         let mut task = Self::new();
-        task.initialize(id, entry_closure, init_stklet_size, priority)?;
+        task.initialize(
+            id,
+            entry_closure,
+            init_stklet_size,
+            is_dynamic_stack,
+            priority,
+        )?;
         Ok(task)
     }
 
@@ -230,6 +239,8 @@ impl Task {
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
+    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
+    ///   by allocating new stacklets.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
@@ -237,13 +248,20 @@ impl Task {
         id: u8,
         entry_closure: F,
         reserve_stack_size: usize,
+        is_dynamic_stack: bool,
         priority: u8,
     ) -> Result<Self, ()>
     where
         F: FnOnce() + Send + Sync + Clone + 'static,
     {
         let mut task = Self::new();
-        task.initialize_restartable(id, entry_closure, reserve_stack_size, priority)?;
+        task.initialize_restartable(
+            id,
+            entry_closure,
+            reserve_stack_size,
+            is_dynamic_stack,
+            priority,
+        )?;
         Ok(task)
     }
 
@@ -282,6 +300,7 @@ impl Task {
                 config::IDLE_TASK_ID,
                 || unrecoverable::die(),
                 config::IDLE_TASK_INITIAL_STACK_SIZE,
+                true,
                 config::IDLE_TASK_PRIORITY,
             )
             .unwrap_or_die();
@@ -314,7 +333,7 @@ impl Task {
             #[cfg(feature = "unwind")]
             restarted_from: None,
             init_stklet_size: 0,
-            hsab: Some(Box::new(Spin::new(HotSplitAlleviationBlock::default()))),
+            hsab: None,
             priority: AtomicCell::new(TaskPriority::new_intrinsic(
                 config::TASK_PRIORITY_LEVELS - 1,
             )),
@@ -332,6 +351,8 @@ impl Task {
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
+    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
+    ///   by allocating new stacklets.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     fn initialize_common(
@@ -340,11 +361,18 @@ impl Task {
         entry_closure_ptr: usize,
         entry_trampoline: usize,
         init_stklet_size: usize,
+        is_dynamic_stack: bool,
         priority: u8,
     ) -> Result<(), ()> {
         // Check priority number validity.
         if priority >= config::TASK_PRIORITY_LEVELS {
             return Err(());
+        }
+
+        // Allocate a hot-split alleviation block only if dynamic stack
+        // extension is enabled for the task.
+        if is_dynamic_stack {
+            self.hsab = Some(Box::new(Spin::new(HotSplitAlleviationBlock::default())));
         }
 
         // Allocate the initial stacklet. `stklet_begin` points to the
@@ -435,6 +463,8 @@ impl Task {
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
+    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
+    ///   by allocating new stacklets.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     fn initialize<F>(
@@ -442,6 +472,7 @@ impl Task {
         id: u8,
         entry_closure: F,
         init_stklet_size: usize,
+        is_dynamic_stack: bool,
         priority: u8,
     ) -> Result<(), ()>
     where
@@ -462,6 +493,7 @@ impl Task {
             closure_ptr,
             entry_trampoline,
             init_stklet_size,
+            is_dynamic_stack,
             priority,
         )
     }
@@ -474,6 +506,8 @@ impl Task {
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
     ///   new task. When it is set to 0, the entry closure will always request
     ///   for a new stacklet before execution.
+    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
+    ///   by allocating new stacklets.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
@@ -482,6 +516,7 @@ impl Task {
         id: u8,
         entry_closure: F,
         init_stklet_size: usize,
+        is_dynamic_stack: bool,
         priority: u8,
     ) -> Result<(), ()>
     where
@@ -516,6 +551,7 @@ impl Task {
             closure_ptr,
             entry_trampoline as usize,
             init_stklet_size,
+            is_dynamic_stack,
             priority,
         )
     }
@@ -563,6 +599,7 @@ impl Task {
             closure_ptr,
             entry_trampoline,
             prev_task.init_stklet_size,
+            prev_task.hsab.is_some(),
             priority,
         )
     }
@@ -639,9 +676,17 @@ impl Task {
         self.ctxt.force_unlock()
     }
 
-    /// Return the lock guard for accessing the hot-split alleviation block.
-    pub(crate) fn lock_hsab(&self) -> SpinGuard<HotSplitAlleviationBlock> {
-        self.hsab.as_ref().unwrap_or_die().lock_now_or_die()
+    /// Run the provided closure with [`HotSplitAlleviationBlock`] if the task
+    /// has it and wrap the return value with `Some(_)`. Otherwise if the task
+    /// has no [`HotSplitAlleviationBlock`], return `None`.
+    pub(crate) fn with_hsab<F, R>(&self, op: F) -> Option<R>
+    where
+        F: FnOnce(&mut HotSplitAlleviationBlock) -> R,
+    {
+        self.hsab
+            .as_ref()
+            .map(|hsab| hsab.lock_now_or_die())
+            .map(|mut hsab| op(&mut *hsab))
     }
 }
 

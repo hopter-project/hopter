@@ -1133,6 +1133,27 @@ unsafe fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
+/// Clear the panic pending flag in the task local storage region.
+#[naked]
+extern "C" fn clear_panic_pending_flag() {
+    unsafe {
+        asm!(
+            "mov r0, #0",
+            "ldr r1, ={tls_mem_addr}",
+            "str r0, [r1, #8]",
+            "bx  lr",
+            tls_mem_addr = const config::TLS_MEM_ADDR,
+            options(noreturn)
+        )
+    }
+}
+
+/// TODO: Comment it.
+pub(crate) extern "C" fn deferred_unwind() {
+    clear_panic_pending_flag();
+    panic!()
+}
+
 /* Below are unused personality routines. They are marked unsafe because */
 /* they should not be invoked by any programmer's code. */
 

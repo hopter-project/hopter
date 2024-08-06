@@ -1,7 +1,7 @@
 //! This file is derived from `cortex-m-rt` crate, with `Reset`
 //! function modified.
 
-use super::{config, interrupt::default};
+use crate::{config, interrupt::default, unwind};
 use core::{arch::asm, slice};
 pub use hopter_proc_macro::main;
 
@@ -103,6 +103,8 @@ unsafe extern "C" fn Reset() -> ! {
         "mov r1, #0",
         "str r1, [r0, #4]",
         "str r1, [r0, #8]",
+        "ldr r1, ={deferred_unwind}",
+        "str r1, [r0, #12]",
         "mov lr, #0",
         "b  {entry}",
         sbss = sym __sbss,
@@ -121,6 +123,7 @@ unsafe extern "C" fn Reset() -> ! {
         kern_stk_len = const { config::CONTIGUOUS_STACK_BOTTOM - 0x2000_0000 },
         kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
         stklet_boundary_mem_addr = const config::TLS_MEM_ADDR,
+        deferred_unwind = sym unwind::unwind::deferred_unwind,
         memclr = sym memclr,
         memcpy = sym memcpy,
         memset = sym memset,

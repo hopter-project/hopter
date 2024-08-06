@@ -10,6 +10,7 @@ where
     init_stklet_size: Option<usize>,
     priority: Option<u8>,
     id: Option<u8>,
+    is_dynamic_stack: bool,
 }
 
 pub fn build<F>() -> TaskBuilder<F>
@@ -29,6 +30,7 @@ where
             init_stklet_size: None,
             priority: None,
             id: None,
+            is_dynamic_stack: true,
         }
     }
 
@@ -47,6 +49,11 @@ where
         self
     }
 
+    pub fn deny_dynamic_stack(mut self) -> Self {
+        self.is_dynamic_stack = false;
+        self
+    }
+
     pub fn set_priority(mut self, prio: u8) -> Self {
         self.priority.replace(prio);
         self
@@ -57,7 +64,18 @@ where
         let id = self.id.unwrap_or(config::DEFAULT_TASK_ID);
         let prio = self.priority.unwrap_or(config::DEFAULT_TASK_PRIORITY);
         let init_stklet_size = self.init_stklet_size.unwrap_or(0);
-        let new_task = Task::build(id, entry_closure, init_stklet_size, prio)?;
+
+        if init_stklet_size == 0 && !self.is_dynamic_stack {
+            return Err(());
+        }
+
+        let new_task = Task::build(
+            id,
+            entry_closure,
+            init_stklet_size,
+            self.is_dynamic_stack,
+            prio,
+        )?;
         scheduler::make_new_task_ready(id, Arc::new(new_task))
     }
 }
@@ -72,7 +90,18 @@ where
         let id = self.id.unwrap_or(config::DEFAULT_TASK_ID);
         let prio = self.priority.unwrap_or(config::DEFAULT_TASK_PRIORITY);
         let init_stklet_size = self.init_stklet_size.unwrap_or(0);
-        let new_task = Task::build_restartable(id, entry_closure, init_stklet_size, prio)?;
+
+        if init_stklet_size == 0 && !self.is_dynamic_stack {
+            return Err(());
+        }
+
+        let new_task = Task::build_restartable(
+            id,
+            entry_closure,
+            init_stklet_size,
+            self.is_dynamic_stack,
+            prio,
+        )?;
         scheduler::make_new_task_ready(id, Arc::new(new_task))
     }
 }

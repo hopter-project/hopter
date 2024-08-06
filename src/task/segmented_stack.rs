@@ -83,6 +83,13 @@ pub fn get_active_stacklet_count() -> usize {
     ACTIVE_STACKLET_COUNT.load(Ordering::Relaxed)
 }
 
+#[derive(PartialEq)]
+pub(crate) enum MoreStackReason {
+    Normal,
+    Drop,
+    Unwind,
+}
+
 /// The metadata kept in each stacklet that is used to chain several stacklets
 /// together to form a logical function call stack.
 #[repr(C)]
@@ -171,7 +178,7 @@ pub(super) fn alloc_initial_stacklet(free_size: usize) -> (*mut u8, *mut u8) {
 
 /// Allocate a new stacklet for the currently running task. Let the task's current
 /// function continue with the new stacklet to execute its function body.
-pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
+pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: MoreStackReason) {
     if !config::ALLOW_DYNAMIC_STACK {
         unrecoverable::die();
     }
@@ -222,15 +229,29 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     let cur_meta_ptr = bound_to_stklet_meta(bound as usize);
     let cur_meta = unsafe { &mut *cur_meta_ptr };
 
-    // Alleviate the hot split problem.
     schedule::with_current_task(|cur_task| {
-        let mut locked_hsab = cur_task.lock_hsab();
-        svc_more_stack_anti_hot_split(
-            tf,
-            &mut stk_frame_size,
-            &mut *locked_hsab,
-            &mut cur_meta.extend_cnt,
-        );
+        cur_task
+            // Alleviate the hot split problem if the task contains a hot-split
+            // alleviation block. All tasks with dynamic stack extension
+            // enabled has it.
+            .with_hsab(|hsab| {
+                svc_more_stack_anti_hot_split(
+                    tf,
+                    &mut stk_frame_size,
+                    hsab,
+                    &mut cur_meta.extend_cnt,
+                )
+            })
+            // Otherwise, the task does not enable dynamic stack extension.
+            // Divert the function call to a panic if no drop handler function
+            // is currently active. Pend a panic if any drop handler function
+            // is active. The pending panic will be invoked after all drop
+            // handler functions of the task return.
+            .unwrap_or_else(|| {
+                if reason == MoreStackReason::Drop || ctxt.tls.nested_drop_cnt > 0 {
+                    ctxt.tls.panic_pending = 1;
+                }
+            });
     });
 
     // Total chunk size to request from malloc.
@@ -346,8 +367,7 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
 
         // Update hot split alleviation information.
         schedule::with_current_task(|cur_task| {
-            let mut locked_hsab = cur_task.lock_hsab();
-            svc_less_stack_anti_hot_split(prev_tf, &mut *locked_hsab);
+            cur_task.with_hsab(|hsab| svc_less_stack_anti_hot_split(prev_tf, hsab));
         });
 
         // The stacklet starts with the metadata.

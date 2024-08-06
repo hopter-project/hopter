@@ -16,7 +16,7 @@
 use super::trap_frame::TrapFrame;
 use crate::{
     allocator, config, schedule,
-    task::{self, TaskLocalStorage},
+    task::{self, MoreStackReason, TaskLocalStorage},
     unrecoverable::{self, Lethal},
 };
 use core::arch::asm;
@@ -149,13 +149,13 @@ extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         // scheduler can schedule it later.
         SVCNum::TaskYield => schedule::yield_cur_task_from_isr(),
         SVCNum::TaskBlock => schedule::block_cur_task_from_isr(),
-        SVCNum::TaskMoreStack => task::more_stack(tf, ctxt),
-        SVCNum::TaskMoreStackFromDrop => task::more_stack(tf, ctxt),
+        SVCNum::TaskMoreStack => task::more_stack(tf, ctxt, MoreStackReason::Normal),
+        SVCNum::TaskMoreStackFromDrop => task::more_stack(tf, ctxt, MoreStackReason::Drop),
         SVCNum::TaskLessStack => task::less_stack(tf, ctxt),
         SVCNum::MemAlloc => allocator::task_malloc(tf),
         SVCNum::MemFree => allocator::task_free(tf),
         SVCNum::TaskDestroy => schedule::destroy_current_task_and_schedule(),
-        SVCNum::TaskUnwindPrepare => task::more_stack(tf, ctxt),
+        SVCNum::TaskUnwindPrepare => task::more_stack(tf, ctxt, MoreStackReason::Unwind),
         #[cfg(feature = "unwind")]
         SVCNum::TaskUnwindLand => task::unwind_land(tf, ctxt),
     }
