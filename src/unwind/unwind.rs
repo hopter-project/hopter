@@ -32,7 +32,7 @@
 use super::{
     unw_lsda::{self, LSDA},
     unw_table::{
-        ExIdxEntry, ExTabEntry, PersonalityType, Prel31, UnwindByteIter, UnwindInstrIter,
+        ExIdxEntry, /*ExTabEntry,*/ PersonalityType, Prel31, UnwindByteIter, UnwindInstrIter,
         UnwindInstruction,
     },
 };
@@ -95,7 +95,7 @@ impl<'a> UnwindAbility<'a> {
     /// Arguments:
     /// - `exidx_entry` is the reference to a 2-word entry in the `.ARM.exidx` section.
     /// - `extab` is the slice of the whole `.ARM.extab` section.
-    fn from_bytes(exidx_entry: &'a [u8; 8], extab: &'a [u8]) -> Result<Self, &'static str> {
+    fn from_bytes(exidx_entry: &'a [u8; 8], _extab: &'a [u8]) -> Result<Self, &'static str> {
         let exidx_entry = ExIdxEntry::from_bytes(exidx_entry)?;
 
         // The current function might not support unwinding.
@@ -135,7 +135,6 @@ impl<'a> UnwindAbility<'a> {
             // );
 
             // ALEX CHANGES
-            let data = (extab_entry_addr as u32).to_le_bytes();
 
             let session = match unsafe { G_UART_SESSION.as_mut() } {
                 Some(s) => s,
@@ -146,6 +145,17 @@ impl<'a> UnwindAbility<'a> {
             };
 
             hprintln!("session established");
+
+            // first tell the server that we are handling the extab section
+            let request_type: u32 = 0xAAAA;
+            let data = request_type.to_le_bytes();
+            match session.send(&data, TIMEOUT_MS) {
+                Ok(_) => hprintln!("Sent request type"),
+                Err(e) => hprintln!("Error: {:?}", e),
+            };
+
+            let data = (extab_entry_addr as u32).to_le_bytes();
+
             match session.send(&data, TIMEOUT_MS) {
                 Ok(_) => hprintln!("Sent extab entry address"),
                 Err(e) => hprintln!("Error: {:?}", e),
@@ -239,6 +249,8 @@ impl<'a> UnwindAbility<'a> {
         exidx: &'a [u8],
         extab: &'a [u8],
     ) -> Result<(), &'static str> {
+        // send pc and get back the exidx slice
+
         if exidx.len() % 8 != 0 {
             return Err("UnwindAbility::get_for_func: exidx length not multiple of 8.");
         }
@@ -629,7 +641,9 @@ impl UnwindState<'static> {
         // Find the unwind ability for the last function before
         // the unwinder is invoked.
         let exidx = boot::get_exidx();
+
         // let extab = boot::get_extab();
+
         let extab: &[u8] = &[0; 0];
         unw_state
             .unw_ability
@@ -813,7 +827,6 @@ impl<'a> UnwindState<'a> {
         // this is the one that triggers during unw_iter
         let exidx = boot::get_exidx();
         // let extab = boot::get_extab();
-        // hprintln!("extab: {:?}", extab);
         let extab: &[u8] = &[0; 0];
         self.unw_ability
             .get_for_pc(self.gp_regs[ARMGPReg::PC] as u32, exidx, extab)?;

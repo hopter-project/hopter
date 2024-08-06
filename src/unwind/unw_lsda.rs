@@ -12,7 +12,7 @@
 
 #![allow(nonstandard_style)]
 
-use alloc::{boxed::Box};
+use alloc::boxed::Box;
 use core::{fmt::Formatter, ops::Range};
 use fallible_iterator::FallibleIterator;
 use gimli::{constants::*, DwEhPe, EndianSlice, Endianity, Reader};

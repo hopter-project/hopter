@@ -70,7 +70,7 @@ fn main(_: cortex_m::Peripherals) {
             hprintln!("Error: {:?}", e);
         }
     }
-    sleep_ms(60000);
+    sleep_ms(40000);
     hprintln!("finished with restarting tasks, exiting");
     semihosting::terminate(true);
 }
