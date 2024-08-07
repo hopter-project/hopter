@@ -5,7 +5,6 @@
 //!
 //!
 use crate::{
-    // hprintln,
     unrecoverable::{self, Lethal},
 };
 use alloc::boxed::Box;
@@ -34,6 +33,13 @@ impl Prel31 {
         Prel31 {
             offset_raw: i32::from_le_bytes(*bytes),
             self_addr: &bytes[0] as *const _ as u32,
+        }
+    }
+    /// Construct a prel31 offset from little-endian bytes without using the address of the bytes
+    pub fn from_bytes_with_addr(bytes: &[u8; 4], addr: u32) -> Self {
+        Prel31 {
+            offset_raw: i32::from_le_bytes(*bytes),
+            self_addr: addr,
         }
     }
 
@@ -141,6 +147,31 @@ impl<'a> ExIdxEntry {
             .map_err(|_| "ExIdxEntry::from_bytes: array reference conversion failed.")
             .unwrap_or_die();
         let content_prel31 = Prel31::from_bytes(content_bytes_ref);
+
+        // Sanity check. Citing from the document chapter 6:
+        // "The first word contains a prel31 offset to the start
+        // of a function, with bit 31 clear."
+        if func_offset.is_msb_set() {
+            return Err("ExIdxEntry::from_bytes: corrupted entry.");
+        }
+
+        Ok(ExIdxEntry {
+            func_addr: func_offset.value() as u32,
+            content: ExIdxEntryContent::from_raw(content_prel31, content_bytes_ref),
+        })
+    }
+    pub fn from_bytes_with_addr(bytes: &'a [u8; 8], addr: u32) -> Result<Self, &'static str> {
+        // Make sure we don't copy anything, just manipulating types.
+        let func_offset = Prel31::from_bytes_with_addr(
+            <&[u8; 4]>::try_from(&bytes[0..4])
+                .map_err(|_| "ExIdxEntry::from_bytes: array reference conversion failed.")
+                .unwrap_or_die(),
+            addr,
+        );
+        let content_bytes_ref = <&[u8; 4]>::try_from(&bytes[4..8])
+            .map_err(|_| "ExIdxEntry::from_bytes: array reference conversion failed.")
+            .unwrap_or_die();
+        let content_prel31 = Prel31::from_bytes_with_addr(content_bytes_ref, addr + 4);
 
         // Sanity check. Citing from the document chapter 6:
         // "The first word contains a prel31 offset to the start

@@ -32,18 +32,21 @@
 use super::{
     unw_lsda::{self, LSDA},
     unw_table::{
-        ExIdxEntry, /*ExTabEntry,*/ PersonalityType, Prel31, UnwindByteIter, UnwindInstrIter,
+        ExIdxEntry, /*ExTabEntry,*/ PersonalityType, UnwindByteIter, UnwindInstrIter,
         UnwindInstruction,
     },
 };
 use crate::{
-    boot, config,
+    // boot,
+    config,
     interrupt::{
         svc,
         trap_frame::{self, TrapFrame},
         SVCNum,
     },
-    schedule, task,
+    schedule,
+    task,
+    // time::sleep_ms,
     uart::{G_UART_SESSION, TIMEOUT_MS},
     unrecoverable::{self, Lethal},
 };
@@ -95,8 +98,14 @@ impl<'a> UnwindAbility<'a> {
     /// Arguments:
     /// - `exidx_entry` is the reference to a 2-word entry in the `.ARM.exidx` section.
     /// - `extab` is the slice of the whole `.ARM.extab` section.
-    fn from_bytes(exidx_entry: &'a [u8; 8], _extab: &'a [u8]) -> Result<Self, &'static str> {
-        let exidx_entry = ExIdxEntry::from_bytes(exidx_entry)?;
+    fn from_bytes(
+        exidx_entry: &[u8; 8],
+        _extab: &'a [u8],
+        entry_addr: u32,
+    ) -> Result<Self, &'static str> {
+        hprintln!("exidx bytes:        {:?}", exidx_entry);
+        let exidx_entry = ExIdxEntry::from_bytes_with_addr(exidx_entry, entry_addr)?;
+        hprintln!("exidx_entry: {:x?}", exidx_entry);
 
         // The current function might not support unwinding.
         if !exidx_entry.can_unwind() {
@@ -149,17 +158,10 @@ impl<'a> UnwindAbility<'a> {
             // first tell the server that we are handling the extab section
             let request_type: u32 = 0xAAAA;
             let data = request_type.to_le_bytes();
-            match session.send(&data, TIMEOUT_MS) {
-                Ok(_) => hprintln!("Sent request type"),
-                Err(e) => hprintln!("Error: {:?}", e),
-            };
+            let _ = session.send(&data, TIMEOUT_MS).unwrap();
 
             let data = (extab_entry_addr as u32).to_le_bytes();
-
-            match session.send(&data, TIMEOUT_MS) {
-                Ok(_) => hprintln!("Sent extab entry address"),
-                Err(e) => hprintln!("Error: {:?}", e),
-            };
+            let _ = session.send(&data, TIMEOUT_MS).unwrap();
 
             // in order receive:
             // 1. The bytes of the ExTabEntry.UnwindInstrIter.UnwindByteIter.bytes (needs to be stepped once)
@@ -168,10 +170,7 @@ impl<'a> UnwindAbility<'a> {
             let size = session.listen(TIMEOUT_MS).unwrap();
             let mut extab_entry_bytes = vec![0; size as usize].into_boxed_slice();
 
-            match session.receive(&mut extab_entry_bytes, TIMEOUT_MS) {
-                Ok(_) => hprintln!("Received byte_iter"),
-                Err(e) => hprintln!("Error: {:?}", e),
-            }
+            let _ = session.receive(&mut extab_entry_bytes, TIMEOUT_MS).unwrap();
             let mut unw_byte_iter = UnwindByteIter::from_box(extab_entry_bytes).unwrap();
             // need to cycle unw_byte_iter because we lose track of idx between server and MC
             unw_byte_iter.next();
@@ -185,10 +184,8 @@ impl<'a> UnwindAbility<'a> {
             let size = session.listen(TIMEOUT_MS).unwrap();
             let mut lsda_slice_bytes = vec![0; size as usize].into_boxed_slice();
 
-            match session.receive(&mut lsda_slice_bytes, TIMEOUT_MS) {
-                Ok(_) => hprintln!("Received lsda"),
-                Err(e) => hprintln!("Error: {:?}", e),
-            }
+            let _ = session.receive(&mut lsda_slice_bytes, TIMEOUT_MS).unwrap();
+
             let lsda_d = unw_lsda::LSDA::from_box(
                 lsda_slice_bytes,
                 gimli::LittleEndian,
@@ -203,10 +200,7 @@ impl<'a> UnwindAbility<'a> {
             }
             let mut personality_bytes = [0; 5];
 
-            match session.receive(&mut personality_bytes, TIMEOUT_MS) {
-                Ok(_) => hprintln!("Received personality"),
-                Err(e) => hprintln!("Error: {:?}", e),
-            }
+            let _ = session.receive(&mut personality_bytes, TIMEOUT_MS).unwrap();
 
             let personality = match personality_bytes[0] {
                 0xAA => {
@@ -220,7 +214,7 @@ impl<'a> UnwindAbility<'a> {
                 _ => panic!("Personality type not supported"),
             };
 
-            hprintln!("Personality d : {:?}", personality);
+            hprintln!("Personality d : {:?}\n", personality);
             // hprintln!("Personality   : {:?}", _extab_entry.get_personality());
 
             Ok(Self::CanUnwind(UnwindInfo {
@@ -246,56 +240,51 @@ impl<'a> UnwindAbility<'a> {
     pub fn get_for_pc(
         &mut self,
         pc: u32,
-        exidx: &'a [u8],
+        _exidx: &'a [u8],
         extab: &'a [u8],
     ) -> Result<(), &'static str> {
-        // send pc and get back the exidx slice
-
-        if exidx.len() % 8 != 0 {
-            return Err("UnwindAbility::get_for_func: exidx length not multiple of 8.");
-        }
-        if exidx.len() == 0 {
-            return Err("UnwindAbility::get_for_func: empty exidx.");
-        }
-
-        // Binary search boundaries.
-        let mut first = 0usize;
-        let mut last = exidx.len() - 8;
-
-        let first_pc =
-            Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[first..first + 4]).unwrap());
-        if pc < first_pc.value() {
-            return Err("UnwindAbility::get_for_func: no matching entry.");
-        }
-
-        let last_pc = Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[last..last + 4]).unwrap());
-        if pc >= last_pc.value() {
-            match Self::from_bytes(
-                <&'a [u8; 8]>::try_from(&exidx[last..last + 8]).unwrap(),
-                extab,
-            ) {
-                Ok(s) => {
-                    *self = s;
-                    return Ok(());
-                }
-                Err(e) => return Err(e),
-            };
-        }
-
-        // Perform binary search.
-        while first < last - 8 {
-            let mid = first + (((last - first) / 8 + 1) >> 1) * 8;
-            let mid_pc = Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[mid..mid + 4]).unwrap());
-            if pc < mid_pc.value() {
-                last = mid;
-            } else {
-                first = mid;
+        let session = match unsafe { G_UART_SESSION.as_mut() } {
+            Some(s) => s,
+            None => {
+                hprintln!("No session");
+                return Ok(());
             }
-        }
+        };
+        hprintln!("pc: {:x?}", pc);
+        // hprintln!("exidx bytes: {:?}", exidx);
+
+        // send the request type, 0xBBBB for exidx
+        let request_type: u32 = 0xBBBB;
+        let data = request_type.to_le_bytes();
+        let _ = session.send(&data, TIMEOUT_MS);
+
+        // send the current pc
+        let data = pc.to_le_bytes();
+        let _ = session.send(&data, TIMEOUT_MS).unwrap();
+
+        // receive the correct exidx slice
+        let size = session.listen(TIMEOUT_MS).unwrap();
+        let mut exidx_entry = vec![0; size as usize].into_boxed_slice();
+        let _ = session.receive(&mut exidx_entry, TIMEOUT_MS).unwrap();
+
+        // receive the intended memory address of the exidx slice
+        let size = session.listen(TIMEOUT_MS).unwrap();
+        let mut exidx_addr_bytes = vec![0; size as usize].into_boxed_slice();
+        let _ = session.receive(&mut exidx_addr_bytes, TIMEOUT_MS).unwrap();
+
+        let exidx_addr = u32::from_le_bytes(exidx_addr_bytes[0..4].try_into().unwrap());
+        hprintln!("exidx_addr: {:x?}", exidx_addr);
+
+        let ex = ExIdxEntry::from_bytes_with_addr(
+            <&[u8; 8]>::try_from(&exidx_entry[0..8]).unwrap(),
+            exidx_addr,
+        )?;
+        hprintln!("server exidx_entry: {:x?}", ex);
 
         match Self::from_bytes(
-            <&'a [u8; 8]>::try_from(&exidx[first..first + 8]).unwrap(),
+            <&[u8; 8]>::try_from(&exidx_entry[0..8]).unwrap(),
             extab,
+            exidx_addr,
         ) {
             Ok(s) => {
                 *self = s;
@@ -303,6 +292,8 @@ impl<'a> UnwindAbility<'a> {
             }
             Err(e) => return Err(e),
         };
+
+        // send pc and get back the exidx slice
     }
 }
 
@@ -640,10 +631,10 @@ impl UnwindState<'static> {
 
         // Find the unwind ability for the last function before
         // the unwinder is invoked.
-        let exidx = boot::get_exidx();
+        // let exidx = boot::get_exidx();
 
         // let extab = boot::get_extab();
-
+        let exidx: &[u8; 8] = &[0; 8];
         let extab: &[u8] = &[0; 0];
         unw_state
             .unw_ability
@@ -825,8 +816,9 @@ impl<'a> UnwindState<'a> {
 
         // Update unwind ability information.
         // this is the one that triggers during unw_iter
-        let exidx = boot::get_exidx();
+        // let exidx = boot::get_exidx();
         // let extab = boot::get_extab();
+        let exidx: &[u8; 8] = &[0; 8];
         let extab: &[u8] = &[0; 0];
         self.unw_ability
             .get_for_pc(self.gp_regs[ARMGPReg::PC] as u32, exidx, extab)?;

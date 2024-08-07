@@ -82,7 +82,7 @@ fn will_panic() {
     hprintln!("will_panic {}", cnt);
     if cnt > 0 {
         hprintln!("task sleeping {}", cnt);
-        sleep_ms(10000);
+        sleep_ms(15000);
     }
     hprintln!("task woke up {}", cnt);
     if cnt < 2 {
