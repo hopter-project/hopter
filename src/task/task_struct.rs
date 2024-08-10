@@ -90,8 +90,8 @@ pub(crate) struct TaskLocalStorage {
     /// which case we just set the panic pending flag. The modified compiler
     /// toolchain generates an epilogue that checks this flag if the
     /// [`nested_drop_cnt`](Self::nested_drop_cnt) is zero and diverts to panic
-    /// if the flag is set to true.
-    pub(crate) panic_pending: u32,
+    /// if the flag is set to true. See [`crate::unwind::forced`] for details.
+    pub(crate) unwind_pending: u32,
 }
 
 #[repr(C)]

@@ -123,7 +123,7 @@ unsafe extern "C" fn Reset() -> ! {
         kern_stk_len = const { config::CONTIGUOUS_STACK_BOTTOM - 0x2000_0000 },
         kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
         stklet_boundary_mem_addr = const config::TLS_MEM_ADDR,
-        deferred_unwind = sym unwind::unwind::deferred_unwind,
+        deferred_unwind = sym unwind::forced::deferred_unwind,
         memclr = sym memclr,
         memcpy = sym memcpy,
         memset = sym memset,

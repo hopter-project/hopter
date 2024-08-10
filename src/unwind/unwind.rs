@@ -235,7 +235,7 @@ impl ARMGPReg {
             13 => Self::SP,
             14 => Self::LR,
             15 => Self::PC,
-            _ => loop {},
+            _ => unrecoverable::die(),
         }
     }
 
@@ -296,7 +296,7 @@ impl ARMDPFPReg {
             13 => Self::D13,
             14 => Self::D14,
             15 => Self::D15,
-            _ => loop {},
+            _ => unrecoverable::die(),
         }
     }
 }
@@ -429,7 +429,7 @@ impl UnwindState<'static> {
 
             // If the reserved static storage is already in-use, we halt here.
             if res.is_err() {
-                loop {}
+                unrecoverable::die();
             }
 
             unsafe { &mut STATIC_UNWIND_STATE as *mut _ }
@@ -461,7 +461,7 @@ impl UnwindState<'static> {
     extern "C" fn create_unwind_state(init_ctxt: &UnwindInitContext) -> *mut Self {
         // If we have a double panic in the same task or ISR, halt.
         if is_unwinding() {
-            loop {}
+            unrecoverable::die();
         }
 
         // Mark that we are now unwinding.
@@ -1130,28 +1130,9 @@ unsafe extern "C" fn _Unwind_Resume(unw_state_ptr: *mut UnwindState) -> ! {
 #[panic_handler]
 unsafe fn panic(_info: &PanicInfo) -> ! {
     start_unwind_entry();
-    loop {}
-}
 
-/// Clear the panic pending flag in the task local storage region.
-#[naked]
-extern "C" fn clear_panic_pending_flag() {
-    unsafe {
-        asm!(
-            "mov r0, #0",
-            "ldr r1, ={tls_mem_addr}",
-            "str r0, [r1, #8]",
-            "bx  lr",
-            tls_mem_addr = const config::TLS_MEM_ADDR,
-            options(noreturn)
-        )
-    }
-}
-
-/// TODO: Comment it.
-pub(crate) extern "C" fn deferred_unwind() {
-    clear_panic_pending_flag();
-    panic!()
+    // Should not reach here.
+    unrecoverable::die()
 }
 
 /* Below are unused personality routines. They are marked unsafe because */

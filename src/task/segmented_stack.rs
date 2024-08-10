@@ -61,6 +61,7 @@ use crate::{
     },
     schedule,
     unrecoverable::{self, Lethal},
+    unwind,
 };
 use core::{
     alloc::Layout,
@@ -229,11 +230,14 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
     let cur_meta_ptr = bound_to_stklet_meta(bound as usize);
     let cur_meta = unsafe { &mut *cur_meta_ptr };
 
+    // Whether we should abort the new stacklet allocation.
+    let mut abort = false;
+
     schedule::with_current_task(|cur_task| {
         cur_task
             // Alleviate the hot split problem if the task contains a hot-split
             // alleviation block. All tasks with dynamic stack extension
-            // enabled has it.
+            // enabled have it.
             .with_hsab(|hsab| {
                 svc_more_stack_anti_hot_split(
                     tf,
@@ -243,16 +247,40 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
                 )
             })
             // Otherwise, the task does not enable dynamic stack extension.
-            // Divert the function call to a panic if no drop handler function
-            // is currently active. Pend a panic if any drop handler function
-            // is active. The pending panic will be invoked after all drop
-            // handler functions of the task return.
             .unwrap_or_else(|| {
-                if reason == MoreStackReason::Drop || ctxt.tls.nested_drop_cnt > 0 {
-                    ctxt.tls.panic_pending = 1;
+                // If the task wants to start unwinding or is under unwinding,
+                // proceed to allocate a new stacklet even if the task does not
+                // enable dynamic stack extension.
+                if reason == MoreStackReason::Unwind || cur_task.is_unwinding() {
+                }
+                // If the overflowing function is a drop handler or if any
+                // active parent function is a drop handler, pend a panic. The
+                // pending panic will be invoked after all drop handlers have
+                // finished execution. This is done by the complier inserting
+                // an epilogue to all drop handlers. See the `unwind::forced`
+                // module for details. We proceed to allocate a new stacklet
+                // even if the task does not enabled dynamic stack extension,
+                // because we must not unwind from inside a drop handler.
+                else if reason == MoreStackReason::Drop || ctxt.tls.nested_drop_cnt > 0 {
+                    ctxt.tls.unwind_pending = 1;
+                // If the overflowing function is not a drop handler and no
+                // drop handler is active, divert the function call to the
+                // stack unwinding entry to forcefully unwind the task.
+                } else if reason == MoreStackReason::Normal {
+                    if !cur_task.is_unwinding() {
+                        tf.gp_regs.pc = unwind::forced::diverted_unwind as u32;
+
+                        // Do not allocate a new stacklet if the task is going
+                        // to be unwound.
+                        abort = true;
+                    }
                 }
             });
     });
+
+    if abort {
+        return;
+    }
 
     // Total chunk size to request from malloc.
     // The overhead includes the trap frame, its padding, and the metadata block.
