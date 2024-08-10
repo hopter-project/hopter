@@ -127,3 +127,33 @@ runs:
         category: task
         sub-category: priority
         test-name: reduce_priority
+
+    # *** Tests for task - unwind ***
+
+    - name: Build test test-task-unwind-diverted
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: diverted
+
+    - name: Build test test-task-unwind-deferred_direct_drop
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: deferred_direct_drop
+
+    - name: Build test test-task-unwind-deferred_indirect_drop
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: deferred_indirect_drop
+
+    - name: Build test test-task-unwind-deferred_nested_drop
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: deferred_nested_drop

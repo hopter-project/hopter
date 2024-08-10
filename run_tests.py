@@ -75,10 +75,10 @@ def main():
             '--example', f'test-{category}-{subcategory}-{file_no_ext}'
         ], capture_output=True)
 
-        # Error handling for execution error.
+        # If the test execution returns an error, report the error.
         if run_result.returncode != 0:
             print(
-                f'Error: Test case {category}-{subcategory}-{file_no_ext} failed to run.',
+                f'Error: Test case {category}-{subcategory}-{file_no_ext} failed through execution.',
                 file=sys.stderr
             )
 
@@ -94,7 +94,7 @@ def main():
                 answer = f.read()
             if answer != run_result.stdout:
                 print(
-                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed.',
+                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed to provide correct output.',
                     file=sys.stderr
                 )
                 sys.exit(1)

@@ -22,7 +22,7 @@ runs:
         curl --fail -L \
              --cookie "authorized_cookie=${{ inputs.cookie }}" \
              -o rust.tar.xz \
-             'https://file.zyma.me/rust.tar.xz'
+             'https://file.zyma.me/rust-081124.tar.xz'
       shell: bash
 
     - name: Decompress Rust compiler toolchain

@@ -117,3 +117,19 @@ path = "examples/tests/sync/semaphore/initialization.rs"
 [[example]]
 name = "test-task-priority-reduce_priority"
 path = "examples/tests/task/priority/reduce_priority.rs"
+
+[[example]]
+name = "test-task-unwind-diverted"
+path = "examples/tests/task/unwind/diverted.rs"
+
+[[example]]
+name = "test-task-unwind-deferred_direct_drop"
+path = "examples/tests/task/unwind/deferred_direct_drop.rs"
+
+[[example]]
+name = "test-task-unwind-deferred_indirect_drop"
+path = "examples/tests/task/unwind/deferred_indirect_drop.rs"
+
+[[example]]
+name = "test-task-unwind-deferred_nested_drop"
+path = "examples/tests/task/unwind/deferred_nested_drop.rs"
