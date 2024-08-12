@@ -1,41 +1,53 @@
+//! Tests  the correct behavior of a multi-consumer, single-producer channel
+//! It fills a channel with four elements, spawns two consumer tasks with different priorities to consume the elements,
+//! and then checks that the channel is empty after all elements have been consumed.
 #![no_main]
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, schedule, hprintln, sync, sync::Consumer};
-
-
+use hopter::{boot::main, debug::semihosting, hprintln, sync, sync::Consumer, task};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-
+    // create a channel with a buffer capacity of 4
     let (producer, consumer) = sync::create_channel::<usize, 4>();
 
+    // fill channel with 4 elements
     producer.produce(1);
     producer.produce(2);
     producer.produce(3);
     producer.produce(4);
-
+    // Clone the consumer to allow multiple consumers to pull data from the channel
     let mut consumer2 = consumer.clone();
     let mut consumer3 = consumer.clone();
 
-    schedule::start_task(2, move |_| consume_thread(&mut consumer2), (), 0, 4).unwrap();
-    schedule::start_task(3, move |_| consume_thread(&mut consumer3), (), 0, 4).unwrap();
+    // Spawn the first consumer task with priority 1
+    task::build()
+        .set_entry(move || consume_function(&mut consumer2))
+        .set_priority(1)
+        .spawn()
+        .unwrap();
+    // Spawn the second consumer task with priority 2
+    task::build()
+        .set_entry(move || consume_function(&mut consumer3))
+        .set_priority(2)
+        .spawn()
+        .unwrap();
 
-    schedule::change_current_task_priority(10).unwrap();
+    // Change the priority of the current task to 10
+    // This ensures that both consumer tasks run before the final check
+    task::change_current_priority(10).unwrap();
 
-    if consumer.try_consume_allow_isr() != None{
+    // Check if the channel is empty after both consumers have finished
+    if consumer.try_consume_allow_isr() != None {
         hprintln!("Channel not empty");
         semihosting::terminate(false);
     }
     hprintln!("Test Passed");
     semihosting::terminate(true);
-
 }
 
-
-fn consume_thread(consumer: &mut Consumer<usize, 4>)
-{
+fn consume_function(consumer: &mut Consumer<usize, 4>) {
     consumer.consume();
     consumer.consume();
 }

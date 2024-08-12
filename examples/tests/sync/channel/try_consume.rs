@@ -1,3 +1,4 @@
+//! Test consume() and try_consume_allow_isr() functionality for empty and full channels
 #![no_main]
 #![no_std]
 
@@ -6,47 +7,45 @@ use hopter::{boot::main, debug::semihosting, hprintln, sync};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-
+    // create a channel with a buffer capacity of 4 elements
     let (producer, consumer) = sync::create_channel::<usize, 4>();
 
     // attempt to consume from an empty channel
+    // should return None
     let result = consumer.try_consume_allow_isr();
 
-    if result != None
-    {
+    // check against expected behavior
+    if result != None {
         hprintln!("consumed from an empty channel");
         semihosting::terminate(false);
     }
 
-    // fill channel
-    for i in 0..4
-    {
+    // fill channel to capacity with 4 elements
+    for i in 0..4 {
         producer.produce(i);
     }
 
-    // empty channel
-    for _i in 0..4
-    {
+    // empty channel by consuming iteratively, checking the element was consumed sucessfully each time
+    // otherwise, throw an error
+    for _i in 0..4 {
         let result = consumer.try_consume_allow_isr();
-        if result == None
-        {
+        if result == None {
             hprintln!("failed to consume from a non-empty channel");
             semihosting::terminate(false);
         }
     }
 
-    //should return None now that the channel is empty
+    // attempt to consume from the empty channel
+    //should return None
     let final_result = consumer.try_consume_allow_isr();
-    match final_result
-    {
+    match final_result {
         None => {
             hprintln!("Test Passed");
             semihosting::terminate(true);
         }
-        Some(_t)=> {
+        Some(_t) => {
             hprintln!("consumed from an empty channel");
             semihosting::terminate(false);
         }
     }
-
 }
