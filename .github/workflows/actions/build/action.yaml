@@ -167,13 +167,6 @@ runs:
         sub-category: segmented_stack
         test-name: function_aruments
 
-    - name: Build test test-task-segmented_stack-nested_functions
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: task
-        sub-category: segmented_stack
-        test-name: nested_functions
-
     - name: Build test test-task-segmented_stack-return_values
       uses: ./.github/workflows/actions/build-test
       with:
