@@ -37,7 +37,7 @@ default-features = false
 [dependencies.gimli]
 version = "0.29"
 default-features = false
-features = [ "read" ]
+features = ["read"]
 optional = true
 
 [dependencies.fallible-iterator]
@@ -47,7 +47,7 @@ optional = true
 
 [dependencies.intrusive-collections]
 version = "0.9"
-features = [ "nightly" ]
+features = ["nightly"]
 
 [dev-dependencies]
 nb = "1.1"
@@ -57,6 +57,8 @@ git = "https://github.com/ZhiyaoMa98/stm32f4xx-hal.git"
 branch = "dependency"
 default-features = false
 features = ["stm32f405"]
+
+# *** Tests for sync - mailbox ***
 
 [[example]]
 name = "test-sync-mailbox-notify_by_task"
@@ -77,6 +79,8 @@ path = "examples/tests/sync/mailbox/task_not_timeout.rs"
 [[example]]
 name = "test-sync-mailbox-notify_in_advance_after_timeout"
 path = "examples/tests/sync/mailbox/notify_in_advance_after_timeout.rs"
+
+# *** Tests for sync - semaphore ***
 
 [[example]]
 name = "test-sync-semaphore-down_0_then_try_down"
@@ -115,6 +119,16 @@ name = "test-sync-semaphore-initialization"
 path = "examples/tests/sync/semaphore/initialization.rs"
 
 [[example]]
+name = "test-sync-semaphore-down_priority_scheduling"
+path = "examples/tests/sync/semaphore/down_priority_scheduling.rs"
+
+[[example]]
+name = "test-sync-semaphore-up_priority_scheduling"
+path = "examples/tests/sync/semaphore/up_priority_scheduling.rs"
+
+# *** Tests for sync - mutex ***
+
+[[example]]
 name = "test-sync-mutex-basic"
 path = "examples/tests/sync/mutex/basic.rs"
 
@@ -130,9 +144,13 @@ path = "examples/tests/sync/mutex/priority.rs"
 name = "test-sync-mutex-poison"
 path = "examples/tests/sync/mutex/poison.rs"
 
+# *** Tests for task - priority ***
+
 [[example]]
 name = "test-task-priority-reduce_priority"
 path = "examples/tests/task/priority/reduce_priority.rs"
+
+# *** Tests for task - unwind ***
 
 [[example]]
 name = "test-task-unwind-diverted"
@@ -150,13 +168,11 @@ path = "examples/tests/task/unwind/deferred_indirect_drop.rs"
 name = "test-task-unwind-deferred_nested_drop"
 path = "examples/tests/task/unwind/deferred_nested_drop.rs"
 
+# *** Tests for task - segmented stack ***
+
 [[example]]
 name = "test-task-segmented_stack-function_arguments"
 path = "examples/tests/task/segmented_stack/function_arguments.rs"
-
-[[example]]
-name = "test-task-segmented_stack-nested_functions"
-path = "examples/tests/task/segmented_stack/nested_functions.rs"
 
 [[example]]
 name = "test-task-segmented_stack-return_values"

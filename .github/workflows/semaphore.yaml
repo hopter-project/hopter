@@ -23,7 +23,7 @@ jobs:
           category: sync
           sub-category: semaphore
           test-name: initialization
-          
+
   down_0_then_try_down:
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +51,7 @@ jobs:
           category: sync
           sub-category: semaphore
           test-name: up_max_then_try_up
-  
+
   _4_tasks_down_contend_init_3:
     runs-on: ubuntu-latest
     steps:
@@ -136,4 +136,30 @@ jobs:
           sub-category: semaphore
           test-name: 10_tasks_100_up_down
 
+  down_priority_scheduling:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Run test down_priority_scheduling
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: down_priority_scheduling
+
+  up_priority_scheduling:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test up_priority_scheduling
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: up_priority_scheduling
