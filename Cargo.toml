@@ -135,8 +135,8 @@ name = "test-task-unwind-deferred_nested_drop"
 path = "examples/tests/task/unwind/deferred_nested_drop.rs"
 
 [[example]]
-name = "test-task-segmented_stack-verify_regs_stack_new_function"
-path = "examples/tests/task/segmented_stack/verify_regs_stack_new_function.rs"
+name = "test-task-segmented_stack-function_arguments"
+path = "examples/tests/task/segmented_stack/function_arguments.rs"
 
 [[example]]
 name = "test-task-segmented_stack-nested_functions"

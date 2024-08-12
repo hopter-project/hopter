@@ -160,12 +160,12 @@ runs:
 
     # *** Tests for task - segmented stack ***
 
-    - name: Build test test-task-segmented_stack-verify_regs_stack_new_function
+    - name: Build test test-task-segmented_stack-function_arguments
       uses: ./.github/workflows/actions/build-test
       with:
         category: task
         sub-category: segmented_stack
-        test-name: verify_regs_stack_new_function
+        test-name: function_aruments
 
     - name: Build test test-task-segmented_stack-nested_functions
       uses: ./.github/workflows/actions/build-test
