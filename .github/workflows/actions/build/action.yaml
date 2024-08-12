@@ -157,3 +157,19 @@ runs:
         category: task
         sub-category: unwind
         test-name: deferred_nested_drop
+
+    # *** Tests for task - segmented stack ***
+
+    - name: Build test test-task-segmented_stack-function_arguments
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: segmented_stack
+        test-name: function_arguments
+
+    - name: Build test test-task-segmented_stack-return_values
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: segmented_stack
+        test-name: return_values

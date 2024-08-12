@@ -133,3 +133,15 @@ path = "examples/tests/task/unwind/deferred_indirect_drop.rs"
 [[example]]
 name = "test-task-unwind-deferred_nested_drop"
 path = "examples/tests/task/unwind/deferred_nested_drop.rs"
+
+[[example]]
+name = "test-task-segmented_stack-function_arguments"
+path = "examples/tests/task/segmented_stack/function_arguments.rs"
+
+[[example]]
+name = "test-task-segmented_stack-nested_functions"
+path = "examples/tests/task/segmented_stack/nested_functions.rs"
+
+[[example]]
+name = "test-task-segmented_stack-return_values"
+path = "examples/tests/task/segmented_stack/return_values.rs"

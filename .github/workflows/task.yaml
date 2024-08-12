@@ -19,3 +19,8 @@ jobs:
     uses: ./.github/workflows/unwind.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
+
+  segmented_stack:
+    uses: ./.github/workflows/segmented_stack.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
