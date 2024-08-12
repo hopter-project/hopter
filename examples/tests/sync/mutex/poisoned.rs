@@ -2,15 +2,14 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, schedule, hprintln, sync::Mutex};
-
+use hopter::{boot::main, debug::semihosting, hprintln, sync::Mutex, task};
 
 static MTX: Mutex<()> = Mutex::new(());
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, |_| will_panic(), (), 0, 4).unwrap();
-    let _ = schedule::change_current_task_priority(10);
+    task::build().set_entry(will_panic).spawn().unwrap();
+    task::change_current_priority(10).unwrap();
     if MTX.is_poisoned() {
         hprintln!("Test Passed");
         semihosting::terminate(true);
