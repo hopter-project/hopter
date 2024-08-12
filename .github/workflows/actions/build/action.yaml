@@ -122,40 +122,33 @@ runs:
 
     # *** Tests for sync - mutex ***
    
-    - name: Build test test-sync-mutex-single_task
+    - name: Build test test-sync-mutex-basic
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: mutex
-        test-name: single_task
+        test-name: basic
 
-    - name: Build test test-sync-mutex-multiple_tasks_try_lock
+    - name: Build test test-sync-mutex-stress
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: mutex
-        test-name: multiple_tasks_try_lock
+        test-name: stress
 
-    - name: Build test test-sync-mutex-10_tasks_10_edits_each
+    - name: Build test test-sync-mutex-priority
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: mutex
-        test-name: 10_tasks_10_edits_each
+        test-name: priority
 
-    - name: Build test test-sync-mutex-mut_priority_scheduling
+    - name: Build test test-sync-mutex-poison
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: mutex
-        test-name: mut_priority_scheduling
-
-    - name: Build test test-sync-mutex-poisoned
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: mutex
-        test-name: poisoned
+        test-name: poison
 
     # *** Tests for task - priority ***
 

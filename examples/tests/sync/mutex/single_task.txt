@@ -1,2 +1,0 @@
-Data: Hello, World
-Mutex Locked

@@ -1,2 +1,0 @@
-Mutex Locked in Task 1
-Mutex Locked in Task 2

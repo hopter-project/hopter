@@ -123,24 +123,20 @@ name = "test-sync-semaphore-up_priority_scheduling"
 path = "examples/tests/sync/semaphore/up_priority_scheduling.rs"
 
 [[example]]
-name = "test-sync-mutex-single_task"
-path = "examples/tests/sync/mutex/single_task.rs"
+name = "test-sync-mutex-basic"
+path = "examples/tests/sync/mutex/basic.rs"
 
 [[example]]
-name = "test-sync-mutex-multiple_tasks_try_lock"
-path = "examples/tests/sync/mutex/multiple_tasks_try_lock.rs"
+name = "test-sync-mutex-stress"
+path = "examples/tests/sync/mutex/stress.rs"
 
 [[example]]
-name = "test-sync-mutex-10_tasks_10_edits_each"
-path = "examples/tests/sync/mutex/10_tasks_10_edits_each.rs"
+name = "test-sync-mutex-priority"
+path = "examples/tests/sync/mutex/priority.rs"
 
 [[example]]
-name = "test-sync-mutex-mut_priority_scheduling"
-path = "examples/tests/sync/mutex/mut_priority_scheduling.rs"
-
-[[example]]
-name = "test-sync-mutex-poisoned"
-path = "examples/tests/sync/mutex/poisoned.rs"
+name = "test-sync-mutex-poison"
+path = "examples/tests/sync/mutex/poison.rs"
 
 [[example]]
 name = "test-task-priority-reduce_priority"

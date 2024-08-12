@@ -2,33 +2,49 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, schedule, hprintln, sync::Semaphore};
+use hopter::{boot::main, config, debug::semihosting, hprintln, sync::Semaphore, task};
 
-static SEMAPHORE: Semaphore = Semaphore::new(3, 0);
+static SEMAPHORE: Semaphore = Semaphore::new(1, 0);
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    schedule::start_task(2, |_| high_priority_task(), (), 0, 4).unwrap();
-    schedule::start_task(3, |_| intermediate_task(), (), 0, 4).unwrap();
-    schedule::start_task(4, |_| low_task(), (), 0, 4).unwrap();
+    // Create test tasks.
+    task::build()
+        .set_entry(low_task)
+        .set_priority(config::DEFAULT_TASK_PRIORITY + 1)
+        .spawn()
+        .unwrap();
+    task::build()
+        .set_entry(high_task)
+        .set_priority(config::DEFAULT_TASK_PRIORITY - 1)
+        .spawn()
+        .unwrap();
+    task::build()
+        .set_entry(middle_task)
+        .set_priority(config::DEFAULT_TASK_PRIORITY)
+        .spawn()
+        .unwrap();
 
+    task::change_current_priority(config::DEFAULT_TASK_PRIORITY - 2).unwrap();
 
-    schedule::change_current_task_priority(10).unwrap();
+    for _ in 0..3 {
+        SEMAPHORE.up();
+    }
+
     semihosting::terminate(true);
 }
 
-
-fn high_priority_task(){
-    SEMAPHORE.up();
-    hprintln!("High priority task released semaphore");
+fn high_task() {
+    SEMAPHORE.down();
+    hprintln!("High priority task acquired semaphore");
 }
 
-fn intermediate_task(){
-    SEMAPHORE.up();
-    hprintln!("Intermediate priority task released semaphore");
+fn middle_task() {
+    SEMAPHORE.down();
+    hprintln!("Middle priority task acquired semaphore");
 }
 
-fn low_task(){
-    SEMAPHORE.up();
-    hprintln!("Low priority task released semaphore");
+fn low_task() {
+    SEMAPHORE.down();
+    hprintln!("Low priority task acquired semaphore");
 }

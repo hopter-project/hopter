@@ -10,72 +10,58 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  single_task:
+  basic:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test single_task
+      - name: Run test basic
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
-          test-name: single_task
-
-  multiple_tasks_try_lock:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run test multiple_tasks_try_lock
-        uses: ./.github/workflows/actions/run-test
-        with:
-          cookie: ${{ secrets.cookie }}
-          category: sync
-          sub-category: mutex
-          test-name: multiple_tasks_try_lock
+          test-name: basic
         
-  _10_tasks_10_edits_each:
+  stress:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test 10_tasks_10_edits_each
+      - name: Run test stress
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
-          test-name: 10_tasks_10_edits_each
+          test-name: stress
 
-  mut_priority_scheduling:
+  priority:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test mut_priority_scheduling
+      - name: Run test priority
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
-          test-name: mut_priority_scheduling
+          test-name: priority
 
-  poisoned:
+  poison:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test poisoned
+      - name: Run test poison
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
-          test-name: poisoned
+          test-name: poison
