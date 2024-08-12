@@ -16,7 +16,7 @@ use hopter::{boot::main, debug::semihosting, hprintln, task};
 fn main(_: cortex_m::Peripherals) {
     task::build()
         .set_entry(test_task)
-        .deny_dynamic_stack()
+        .disable_dynamic_stack()
         .set_stack_size(512)
         .spawn_restartable()
         .unwrap();
