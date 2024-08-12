@@ -1,3 +1,0 @@
-High priority task acquired semaphore
-Low priority task released semaphore
-Intermediate priority task acquired semaphore

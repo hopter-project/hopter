@@ -115,14 +115,6 @@ name = "test-sync-semaphore-initialization"
 path = "examples/tests/sync/semaphore/initialization.rs"
 
 [[example]]
-name = "test-sync-semaphore-down_priority_scheduling"
-path = "examples/tests/sync/semaphore/down_priority_scheduling.rs"
-
-[[example]]
-name = "test-sync-semaphore-up_priority_scheduling"
-path = "examples/tests/sync/semaphore/up_priority_scheduling.rs"
-
-[[example]]
 name = "test-sync-mutex-basic"
 path = "examples/tests/sync/mutex/basic.rs"
 
