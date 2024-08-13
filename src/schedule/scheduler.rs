@@ -119,6 +119,14 @@ pub(crate) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
 
     EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
 
+    if is_scheduler_started() {
+        super::with_current_task(|cur_task| {
+            if task.should_preempt(cur_task) {
+                request_context_switch();
+            }
+        });
+    }
+
     Ok(())
 }
 
