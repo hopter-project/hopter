@@ -84,19 +84,16 @@ where
         }
     }
 
-    #[allow(unused)]
     /// Discard the mutex and get back the contained data.
     pub fn into_inner(self) -> T {
         self.spin_lock.into_inner()
     }
 
-    #[allow(unused)]
-    /// Return if the mutex is ever being held during an unwinding.
+    /// Return if the mutex was being held when an unwinding occurred.
     pub fn is_poisoned(&self) -> bool {
         self.poisoned.load(Ordering::SeqCst)
     }
 
-    #[allow(unused)]
     pub unsafe fn force_unlock(&self) {
         self.owner.lock_now_or_die().take();
         self.spin_lock.force_unlock();
@@ -208,7 +205,7 @@ where
             self.mutex.poisoned.store(true, Ordering::SeqCst);
         }
 
-        // Drop the spin lock before notifying other tasks. Otherwise, it a task being
+        // Drop the spin lock before notifying other tasks. Otherwise, if a task being
         // notified has higher priority than the current task, without having the spin
         // lock guard dropped first, the woken up high priority task will immediately
         // go back to block state again, causing a deadlock.

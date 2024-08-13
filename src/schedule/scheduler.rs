@@ -2,7 +2,7 @@ use super::idle;
 use crate::{
     config,
     interrupt::svc,
-    sync::{Access, AllowPendOp, Interruptable, RunPendedOp, Spin},
+    sync::{self, Access, AllowPendOp, Interruptable, RunPendedOp, Spin},
     task::{Task, TaskCtxt, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
 };
@@ -59,6 +59,8 @@ struct InnerPendAccessor<'a> {
 /// them linked.
 impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     fn run_pended_op(&mut self) {
+        let _sched_suspend_guard = sync::suspend_scheduler();
+
         super::with_current_task(|cur_task| {
             let mut locked_list = self.ready_linked_list.lock_now_or_die();
             while let Some(task) = self.insert_buffer.dequeue() {
@@ -108,12 +110,16 @@ pub(crate) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
         return Err(());
     }
 
+    let _sched_suspend_guard = sync::suspend_scheduler();
+
     READY_TASK_QUEUE.must_with_full_access(|full_access| {
         let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
-        locked_list.push_back(task);
-        EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
-        Ok(())
-    })
+        locked_list.push_back(Arc::clone(&task));
+    });
+
+    EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
+
+    Ok(())
 }
 
 /// The pointer to the struct in memory that is used to save task's registers
@@ -358,6 +364,8 @@ pub(crate) fn yield_for_preemption() {
 }
 
 pub(crate) fn make_task_ready_and_enqueue(task: Arc<Task>) {
+    let _sched_suspend_guard = sync::suspend_scheduler();
+
     READY_TASK_QUEUE.with_access(|access| match access {
         Access::Full { full_access } => super::with_current_task(|cur_task| {
             if task.should_preempt(cur_task) {
