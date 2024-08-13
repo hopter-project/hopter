@@ -31,7 +31,7 @@ fn low_task() {
         .spawn()
         .unwrap();
 
-    hprintln!("High priority task blocked by mutex and low priority task continues");
+    hprintln!("High priority task blocked by mutex and low priority task continued");
     hprintln!("Low priority task got elevated to high priority");
 
     // Spawn a middle priority task
