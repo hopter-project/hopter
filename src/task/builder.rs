@@ -12,6 +12,8 @@ pub enum TaskBuildError {
     NoMoreTask,
     /// No entry closure is set for the task.
     NoEntry,
+    /// The priority level is not an allowed value.
+    PriorityNotAllowed,
 }
 
 /// Supporting the builder pattern to create a new task.
@@ -58,12 +60,11 @@ where
         }
     }
 
-    /// Set a numerical ID for the task. The ID must be non-zero.
+    /// Set a numerical ID for the task.
     ///
-    /// The ID is used only for tagging a task and does not have any other
-    /// functional purpose. The ID need not be unique among tasks.
-    ///
-    /// FIXME: Relax the non-zero requirement.
+    /// The ID is used only for tagging a task and does not have any functional
+    /// purpose. It might be helpful for diagnosing bugs. The ID need not be
+    /// unique among tasks.
     pub fn set_id(mut self, id: u8) -> Self {
         self.id.replace(id);
         self
@@ -166,7 +167,7 @@ where
 #[cfg(feature = "unwind")]
 pub(crate) fn spawn_restarted_from_task(prev_task: Arc<Task>) -> Result<(), ()> {
     let id = prev_task.get_id();
-    let new_task = Task::build_restarted(prev_task)?;
+    let new_task = Task::build_restarted(prev_task);
 
     // FIXME: should check for available task slot in advance but not here.
     scheduler::make_new_task_ready(id, Arc::new(new_task))

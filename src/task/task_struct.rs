@@ -1,7 +1,7 @@
 use super::{
     priority::TaskPriority,
     segmented_stack::{self, HotSplitAlleviationBlock},
-    trampoline,
+    trampoline, TaskBuildError,
 };
 use crate::{
     config,
@@ -130,9 +130,11 @@ pub(crate) struct Task {
     initial_stklet: AtomicPtr<u8>,
     /// Number of bytes in the initial stacklet. Can be zero.
     init_stklet_size: usize,
-    /// The task ID. 0 is reserved for the idle task. Other tasks can take
-    /// from 1 to 255.
+    /// A numerical task ID that does not have functional purpose. It is
+    /// only for diagnostic purpose.
     id: AtomicU8,
+    /// Whether the task is the idle task.
+    is_idle: bool,
     /// See [`TaskState`].
     state: AtomicCell<TaskState>,
 
@@ -196,7 +198,8 @@ impl Task {
     /// `Err(())`. When the built task panics during its execution, the task's
     /// stack will be unwound, and then the task will be *terminated*.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
@@ -212,11 +215,11 @@ impl Task {
         init_stklet_size: usize,
         is_dynamic_stack: bool,
         priority: u8,
-    ) -> Result<Self, ()>
+    ) -> Result<Self, TaskBuildError>
     where
         F: FnOnce() + Send + 'static,
     {
-        let mut task = Self::new();
+        let mut task = Self::new(false);
         task.initialize(
             id,
             entry_closure,
@@ -233,7 +236,8 @@ impl Task {
     /// The restarted task will start its execution again from the same entry
     /// closure.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
@@ -250,11 +254,11 @@ impl Task {
         reserve_stack_size: usize,
         is_dynamic_stack: bool,
         priority: u8,
-    ) -> Result<Self, ()>
+    ) -> Result<Self, TaskBuildError>
     where
         F: FnOnce() + Send + Sync + Clone + 'static,
     {
-        let mut task = Self::new();
+        let mut task = Self::new(false);
         task.initialize_restartable(
             id,
             entry_closure,
@@ -269,9 +273,9 @@ impl Task {
     /// panicked task. The new task will start its execution from the same
     /// closure as the panicked task.
     #[cfg(feature = "unwind")]
-    pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Result<Self, ()> {
-        let mut new_task = Self::new();
-        new_task.restart_from(prev_task.clone())?;
+    pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Self {
+        let mut new_task = Self::new(false);
+        new_task.restart_from(prev_task.clone());
 
         // Reduce the priority of the previously panicked task, so that the
         // unwinding procedure of the panicked task uses only otherwise idle
@@ -279,7 +283,7 @@ impl Task {
         // FIXME: should we place this statement here or elsewhere?
         prev_task.reduce_priority_for_unwind();
 
-        Ok(new_task)
+        new_task
     }
 
     /// Build the task struct of the idle task.
@@ -290,7 +294,7 @@ impl Task {
         let created = IDLE_CREATED.swap(true, Ordering::SeqCst);
         unrecoverable::die_if(|| created);
 
-        let mut idle_task = Self::new();
+        let mut idle_task = Self::new(true);
 
         // Create the idle task. The closure passed in `.initialize()` is
         // actually not used. The `idle()` function is invoked through the
@@ -314,10 +318,11 @@ impl Task {
 
     /// Create a new task struct, with all the fields set to their default
     /// values.
-    fn new() -> Self {
+    fn new(is_idle: bool) -> Self {
         Self {
             ctxt: Spin::new(TaskCtxt::default()),
             id: AtomicU8::new(0),
+            is_idle,
             state: AtomicCell::new(TaskState::Initializing),
             initial_stklet: AtomicPtr::new(core::ptr::null_mut()),
             #[cfg(feature = "unwind")]
@@ -344,7 +349,8 @@ impl Task {
 
     /// The common part of initializing a task struct.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure_ptr`: Raw pointer to the entry closure.
     /// - `entry_trampoline`: The address of the trampoline function of the new
     ///   task.
@@ -363,10 +369,10 @@ impl Task {
         init_stklet_size: usize,
         is_dynamic_stack: bool,
         priority: u8,
-    ) -> Result<(), ()> {
+    ) -> Result<(), TaskBuildError> {
         // Check priority number validity.
         if priority >= config::TASK_PRIORITY_LEVELS {
-            return Err(());
+            return Err(TaskBuildError::PriorityNotAllowed);
         }
 
         // Allocate a hot-split alleviation block only if dynamic stack
@@ -389,19 +395,19 @@ impl Task {
         // Let the stack pointer points to the bottom of the initial stacklet.
         let mut sp = stklet_end;
 
-        // Normal tasks (id != 0) are started by an exception return. The
+        // Normal tasks (not idle) are started by an exception return. The
         // initial state is indicated by the trap frame stored on the task's
         // stack. In the following we will build the initial trap frame which
         // is placed at the bottom of the initial stacklet.
         //
-        // However, the idle task (id == 0) cannot be started by an exception
-        // return, because after boot and during initialization, the CPU runs
-        // in thread mode with MSP. It will trigger a HardFault if we try to
-        // perform an exception return in thread mode. Thus, we will manually
-        // switch the stack pointer to PSP and jump to the idle function with
-        // the assembly code in `start_scheduler()`. We need not put a trap
-        // frame in idle task's initial stacklet.
-        if id != 0 {
+        // However, the idle task cannot be started by an exception return,
+        // because after boot and during initialization, the CPU runs in thread
+        // mode with MSP. It will trigger a HardFault if we try to perform an
+        // exception return in thread mode. Thus, we will manually switch the
+        // stack pointer to PSP and jump to the idle function with the assembly
+        // code in `start_scheduler()`. We need not put a trap frame in idle
+        // task's initial stacklet.
+        if !self.is_idle {
             // Move the stack pointer to make space for the trap frame.
             // Safety: The size of the initial stacklet is guaranteed to be
             // larger than the size of a trap frame. Thus, the pointer offset
@@ -457,7 +463,8 @@ impl Task {
 
     /// Initialize the task struct for a non-restartable task.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
@@ -474,7 +481,7 @@ impl Task {
         init_stklet_size: usize,
         is_dynamic_stack: bool,
         priority: u8,
-    ) -> Result<(), ()>
+    ) -> Result<(), TaskBuildError>
     where
         F: FnOnce() + Send + 'static,
     {
@@ -500,7 +507,8 @@ impl Task {
 
     /// Initialize the task struct for a restartable task.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
     /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
@@ -518,7 +526,7 @@ impl Task {
         init_stklet_size: usize,
         is_dynamic_stack: bool,
         priority: u8,
-    ) -> Result<(), ()>
+    ) -> Result<(), TaskBuildError>
     where
         F: FnOnce() + Send + Sync + Clone + 'static,
     {
@@ -561,7 +569,7 @@ impl Task {
     ///
     /// - `prev_task`: The panicked task.
     #[cfg(feature = "unwind")]
-    fn restart_from(&mut self, prev_task: Arc<Task>) -> Result<(), ()> {
+    fn restart_from(&mut self, prev_task: Arc<Task>) {
         // The task ID is kept the same as the panicked task.
         let id = prev_task.id.load(Ordering::SeqCst);
 
@@ -602,6 +610,7 @@ impl Task {
             prev_task.hsab.is_some(),
             priority,
         )
+        .unwrap_or_die()
     }
 }
 
@@ -625,6 +634,10 @@ impl Task {
 
     pub(crate) fn get_id(&self) -> u8 {
         self.id.load(Ordering::SeqCst)
+    }
+
+    pub(crate) fn is_idle(&self) -> bool {
+        self.is_idle
     }
 
     #[cfg(feature = "unwind")]

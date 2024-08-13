@@ -1,4 +1,4 @@
-use static_assertions::const_assert;
+use static_assertions::{const_assert, const_assert_eq};
 
 #[macro_use]
 mod helper;
@@ -237,17 +237,12 @@ assert_value_type!(UNWIND_PRIORITY, u8);
 // Unwind priority should be higher than idle priority.
 const_assert!(UNWIND_PRIORITY < IDLE_TASK_PRIORITY);
 
-/// The ID for the idle task. Other tasks must not use the same ID as the idle
-/// task.
+/// The ID for the idle task. A task ID does not have functional purpose. It
+/// might be helpful for diagnosing bugs.
 pub use hopter_conf_params::IDLE_TASK_ID;
 assert_value_type!(IDLE_TASK_ID, u8);
 
 /// The ID for a task when the ID is not explicitly set during task creation.
-/// Tasks can have the same ID as long as the ID is different from the idle
-/// task's ID.
+/// Tasks can have the same ID.
 pub use hopter_conf_params::DEFAULT_TASK_ID;
-use static_assertions::const_assert_eq;
 assert_value_type!(DEFAULT_TASK_ID, u8);
-
-// The idle task ID must be unique in all tasks.
-const_assert!(DEFAULT_TASK_ID != IDLE_TASK_ID);

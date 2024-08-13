@@ -9,7 +9,7 @@ use crate::{
 use alloc::sync::Arc;
 use core::{
     arch::asm,
-    sync::atomic::{AtomicBool, AtomicPtr, AtomicU8, AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering},
 };
 use heapless::mpmc::MpMcQueue;
 use intrusive_collections::LinkedList;
@@ -122,9 +122,8 @@ pub(crate) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
 #[no_mangle]
 pub(crate) static CUR_TASK_REGS: AtomicPtr<TaskCtxt> = AtomicPtr::new(core::ptr::null_mut());
 
-/// The ID of the currently running task.
-#[no_mangle]
-static CUR_TASK_ID: AtomicU8 = AtomicU8::new(0);
+/// Whether the currently running task is the idle task.
+static CUR_TASK_IDLE: AtomicBool = AtomicBool::new(false);
 
 /// Choose the next task to run. The chosen task is indicated by the returned pointer
 /// to its preserved registers in memory. The pointer has exclusive mutable access
@@ -160,26 +159,25 @@ pub(crate) extern "C" fn schedule() -> *mut TaskCtxt {
             // Set its state as running.
             candidate_task.set_state(TaskState::Running);
 
-            // Get ID of the candidate task.
-            let cand_id = candidate_task.get_id();
+            let next_idle = candidate_task.is_idle();
 
-            // Fetch the previous task ID, and then set the candidate task ID
-            // as the one currently running.
-            let prev_id = CUR_TASK_ID.swap(cand_id, Ordering::SeqCst);
+            // Load if the previous task was the idle task and also set it to
+            // the new value.
+            let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
 
             // Invoke idle callbacks.
             {
                 let locked_callbacks = idle::lock_idle_callbacks();
 
                 // When the idle task is switched out of CPU.
-                if prev_id == config::IDLE_TASK_ID {
+                if was_idle {
                     for callback in locked_callbacks.iter() {
                         callback.idle_end_callback();
                     }
                 }
 
                 // When the idle task is switched on to the CPU.
-                if cand_id == config::IDLE_TASK_ID {
+                if next_idle {
                     for callback in locked_callbacks.iter() {
                         callback.idle_begin_callback();
                     }
@@ -224,8 +222,10 @@ pub(crate) unsafe fn start_scheduler() -> ! {
     let cur_task_regs = super::lock_cur_task_regs();
     CUR_TASK_REGS.store(cur_task_regs, Ordering::SeqCst);
 
-    // Make the idle task an existing task.
+    // The current task, i.e. idle task, becomes the first existing task.
     EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
+
+    CUR_TASK_IDLE.store(true, Ordering::SeqCst);
 
     unsafe {
         // Run the idle task.
