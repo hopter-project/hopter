@@ -144,6 +144,10 @@ path = "examples/tests/sync/mutex/priority.rs"
 name = "test-sync-mutex-poison"
 path = "examples/tests/sync/mutex/poison.rs"
 
+[[example]]
+name = "test-sync-mutex-priority_inversion"
+path = "examples/tests/sync/mutex/priority_inversion.rs"
+
 # *** Tests for sync - channel ***
 
 [[example]]
@@ -176,10 +180,6 @@ name = "test-sync-channel-produce_consume_single_task"
 path = "examples/tests/sync/channel/produce_consume_single_task.rs"
 
 # *** Tests for task - unwind ***
-
-[[example]]
-name = "test-sync-mutex-priority_inversion"
-path = "examples/tests/sync/mutex/priority_inversion.rs"
 
 [[example]]
 name = "test-task-unwind-diverted"
