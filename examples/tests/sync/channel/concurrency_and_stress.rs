@@ -2,6 +2,7 @@
 //! (This test is similar to the test "multiple_producers", but includes more tasks and elements produced on the channel)
 //! It creates four tasks, each producing a sequence of numbers, and verifies that all numbers are correctly
 //! produced and consumed in the expected order.
+
 #![no_main]
 #![no_std]
 
@@ -74,6 +75,10 @@ fn main(_: cortex_m::Peripherals) {
 fn fill_channel(producer: &mut Producer<usize, 16>, task_num: usize) {
     // Each task produces a sequence of 3 (NUM_ITEMS) numbers based on its task number
     for j in 0..NUM_ITEMS {
+        // Conditionally yield to add more stress.
+        if j == task_num {
+            task::yield_current();
+        }
         producer.produce(task_num * NUM_ITEMS + j);
     }
 

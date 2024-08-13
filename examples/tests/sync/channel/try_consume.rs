@@ -7,26 +7,25 @@ use hopter::{boot::main, debug::semihosting, hprintln, sync};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    // create a channel with a buffer capacity of 4 elements
+    // Create a channel with a buffer capacity of 4 elements
     let (producer, consumer) = sync::create_channel::<usize, 4>();
 
-    // attempt to consume from an empty channel
-    // should return None
+    // Attempt to consume from an empty channel. Should return `None`.
     let result = consumer.try_consume_allow_isr();
 
-    // check against expected behavior
+    // Check against expected behavior
     if result != None {
         hprintln!("consumed from an empty channel");
         semihosting::terminate(false);
     }
 
-    // fill channel to capacity with 4 elements
+    // Fill channel to capacity with 4 elements
     for i in 0..4 {
         producer.produce(i);
     }
 
-    // empty channel by consuming iteratively, checking the element was consumed sucessfully each time
-    // otherwise, throw an error
+    // Empty channel by consuming iteratively, checking the element was consumed sucessfully each time
+    // otherwise, report error.
     for _i in 0..4 {
         let result = consumer.try_consume_allow_isr();
         if result == None {
@@ -35,8 +34,7 @@ fn main(_: cortex_m::Peripherals) {
         }
     }
 
-    // attempt to consume from the empty channel
-    //should return None
+    // Attempt to consume from the empty channel. Should return `None`.
     let final_result = consumer.try_consume_allow_isr();
     match final_result {
         None => {

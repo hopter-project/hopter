@@ -1,4 +1,5 @@
 //! Test basic functionaliy of produce() and consume()
+
 #![no_main]
 #![no_std]
 
@@ -7,16 +8,16 @@ use hopter::{boot::main, debug::semihosting, hprintln, sync};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    // create a channel with a buffer capacity of 4
+    // Create a channel with a buffer capacity of 4
     let (producer, consumer) = sync::create_channel::<usize, 4>();
 
-    // fill a channel with values 23-26
+    // Fill a channel with values 23-26
     producer.produce(23);
     producer.produce(24);
     producer.produce(25);
     producer.produce(26);
 
-    // consume each element from channel, verifying the expected value
+    // Consume each element from channel, verifying the expected value
     for i in 0..4 {
         let value = consumer.consume();
         if value != 23 + i {

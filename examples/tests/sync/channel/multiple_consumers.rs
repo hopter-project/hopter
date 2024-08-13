@@ -1,6 +1,7 @@
 //! Tests  the correct behavior of a multi-consumer, single-producer channel
 //! It fills a channel with four elements, spawns two consumer tasks with different priorities to consume the elements,
 //! and then checks that the channel is empty after all elements have been consumed.
+
 #![no_main]
 #![no_std]
 
@@ -48,6 +49,6 @@ fn main(_: cortex_m::Peripherals) {
 }
 
 fn consume_function(consumer: &mut Consumer<usize, 4>) {
-    consumer.consume();
-    consumer.consume();
+    hprintln!("{}", consumer.consume());
+    hprintln!("{}", consumer.consume());
 }

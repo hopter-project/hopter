@@ -1,11 +1,11 @@
 //! Tests behavior of a multi-producer, single-consumer channel
 //! It spawns two producer tasks with different priorities that add elements to a shared channel,
 //! and then consumes the elements in a specific order to verify the correct sequence
+
 #![no_main]
 #![no_std]
 
 extern crate alloc;
-use alloc::vec;
 use hopter::{boot::main, debug::semihosting, hprintln, sync, sync::Producer, task};
 
 #[main]
@@ -33,7 +33,7 @@ fn main(_: cortex_m::Peripherals) {
     task::change_current_priority(10).unwrap();
 
     // Consume values from the channel and store them in a vector
-    let values = vec![
+    let values = [
         consumer.consume(),
         consumer.consume(),
         consumer.consume(),
@@ -41,7 +41,7 @@ fn main(_: cortex_m::Peripherals) {
     ];
 
     // Verify the consumed values against the expected order
-    if values != vec![1, 2, 3, 4] {
+    if values != [1, 2, 3, 4] {
         hprintln!("Test Failed");
         semihosting::terminate(false);
     }
