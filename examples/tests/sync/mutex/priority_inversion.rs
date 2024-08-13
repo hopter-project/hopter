@@ -11,58 +11,52 @@ static MUTEX: Mutex<()> = Mutex::new(());
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    
-    // Acquire the mutex lock
-    let guard = MUTEX.lock();
-    
     // Spawn a low priority task
     task::build()
-    .set_entry(low_task)
-    .set_priority(config::DEFAULT_TASK_PRIORITY + 1)
-    .spawn()
-    .unwrap();
-
-    // Let the test tasks run. But they will be blocked by the mutex.
-    task::change_current_priority(config::DEFAULT_TASK_PRIORITY + 2).unwrap();
-
-    // Release the mutex and the test tasks should be woken up based on their
-    // respective priority.
-    core::mem::drop(guard);
-
-    
-    semihosting::terminate(true);
-
+        .set_entry(low_task)
+        .set_priority(config::DEFAULT_TASK_PRIORITY + 1)
+        .spawn()
+        .unwrap();
 }
 
 fn low_task() {
     // Attempt to acquire the mutex
-    let _guard = MUTEX.lock();
-    hprintln!("Low priority task locking data");
+    let guard = MUTEX.lock();
+    hprintln!("Low priority task locked mutex");
 
     // Spawn a high priority task
     task::build()
-    .set_entry(high_task)
-    .set_priority(config::DEFAULT_TASK_PRIORITY - 1)
-    .spawn()
-    .unwrap();
+        .set_entry(high_task)
+        .set_priority(config::DEFAULT_TASK_PRIORITY - 1)
+        .spawn()
+        .unwrap();
+
+    hprintln!("High priority task blocked by mutex and low priority task continues");
+    hprintln!("Low priority task got elevated to high priority");
 
     // Spawn a middle priority task
     task::build()
-    .set_entry(middle_task)
-    .set_priority(config::DEFAULT_TASK_PRIORITY)
-    .spawn()
-    .unwrap();
+        .set_entry(middle_task)
+        .set_priority(config::DEFAULT_TASK_PRIORITY)
+        .spawn()
+        .unwrap();
+
+    hprintln!("Middle priority task was not able to run for now");
+
+    // Drop the mutex. Low priority task should be reduced back to low priority.
+    core::mem::drop(guard);
+
+    hprintln!("Low priority task finished last");
+
+    semihosting::terminate(true);
 }
 
 fn high_task() {
-    // Attempt to acquire the mutex
+    hprintln!("High priority task trying to lock mutex");
     let _guard = MUTEX.lock();
-    hprintln!("High priority task locking data");
+    hprintln!("High priority task locked mutex");
 }
 
 fn middle_task() {
-    // Attempt to acquire the mutex
-    let _guard = MUTEX.lock();
-    hprintln!("Middle priority task locking data");
+    hprintln!("Middle priority task executed");
 }
-
