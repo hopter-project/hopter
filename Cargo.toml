@@ -144,6 +144,10 @@ path = "examples/tests/sync/mutex/priority.rs"
 name = "test-sync-mutex-poison"
 path = "examples/tests/sync/mutex/poison.rs"
 
+[[example]]
+name = "test-sync-mutex-priority_inversion"
+path = "examples/tests/sync/mutex/priority_inversion.rs"
+
 # *** Tests for sync - channel ***
 
 [[example]]

@@ -23,7 +23,7 @@ jobs:
           category: sync
           sub-category: mutex
           test-name: basic
-        
+
   stress:
     runs-on: ubuntu-latest
     steps:
@@ -65,3 +65,17 @@ jobs:
           category: sync
           sub-category: mutex
           test-name: poison
+
+  priority_inversion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test priority_inversion
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: mutex
+          test-name: priority_inversion

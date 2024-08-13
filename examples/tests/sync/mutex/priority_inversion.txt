@@ -1,0 +1,8 @@
+Low priority task locked mutex
+High priority task trying to lock mutex
+High priority task blocked by mutex and low priority task continued
+Low priority task got elevated to high priority
+Middle priority task was not able to run for now
+High priority task locked mutex
+Middle priority task executed
+Low priority task finished last
