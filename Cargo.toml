@@ -182,10 +182,6 @@ path = "examples/tests/sync/channel/produce_consume_single_task.rs"
 # *** Tests for task - unwind ***
 
 [[example]]
-name = "test-sync-mutex-priority_inversion"
-path = "examples/tests/sync/mutex/priority_inversion.rs"
-
-[[example]]
 name = "test-task-unwind-diverted"
 path = "examples/tests/task/unwind/diverted.rs"
 
