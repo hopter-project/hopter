@@ -1,6 +1,7 @@
 use crate::{
     sync::{self, RwLock, RwLockReadGuard},
     task::{Task, TaskCtxt},
+    unrecoverable,
 };
 use alloc::sync::Arc;
 
@@ -60,7 +61,7 @@ where
     let ret = if let Some(cur_task) = &*cur_task {
         closure(cur_task.clone())
     } else {
-        loop {}
+        unrecoverable::die();
     };
 
     return ret;
@@ -79,7 +80,7 @@ where
     let ret = if let Some(cur_task) = &*cur_task {
         closure(cur_task)
     } else {
-        loop {}
+        unrecoverable::die();
     };
 
     return ret;

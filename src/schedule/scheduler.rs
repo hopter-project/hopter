@@ -2,8 +2,8 @@ use super::idle;
 use crate::{
     config,
     interrupt::svc,
-    sync::{self, Access, AllowPendOp, Interruptable, RunPendedOp, Spin},
-    task::{Task, TaskCtxt, TaskListAdapter, TaskListInterfaces, TaskState},
+    sync::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
+    task::{Task, TaskBuildError, TaskCtxt, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
 };
 use alloc::sync::Arc;
@@ -16,7 +16,7 @@ use intrusive_collections::LinkedList;
 
 /// A ready task queue. Ready tasks will be popped out with respect to
 /// their priorities.
-type ReadyQueue = Interruptable<Inner>;
+type ReadyQueue = RefCellSchedSafe<Interruptable<Inner>>;
 
 /// The inner content of a ready task queue.
 struct Inner {
@@ -59,8 +59,6 @@ struct InnerPendAccessor<'a> {
 /// them linked.
 impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     fn run_pended_op(&mut self) {
-        let _sched_suspend_guard = sync::suspend_scheduler();
-
         super::with_current_task(|cur_task| {
             let mut locked_list = self.ready_linked_list.lock_now_or_die();
             while let Some(task) = self.insert_buffer.dequeue() {
@@ -92,40 +90,25 @@ impl<'a> AllowPendOp<'a> for Inner {
 }
 
 /// The ready task queue.
-static READY_TASK_QUEUE: ReadyQueue = ReadyQueue::new(Inner::new());
+static READY_TASK_QUEUE: ReadyQueue = RefCellSchedSafe::new(Interruptable::new(Inner::new()));
 
 /// Existing task number.
 static EXIST_TASK_NUM: AtomicUsize = AtomicUsize::new(0);
 
-/// Make a new task ready. Return `Ok(())` if the new task is ready to be run
-/// by the scheduler, otherwise `Err(())` if the maximum number of tasks has been
-/// reached or the `id` is not acceptable.
-pub(crate) fn make_new_task_ready(id: u8, task: Arc<Task>) -> Result<(), ()> {
-    if id == config::IDLE_TASK_ID {
-        return Err(());
-    }
-
-    // Error if reached maximum task number.
+/// Make a new task ready.
+///
+/// Return
+/// - `Ok(())` if the new task is ready to be run by the scheduler
+/// - `Err(TaskBuildError::NoMoreTask)` if the maximum number of tasks has
+///    been reached.
+pub(crate) fn make_new_task_ready(task: Arc<Task>) -> Result<(), TaskBuildError> {
+    // Return error if reached maximum task number, otherwise increment it.
     if EXIST_TASK_NUM.load(Ordering::SeqCst) >= config::MAX_TASK_NUMBER {
-        return Err(());
+        return Err(TaskBuildError::NoMoreTask);
     }
-
-    let _sched_suspend_guard = sync::suspend_scheduler();
-
-    READY_TASK_QUEUE.must_with_full_access(|full_access| {
-        let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
-        locked_list.push_back(Arc::clone(&task));
-    });
-
     EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
 
-    if is_scheduler_started() {
-        super::with_current_task(|cur_task| {
-            if task.should_preempt(cur_task) {
-                request_context_switch();
-            }
-        });
-    }
+    make_task_ready_and_enqueue(task);
 
     Ok(())
 }
@@ -156,64 +139,66 @@ pub(crate) extern "C" fn schedule() -> *mut TaskCtxt {
     }
 
     {
-        READY_TASK_QUEUE.must_with_full_access(|full_access| {
-            let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
+        READY_TASK_QUEUE
+            .lock()
+            .must_with_full_access(|full_access| {
+                let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
 
-            super::with_current_task_arc(|cur_task| {
-                if cur_task.get_state() == TaskState::Running {
-                    cur_task.set_state(TaskState::Ready);
-                    locked_list.push_back(cur_task);
-                }
-            });
+                super::with_current_task_arc(|cur_task| {
+                    if cur_task.get_state() == TaskState::Running {
+                        cur_task.set_state(TaskState::Ready);
+                        locked_list.push_back(cur_task);
+                    }
+                });
 
-            // Get a task to run. Since the ready task is always present, the
-            // queue is guaranteed to be non-empty.
-            let candidate_task = locked_list.pop_highest_priority().unwrap_or_die();
+                // Get a task to run. Since the ready task is always present, the
+                // queue is guaranteed to be non-empty.
+                let candidate_task = locked_list.pop_highest_priority().unwrap_or_die();
 
-            // Set its state as running.
-            candidate_task.set_state(TaskState::Running);
+                // Set its state as running.
+                candidate_task.set_state(TaskState::Running);
 
-            let next_idle = candidate_task.is_idle();
+                let next_idle = candidate_task.is_idle();
 
-            // Load if the previous task was the idle task and also set it to
-            // the new value.
-            let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
+                // Load if the previous task was the idle task and also set it to
+                // the new value.
+                let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
 
-            // Invoke idle callbacks.
-            {
-                let locked_callbacks = idle::lock_idle_callbacks();
+                // Invoke idle callbacks.
+                {
+                    let locked_callbacks = idle::lock_idle_callbacks();
 
-                // When the idle task is switched out of CPU.
-                if was_idle {
-                    for callback in locked_callbacks.iter() {
-                        callback.idle_end_callback();
+                    // When the idle task is switched out of CPU.
+                    if was_idle {
+                        for callback in locked_callbacks.iter() {
+                            callback.idle_end_callback();
+                        }
+                    }
+
+                    // When the idle task is switched on to the CPU.
+                    if next_idle {
+                        for callback in locked_callbacks.iter() {
+                            callback.idle_begin_callback();
+                        }
                     }
                 }
 
-                // When the idle task is switched on to the CPU.
-                if next_idle {
-                    for callback in locked_callbacks.iter() {
-                        callback.idle_begin_callback();
-                    }
-                }
-            }
+                // Update the current task pointer.
+                super::set_cur_task(candidate_task);
 
-            // Update the current task pointer.
-            super::set_cur_task(candidate_task);
+                // Lock the task registers and set the pointers to it. The pointer
+                // will be used upon context switch to preserve task registers into
+                // the memory.
+                let cur_task_regs = super::lock_cur_task_regs();
 
-            // Lock the task registers and set the pointers to it. The pointer
-            // will be used upon context switch to preserve task registers into
-            // the memory.
-            let cur_task_regs = super::lock_cur_task_regs();
+                // Store the pointer to a global variable so that the assembly sequence
+                // in PendSV can find it.
+                CUR_TASK_REGS.store(cur_task_regs, Ordering::SeqCst);
 
-            // Store the pointer to a global variable so that the assembly sequence
-            // in PendSV can find it.
-            CUR_TASK_REGS.store(cur_task_regs, Ordering::SeqCst);
+                CONTEXT_SWITCH_REQUESTED.store(false, Ordering::SeqCst);
 
-            CONTEXT_SWITCH_REQUESTED.store(false, Ordering::SeqCst);
-
-            cur_task_regs
-        })
+                cur_task_regs
+            })
     }
 }
 
@@ -372,21 +357,23 @@ pub(crate) fn yield_for_preemption() {
 }
 
 pub(crate) fn make_task_ready_and_enqueue(task: Arc<Task>) {
-    let _sched_suspend_guard = sync::suspend_scheduler();
-
-    READY_TASK_QUEUE.with_access(|access| match access {
-        Access::Full { full_access } => super::with_current_task(|cur_task| {
-            if task.should_preempt(cur_task) {
-                request_context_switch();
+    READY_TASK_QUEUE.lock().with_access(|access| match access {
+        Access::Full { full_access } => {
+            if is_scheduler_started() {
+                super::with_current_task(|cur_task| {
+                    if task.should_preempt(cur_task) {
+                        request_context_switch();
+                    }
+                });
             }
             task.set_state(TaskState::Ready);
             let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
             locked_list.push_back(task);
-        }),
+        }
         Access::PendOnly { pend_access } => {
             pend_access.insert_buffer.enqueue(task).unwrap_or_die();
         }
-    })
+    });
 }
 
 /// Set the task state to [`Blocked`](TaskState::Blocked). When a blocked task
