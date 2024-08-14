@@ -25,20 +25,18 @@ use int_enum::IntEnum;
 #[repr(u8)]
 #[derive(IntEnum)]
 pub(crate) enum SVCNum {
-    /// The calling task wants to yield the CPU. The yielded task will become
-    /// ready immediately.
+    /// The calling task wants to get off from CPU. A task may voluntarily
+    /// yield the CPU or it may be forced to yield when becoming blocked on a
+    /// synchronization primitive.
     TaskYield = 1,
-    /// The calling task wants to block itself until being notified in the
-    /// future.
-    TaskBlock = 2,
+    /// The task wants to terminate and release its task struct.
+    TaskDestroy = 2,
     /// The calling task wants to release its top stacklet.
     TaskLessStack = 3,
     /// The task wants to allocate dynamic memory.
     MemAlloc = 4,
     /// The task wants to free dynamic memory.
     MemFree = 5,
-    /// The task wants to terminate and release its task struct.
-    TaskDestroy = 8,
     /// The task wants to allocate a stacklet to run the stack unwinder.
     TaskUnwindPrepare = 252,
     /// The task wants to release the stacklet used to run the unwinder and
@@ -148,14 +146,13 @@ extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         // Task wants to yield. Mark its state as ready so that the
         // scheduler can schedule it later.
         SVCNum::TaskYield => schedule::yield_cur_task_from_isr(),
-        SVCNum::TaskBlock => schedule::block_cur_task_from_isr(),
+        SVCNum::TaskDestroy => schedule::destroy_current_task_and_schedule(),
+        SVCNum::TaskLessStack => task::less_stack(tf, ctxt),
         SVCNum::TaskMoreStack => task::more_stack(tf, ctxt, MoreStackReason::Normal),
         SVCNum::TaskMoreStackFromDrop => task::more_stack(tf, ctxt, MoreStackReason::Drop),
-        SVCNum::TaskLessStack => task::less_stack(tf, ctxt),
+        SVCNum::TaskUnwindPrepare => task::more_stack(tf, ctxt, MoreStackReason::Unwind),
         SVCNum::MemAlloc => allocator::task_malloc(tf),
         SVCNum::MemFree => allocator::task_free(tf),
-        SVCNum::TaskDestroy => schedule::destroy_current_task_and_schedule(),
-        SVCNum::TaskUnwindPrepare => task::more_stack(tf, ctxt, MoreStackReason::Unwind),
         #[cfg(feature = "unwind")]
         SVCNum::TaskUnwindLand => task::unwind_land(tf, ctxt),
     }

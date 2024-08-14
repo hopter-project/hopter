@@ -194,7 +194,7 @@ impl Mailbox {
 
         if should_block {
             // If the task should block, request a context switch.
-            svc::svc_block_current_task();
+            svc::svc_yield_current_task();
 
             // We reach here if either the waiting task is notified or the
             // waiting time reaches timeout.

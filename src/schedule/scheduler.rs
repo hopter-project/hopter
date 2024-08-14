@@ -332,13 +332,9 @@ pub(crate) fn yield_cur_task_from_isr() {
     cortex_m::peripheral::SCB::set_pendsv()
 }
 
-pub(crate) fn block_cur_task_from_isr() {
-    yield_cur_task_from_isr()
-}
-
 static CONTEXT_SWITCH_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-pub(crate) fn request_context_switch() {
+fn request_context_switch() {
     CONTEXT_SWITCH_REQUESTED.store(true, Ordering::SeqCst);
 }
 

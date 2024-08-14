@@ -132,7 +132,7 @@ pub fn sleep_ms(ms: u32) {
 
         // Yield from the current task. Even if the current task has already
         // been woken up, yielding from it will not introduce deadlock.
-        svc::svc_block_current_task();
+        svc::svc_yield_current_task();
     }
 
     // Outline the logic to reduce the stack frame size of `sleep_ms`.
