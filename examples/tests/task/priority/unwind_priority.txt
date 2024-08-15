@@ -1,0 +1,6 @@
+High priority task going to panic
+Middle priority task executed
+Dropping Middle priority resource
+Low priority task executed
+Dropping Low priority resource
+Dropping High priority resource

@@ -1,5 +1,6 @@
-//! Tests that a panicked task is given unwind priority,
-/// allowing other tasks to run even if one of them panics.
+//! Tests that a panicked task will get its priority reduced to a low
+//! `UNWIND_PRIORITY` thus other normal tasks can run first. The unwinding
+//! should take otherwise idle CPU time.
 
 #![no_std]
 #![no_main]
@@ -14,13 +15,12 @@ struct DataPointer {
 
 impl Drop for DataPointer {
     fn drop(&mut self) {
-        hprintln!("Dropping `{}`!", self.data);
+        hprintln!("Dropping {}", self.data);
     }
 }
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
-    // Create test tasks.
     task::build()
         .set_entry(low_task)
         .set_priority(config::DEFAULT_TASK_PRIORITY + 1)
@@ -39,28 +39,28 @@ fn main(_: cortex_m::Peripherals) {
         .spawn()
         .unwrap();
 
-    task::change_current_priority(config::DEFAULT_TASK_PRIORITY + 2).unwrap();
+    task::change_current_priority(config::UNWIND_PRIORITY + 1).unwrap();
     semihosting::terminate(true);
 }
 
 fn high_task() {
     let _resource = DataPointer {
-        data: String::from("High Priority resource"),
+        data: String::from("High priority resource"),
     };
+    hprintln!("High priority task going to panic");
     panic!();
-
 }
 
 fn middle_task() {
     let _resource = DataPointer {
-        data: String::from("Middle Priority resource"),
+        data: String::from("Middle priority resource"),
     };
     hprintln!("Middle priority task executed");
 }
 
 fn low_task() {
     let _resource = DataPointer {
-        data: String::from("Low Priority resource"),
+        data: String::from("Low priority resource"),
     };
     hprintln!("Low priority task executed");
 }
