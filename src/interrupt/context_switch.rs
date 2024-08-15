@@ -1,8 +1,12 @@
-use crate::{config, schedule, task::TaskCtxt};
+use crate::{
+    config,
+    schedule::{current, scheduler},
+    unrecoverable,
+};
 use core::arch::asm;
 
 /// The interrupt entry function for PendSV. It preserves the registers and segmented
-/// stack status of the previously running task.
+/// stack status of the previously running task. PendSV is used for context switch.
 ///
 /// The PendSV handling is slower than other IRQ, because it saves the full context of
 /// the task for the purpose of doing context switch. On the contrary, other IRQ handlers
@@ -26,10 +30,10 @@ unsafe extern "C" fn pendsv_entry() {
         "ldmia  r12, {{r0-r2}}",
         // Let `r3` hold the previously running task's stack pointer.
         "mrs    r3, psp",
-        // Let `r12` hold the address of `CUR_TASK_REGS`.
+        // Let `r12` hold the address of `CUR_TASK_CTXT_PTR`.
         "movw   r12, :lower16:{cur_task}",
         "movt   r12, :upper16:{cur_task}",
-        // Let `r12` hold `CUR_TASK_REGS`, which is a pointer.
+        // Let `r12` hold `CUR_TASK_CTXT_PTR`, which is a pointer.
         "ldr    r12, [r12]",
         // Preserve the TLS, stacklet boundary, and register `r4-r11`.
         // Register `r0-r3` and `r12` are pushed by hardware onto the task's stack.
@@ -49,9 +53,12 @@ unsafe extern "C" fn pendsv_entry() {
         "mov    r0, lr",
         // Call the handler function.
         "bl     {pendsv_handler}",
-        // Move the return value, which is holding the content of `CUR_TASK_REGS`,
-        // to `r12`.
-        "mov    r12, r0",
+        // Let `r12` hold the address of `CUR_TASK_CTXT_PTR`.
+        "movw   r12, :lower16:{cur_task}",
+        "movt   r12, :upper16:{cur_task}",
+        // Let `r12` hold `CUR_TASK_CTXT_PTR`, which is a pointer.
+        // The pointer content should have been updated by the scheduler.
+        "ldr    r12, [r12]",
         // Let `r0-r2` hold the TLS fields and `r3` hold the task's stack pointer.
         // Restore the value in r4-r11.
         "ldmia  r12!, {{r0-r3, r4-r11}}",
@@ -66,22 +73,24 @@ unsafe extern "C" fn pendsv_entry() {
         "mrs    r3, msp",
         "ldr    r2, ={kern_stk_bottom}",
         "cmp    r2, r3",
-        // Infinite loop if the check fails.
+        // Call `unrecoverable::die` if the check fails.
         "bne    0f",
         // Perform exception return, assuming that the task has floating
         // point context. Register r0-r3, r12, lr, s0-s15, and fpscr will
         // be restored from the trap frame on the task's stack.
         "ldr    lr, ={ex_ret_to_psp_with_fp}",
         "bx     lr",
-        // Infinite loop.
+        // Call `unrecoverable::die`.
         "0:",
-        "b      0b",
-        cur_task = sym schedule::CUR_TASK_REGS,
+        "bl     {die}",
+        "udf    #254",
+        cur_task = sym current::CUR_TASK_CTXT_PTR,
         tls_mem_addr = const config::TLS_MEM_ADDR,
         kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
         pendsv_handler = sym pendsv_handler,
         kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
         ex_ret_to_psp_with_fp = const 0xffffffedu32,
+        die = sym unrecoverable::die,
         options(noreturn)
     )
 }
@@ -90,14 +99,16 @@ unsafe extern "C" fn pendsv_entry() {
 /// and the floating point registers s0-s15 were pushed in the trap frame.
 fn die_if_unexpected_pendsv(ex_ret_lr: u32) {
     if ex_ret_lr != 0xffffffed {
-        loop {}
+        unrecoverable::die();
     }
 }
 
-/// The PendSV handler. Decleared as `extern "C"` because it's called from
+/// The PendSV handler. Decleared as `extern "C"` because it is called from
 /// the assembly code.
-extern "C" fn pendsv_handler(ex_ret_lr: u32) -> *mut TaskCtxt {
+extern "C" fn pendsv_handler(ex_ret_lr: u32) {
     die_if_unexpected_pendsv(ex_ret_lr);
 
-    schedule::schedule()
+    // The `CUR_TASK_CTXT_PTR` pointer will be updated to reflect the next
+    // chosen task to run.
+    scheduler::pick_next();
 }

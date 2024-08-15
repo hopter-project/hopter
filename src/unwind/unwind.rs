@@ -43,7 +43,8 @@ use crate::{
         trap_frame::{self, TrapFrame},
         SVCNum,
     },
-    schedule, task,
+    schedule::current,
+    task,
     unrecoverable::{self, Lethal},
 };
 use alloc::boxed::Box;
@@ -390,7 +391,7 @@ impl<'a> Debug for UnwindState<'a> {
 
 #[inline(never)]
 fn try_concurrent_restart() {
-    let res = schedule::with_current_task_arc(|cur_task| {
+    let res = current::with_current_task_arc(|cur_task| {
         // We will limit the concurrent restart rate to at most one concurrent
         // instance. If this task is a restarted instance, and also if the original
         // instance has not finished unwinding, i.e. the task struct reference
@@ -418,7 +419,7 @@ impl UnwindState<'static> {
     /// must be manually initialized.
     fn allocate_uninit() -> *mut MaybeUninit<Self> {
         // If we panic inside an ISR, we should use the static storage.
-        if schedule::is_running_in_isr() {
+        if current::is_in_isr_context() {
             // Mark the reserved static storage as being in-use.
             let res = STATIC_UNWIND_STATE_IN_USE.compare_exchange(
                 false,
@@ -504,8 +505,8 @@ impl UnwindState<'static> {
         let unw_state = unsafe { &mut *unw_state_ptr };
 
         // Try concurrent restart if we panic in a task but not in an ISR.
-        if !schedule::is_running_in_isr() {
-            if schedule::with_current_task(|cur_task| cur_task.is_restartable()) {
+        if !current::is_in_isr_context() {
+            if current::with_current_task(|cur_task| cur_task.is_restartable()) {
                 try_concurrent_restart();
             }
         }
@@ -927,15 +928,15 @@ pub fn is_isr_unwinding() -> bool {
 }
 
 pub fn set_cur_task_unwinding(val: bool) {
-    schedule::with_current_task(|cur_task| cur_task.set_unwind_flag(val));
+    current::with_current_task(|cur_task| cur_task.set_unwind_flag(val));
 }
 
 pub fn is_cur_task_unwinding() -> bool {
-    schedule::with_current_task(|cur_task| cur_task.is_unwinding())
+    current::with_current_task(|cur_task| cur_task.is_unwinding())
 }
 
 pub fn is_unwinding() -> bool {
-    if schedule::is_running_in_isr() {
+    if current::is_in_isr_context() {
         is_isr_unwinding()
     } else {
         is_cur_task_unwinding()
@@ -943,7 +944,7 @@ pub fn is_unwinding() -> bool {
 }
 
 pub fn set_unwinding(val: bool) {
-    if schedule::is_running_in_isr() {
+    if current::is_in_isr_context() {
         set_isr_unwinding(val)
     } else {
         set_cur_task_unwinding(val)
@@ -1044,7 +1045,7 @@ unsafe extern "C" fn resume_unwind<'a>(
     // When preeption is enabled, the unwinder will not be chosen to run unless
     // no other priority task is ready.
     if !config::ALLOW_TASK_PREEMPTION {
-        if !schedule::is_running_in_isr() {
+        if !current::is_in_isr_context() {
             svc::svc_yield_current_task();
         }
     }

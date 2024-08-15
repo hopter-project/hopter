@@ -1,4 +1,4 @@
-use crate::schedule;
+use crate::schedule::current;
 
 pub trait Lethal {
     type T;
@@ -38,7 +38,7 @@ where
 }
 
 pub fn die_if_in_isr() {
-    if schedule::is_running_in_isr() {
+    if current::is_in_isr_context() {
         die();
     }
 }

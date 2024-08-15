@@ -1,9 +1,9 @@
 use crate::{
     config,
     interrupt::svc,
-    schedule,
+    schedule::{current, scheduler},
     sync::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
-    task::{Task, TaskListAdapter, TaskListInterfaces},
+    task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::Lethal,
 };
 use alloc::sync::Arc;
@@ -71,7 +71,7 @@ impl<'a> InnerFullAccessor<'a> {
         while let Some(task) = cursor_mut.get() {
             if task.get_wake_tick() <= cur_tick {
                 let task = cursor_mut.remove().unwrap_or_die();
-                schedule::make_task_ready_and_enqueue(task);
+                scheduler::accept_notified_task(task);
             } else {
                 break;
             }
@@ -79,7 +79,7 @@ impl<'a> InnerFullAccessor<'a> {
 
         while let Some(task) = self.delete_buffer.dequeue() {
             if let Some(task) = locked_queue.remove_task(&task) {
-                schedule::make_task_ready_and_enqueue(task);
+                scheduler::accept_notified_task(task);
             }
         }
     }
@@ -138,8 +138,8 @@ pub fn sleep_ms(ms: u32) {
     // Outline the logic to reduce the stack frame size of `sleep_ms`.
     #[inline(never)]
     fn add_cur_task_to_sleep_queue(wake_at_tick: u32) {
-        schedule::with_current_task_arc(|cur_task| {
-            schedule::set_task_state_block(&cur_task);
+        current::with_current_task_arc(|cur_task| {
+            cur_task.set_state(TaskState::Blocked);
             add_task_to_sleep_queue(cur_task, wake_at_tick);
         })
     }
@@ -160,7 +160,7 @@ pub(crate) fn remove_task_from_sleep_queue_allow_isr(task: Arc<Task>) {
         Access::Full { full_access } => {
             let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
             if let Some(task) = locked_queue.remove_task(&task) {
-                schedule::make_task_ready_and_enqueue(task);
+                scheduler::accept_notified_task(task);
             }
         }
         Access::PendOnly { pend_access } => {

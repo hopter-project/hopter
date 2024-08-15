@@ -7,7 +7,8 @@ use core::{
 use super::{
     boot,
     interrupt::{svc, trap_frame::TrapFrame},
-    schedule, task,
+    schedule::scheduler,
+    task,
     unrecoverable::{self, Lethal},
 };
 
@@ -165,7 +166,7 @@ pub fn init_allocator() {
 fn die_if_not_in_svc() {
     // Only perform sanity check after the scheduler has started, otherwise
     // we may still be running with the bootstrap stack with MSP.
-    if !schedule::is_scheduler_started() {
+    if !scheduler::has_started() {
         return;
     }
 
@@ -187,7 +188,7 @@ fn die_if_not_in_svc() {
 fn die_if_not_in_svc_or_pendsv() {
     // Only perform sanity check after the scheduler has started, otherwise
     // we may still be running with the bootstrap stack with MSP.
-    if !schedule::is_scheduler_started() {
+    if !scheduler::has_started() {
         return;
     }
 

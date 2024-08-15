@@ -15,7 +15,8 @@
 
 use super::trap_frame::TrapFrame;
 use crate::{
-    allocator, config, schedule,
+    allocator, config,
+    schedule::scheduler,
     task::{self, MoreStackReason, TaskLocalStorage},
     unrecoverable::{self, Lethal},
 };
@@ -145,8 +146,8 @@ extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     match get_svc_num(tf) {
         // Task wants to yield. Mark its state as ready so that the
         // scheduler can schedule it later.
-        SVCNum::TaskYield => schedule::yield_cur_task_from_isr(),
-        SVCNum::TaskDestroy => schedule::destroy_current_task_and_schedule(),
+        SVCNum::TaskYield => scheduler::yield_cur_task_from_isr(),
+        SVCNum::TaskDestroy => scheduler::destroy_current_task_and_schedule(),
         SVCNum::TaskLessStack => task::less_stack(tf, ctxt),
         SVCNum::TaskMoreStack => task::more_stack(tf, ctxt, MoreStackReason::Normal),
         SVCNum::TaskMoreStackFromDrop => task::more_stack(tf, ctxt, MoreStackReason::Drop),

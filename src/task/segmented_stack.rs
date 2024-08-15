@@ -59,7 +59,7 @@ use crate::{
         trap_frame::{TrapFrame, TRAP_FRAME_PAD_SIZE},
         TaskSVCCtxt,
     },
-    schedule,
+    schedule::current,
     unrecoverable::{self, Lethal},
     unwind,
 };
@@ -233,7 +233,7 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
     // Whether we should abort the new stacklet allocation.
     let mut abort = false;
 
-    schedule::with_current_task(|cur_task| {
+    current::with_current_task(|cur_task| {
         cur_task
             // Alleviate the hot split problem if the task contains a hot-split
             // alleviation block. All tasks with dynamic stack extension
@@ -394,7 +394,7 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
         ctxt.sp = meta.prev_sp;
 
         // Update hot split alleviation information.
-        schedule::with_current_task(|cur_task| {
+        current::with_current_task(|cur_task| {
             cur_task.with_hsab(|hsab| svc_less_stack_anti_hot_split(prev_tf, hsab));
         });
 

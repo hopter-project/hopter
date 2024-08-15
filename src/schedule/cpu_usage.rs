@@ -132,13 +132,13 @@ impl<Clock> IdleCallback for CpuUsage<Clock>
 where
     Clock: MicrosecPrecision + Send + Sync,
 {
-    fn idle_begin_callback(&self) {
+    fn idle_begin(&self) {
         // Save the timestamp that the idle task resumes.
         let cur_ts = self.clock.read_clock_us();
         self.swap_idle_start_timestamp(cur_ts);
     }
 
-    fn idle_end_callback(&self) {
+    fn idle_end(&self) {
         // If the idle task was running but it is now switched out, update
         // the slots used to calculate CPU load.
         let cur_ts = self.clock.read_clock_us();

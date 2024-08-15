@@ -7,9 +7,9 @@ use alloc::{sync::Arc, vec::Vec};
 
 pub trait IdleCallback: Send + Sync {
     /// Invoked every time the idle task is switched on to the CPU.
-    fn idle_begin_callback(&self) {}
+    fn idle_begin(&self) {}
     /// Invoked every time the idle task is switched out of the CPU.
-    fn idle_end_callback(&self) {}
+    fn idle_end(&self) {}
 }
 
 /// Callbacks to invoke when the idle task is switched in or out.
@@ -25,8 +25,8 @@ pub(super) fn lock_idle_callbacks() -> SpinSchedSafeGuard<'static, Vec<Arc<dyn I
 
 /// The idle task. Just endlessly yield itself so that whenever a task becomes
 /// ready, that task will be chosen by the scheduler to run.
-pub(super) unsafe extern "C" fn idle() -> ! {
-    super::mark_scheduler_started();
+pub(super) unsafe extern "C" fn idle_task() -> ! {
+    super::scheduler::set_started();
 
     // Enable interrupt.
     unsafe {

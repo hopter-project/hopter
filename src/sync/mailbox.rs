@@ -1,5 +1,10 @@
 use super::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin};
-use crate::{interrupt::svc, schedule, task::Task, time, unrecoverable};
+use crate::{
+    interrupt::svc,
+    schedule::current,
+    task::{Task, TaskState},
+    time, unrecoverable,
+};
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -179,8 +184,8 @@ impl Mailbox {
             // Otherwise the task is going to be blocked. Reset the flag.
             full_access.task_notified.store(false, Ordering::SeqCst);
 
-            schedule::with_current_task_arc(|cur_task| {
-                schedule::set_task_state_block(&cur_task);
+            current::with_current_task_arc(|cur_task| {
+                cur_task.set_state(TaskState::Blocked);
 
                 // Record the waiting task on this mailbox.
                 *locked_wait_task = Some(Arc::clone(&cur_task));

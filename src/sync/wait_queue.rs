@@ -4,8 +4,8 @@ use super::{
 };
 use crate::{
     interrupt::svc,
-    schedule,
-    task::{TaskListAdapter, TaskListInterfaces},
+    schedule::{current, scheduler},
+    task::{TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable,
 };
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -68,7 +68,7 @@ impl<'a> RunPendedOp for InnerFullAccessor<'a> {
         let cnt = self.notify_cnt.swap(0, Ordering::SeqCst);
         for _ in 0..cnt {
             if let Some(task) = locked_queue.pop_highest_priority() {
-                schedule::make_task_ready_and_enqueue(task);
+                scheduler::accept_notified_task(task);
             } else {
                 break;
             }
@@ -97,7 +97,6 @@ impl WaitQueue {
     /// task notifies it.
     ///
     /// Important: *must not* call this method in ISR context.
-    #[allow(dead_code)]
     #[inline]
     pub fn wait(&self) {
         unrecoverable::die_if_in_isr();
@@ -114,8 +113,8 @@ impl WaitQueue {
             // Should always grant full access to a task.
             wq.inner.lock().must_with_full_access(|full_access| {
                 // Put the current task into the queue.
-                schedule::with_current_task_arc(|cur_task| {
-                    schedule::set_task_state_block(&cur_task);
+                current::with_current_task_arc(|cur_task| {
+                    cur_task.set_state(TaskState::Blocked);
                     let mut locked_queue = full_access.queue.lock_now_or_die();
                     locked_queue.push_back(cur_task);
                 });
@@ -179,8 +178,8 @@ impl WaitQueue {
                 }
 
                 // Otherwise, put the current task into the queue.
-                schedule::with_current_task_arc(|cur_task| {
-                    schedule::set_task_state_block(&cur_task);
+                current::with_current_task_arc(|cur_task| {
+                    cur_task.set_state(TaskState::Blocked);
                     locked_queue.push_back(cur_task);
                 });
 
@@ -259,8 +258,8 @@ impl WaitQueue {
                 let mutex = guard.unlock_and_into_lock_ref();
 
                 // Put the current task into the queue.
-                schedule::with_current_task_arc(|cur_task| {
-                    schedule::set_task_state_block(&cur_task);
+                current::with_current_task_arc(|cur_task| {
+                    cur_task.set_state(TaskState::Blocked);
                     locked_queue.push_back(cur_task);
                 });
 
@@ -285,7 +284,7 @@ impl WaitQueue {
             Access::Full { full_access } => {
                 let mut locked_queue = full_access.queue.lock_now_or_die();
                 if let Some(task) = locked_queue.pop_highest_priority() {
-                    schedule::make_task_ready_and_enqueue(task);
+                    scheduler::accept_notified_task(task);
                 }
             }
             // If other context is running with the full access and we preempt it,

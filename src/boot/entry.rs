@@ -1,4 +1,4 @@
-use crate::{allocator, config, schedule, task, unrecoverable::Lethal};
+use crate::{allocator, config, schedule::scheduler, task, unrecoverable::Lethal};
 use alloc::boxed::Box;
 use core::sync::atomic::AtomicPtr;
 use cortex_m::peripheral::scb::SystemHandler;
@@ -54,6 +54,6 @@ pub extern "C" fn entry() -> ! {
             .set_priority(config::MAIN_TASK_PRIORITY)
             .spawn()
             .unwrap_or_die();
-        schedule::start_scheduler();
+        scheduler::start();
     }
 }

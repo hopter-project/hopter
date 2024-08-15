@@ -29,7 +29,7 @@ where
 }
 
 #[cfg(feature = "unwind")]
-use crate::{schedule, unrecoverable};
+use crate::{schedule::current, unrecoverable};
 #[cfg(feature = "unwind")]
 use core::any::Any;
 
@@ -65,7 +65,7 @@ where
         // If the task panicked, check if it has already been restarted with
         // another task struct. If yes, we break the loop to let the current
         // task struct terminates.
-        if schedule::with_current_task(|cur_task| cur_task.has_restarted()) {
+        if current::with_current_task(|cur_task| cur_task.has_restarted()) {
             break;
         }
 

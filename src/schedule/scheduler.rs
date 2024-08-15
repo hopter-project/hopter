@@ -1,15 +1,15 @@
-use super::idle;
+use super::{current, idle};
 use crate::{
     config,
     interrupt::svc,
     sync::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
-    task::{Task, TaskBuildError, TaskCtxt, TaskListAdapter, TaskListInterfaces, TaskState},
+    task::{Task, TaskBuildError, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
 };
 use alloc::sync::Arc;
 use core::{
     arch::asm,
-    sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use heapless::mpmc::MpMcQueue;
 use intrusive_collections::LinkedList;
@@ -59,7 +59,7 @@ struct InnerPendAccessor<'a> {
 /// them linked.
 impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     fn run_pended_op(&mut self) {
-        super::with_current_task(|cur_task| {
+        current::with_current_task(|cur_task| {
             let mut locked_list = self.ready_linked_list.lock_now_or_die();
             while let Some(task) = self.insert_buffer.dequeue() {
                 if task.should_preempt(cur_task) {
@@ -95,131 +95,102 @@ static READY_TASK_QUEUE: ReadyQueue = RefCellSchedSafe::new(Interruptable::new(I
 /// Existing task number.
 static EXIST_TASK_NUM: AtomicUsize = AtomicUsize::new(0);
 
-/// Make a new task ready.
-///
-/// Return
-/// - `Ok(())` if the new task is ready to be run by the scheduler
-/// - `Err(TaskBuildError::NoMoreTask)` if the maximum number of tasks has
-///    been reached.
-pub(crate) fn make_new_task_ready(task: Arc<Task>) -> Result<(), TaskBuildError> {
-    // Return error if reached maximum task number, otherwise increment it.
-    if EXIST_TASK_NUM.load(Ordering::SeqCst) >= config::MAX_TASK_NUMBER {
-        return Err(TaskBuildError::NoMoreTask);
-    }
-    EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
-
-    make_task_ready_and_enqueue(task);
-
-    Ok(())
-}
-
-/// The pointer to the struct in memory that is used to save task's registers
-/// upon exception. This pointer is used by the assembly of exception entry
-/// functions.
-#[no_mangle]
-pub(crate) static CUR_TASK_REGS: AtomicPtr<TaskCtxt> = AtomicPtr::new(core::ptr::null_mut());
-
 /// Whether the currently running task is the idle task.
 static CUR_TASK_IDLE: AtomicBool = AtomicBool::new(false);
 
-/// Choose the next task to run. The chosen task is indicated by the returned pointer
-/// to its preserved registers in memory. The pointer has exclusive mutable access
-/// to the contents.
-#[no_mangle]
-pub(crate) extern "C" fn schedule() -> *mut TaskCtxt {
+/// Choose the next task to run. The chosen task will be reflected by the
+/// updated global variable [`CUR_TASK_CTXT_PTR`](current::CUR_TASK_CTXT_PTR).
+/// Semantically, the pointer has exclusive mutable access to the context
+/// struct it points to. The pointer will be used by the context switch
+/// assembly instruction sequence in [`crate::interrupt::context_switch`].
+pub(crate) fn pick_next() {
+    // Sanity check that the scheduler is not being suspended.
     if SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
         unrecoverable::die();
     }
 
-    // Release the lock on the current task registers.
-    // Safety: The lock was acquired when the current task was previously scheduled (see
-    // below). There is no active reference to the content.
-    unsafe {
-        super::release_cur_task_regs();
-    }
+    READY_TASK_QUEUE
+        .lock()
+        .must_with_full_access(|full_access| {
+            let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
 
-    {
-        READY_TASK_QUEUE
-            .lock()
-            .must_with_full_access(|full_access| {
-                let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
-
-                super::with_current_task_arc(|cur_task| {
-                    if cur_task.get_state() == TaskState::Running {
+            // Clean up for the current task.
+            current::with_current_task_arc(|cur_task| {
+                match cur_task.get_state() {
+                    // Put the current task back to the ready queue only if the
+                    // task is in `Running` state.
+                    TaskState::Running => {
                         cur_task.set_state(TaskState::Ready);
                         locked_list.push_back(cur_task);
                     }
-                });
+                    // A `Blocked` task should have been put to a waiting queue and
+                    // maintain a positive `Arc` reference count there.
+                    //
+                    // A `Destructing` task have no `Arc` reference elsewhere other
+                    // than the one maintained by the `current` module. We want to
+                    // drop the only reference.
+                    //
+                    // In both cases, we will not put the task back to the ready
+                    // queue and will later use `current::set_cur_task` to overwrite
+                    // the current task reference maintained by the `current` module.
+                    TaskState::Blocked | TaskState::Destructing => {}
+                    // The current task should never be in the `Ready` or
+                    // `Initializing` state.
+                    TaskState::Ready | TaskState::Initializing => unrecoverable::die(),
+                }
+            });
 
-                // Get a task to run. Since the ready task is always present, the
-                // queue is guaranteed to be non-empty.
-                let candidate_task = locked_list.pop_highest_priority().unwrap_or_die();
+            // Pick the next task based on the priority. An idle task
+            // guarantees that the ready queue will always be non-empty.
+            let next_task = locked_list.pop_highest_priority().unwrap_or_die();
+            next_task.set_state(TaskState::Running);
 
-                // Set its state as running.
-                candidate_task.set_state(TaskState::Running);
+            let next_idle = next_task.is_idle();
 
-                let next_idle = candidate_task.is_idle();
+            // Load if the current task is the idle task and also set it to
+            // the new value.
+            let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
 
-                // Load if the previous task was the idle task and also set it to
-                // the new value.
-                let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
+            // Invoke idle callbacks if the idle task is switched in or out.
+            {
+                let locked_callbacks = idle::lock_idle_callbacks();
 
-                // Invoke idle callbacks.
-                {
-                    let locked_callbacks = idle::lock_idle_callbacks();
-
-                    // When the idle task is switched out of CPU.
-                    if was_idle {
-                        for callback in locked_callbacks.iter() {
-                            callback.idle_end_callback();
-                        }
-                    }
-
-                    // When the idle task is switched on to the CPU.
-                    if next_idle {
-                        for callback in locked_callbacks.iter() {
-                            callback.idle_begin_callback();
-                        }
+                // When the idle task is switched out of CPU.
+                if was_idle {
+                    for callback in locked_callbacks.iter() {
+                        callback.idle_end();
                     }
                 }
 
-                // Update the current task pointer.
-                super::set_cur_task(candidate_task);
+                // When the idle task is switched on to the CPU.
+                if next_idle {
+                    for callback in locked_callbacks.iter() {
+                        callback.idle_begin();
+                    }
+                }
+            }
 
-                // Lock the task registers and set the pointers to it. The pointer
-                // will be used upon context switch to preserve task registers into
-                // the memory.
-                let cur_task_regs = super::lock_cur_task_regs();
+            // Set the chosen task to be current.
+            current::update_cur_task(next_task);
 
-                // Store the pointer to a global variable so that the assembly sequence
-                // in PendSV can find it.
-                CUR_TASK_REGS.store(cur_task_regs, Ordering::SeqCst);
-
-                CONTEXT_SWITCH_REQUESTED.store(false, Ordering::SeqCst);
-
-                cur_task_regs
-            })
-    }
+            // Clear the context switch request flag because we just
+            // performed one.
+            CONTEXT_SWITCH_REQUESTED.store(false, Ordering::SeqCst);
+        })
 }
 
 /// Start the scheduler and start to run tasks.
 ///
 /// Safety: This function should only be called at system initialization stage
 /// when the system is still running with MSP.
-pub(crate) unsafe fn start_scheduler() -> ! {
+pub(crate) unsafe fn start() -> ! {
     let mut idle_task = Task::build_idle();
 
     let stack_bottom = idle_task.get_sp();
     let idle_stk_bound = idle_task.get_stk_bound();
 
     // Set the idle task as the currently running task.
-    super::set_cur_task(Arc::new(idle_task));
-
-    // Lock the idle task's registers and set the pointers to it.
-    // The pointer will be used upon exception to preserve idle task's
-    // registers into the memory.
-    let cur_task_regs = super::lock_cur_task_regs();
-    CUR_TASK_REGS.store(cur_task_regs, Ordering::SeqCst);
+    current::update_cur_task(Arc::new(idle_task));
 
     // The current task, i.e. idle task, becomes the first existing task.
     EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
@@ -253,8 +224,8 @@ pub(crate) unsafe fn start_scheduler() -> ! {
             // floating point registers upon exception.
             "vmov.f32 s0, s0",
             // Jump to the idle function.
-            "b {idle}",
-            idle = sym super::idle,
+            "b {idle_task}",
+            idle_task = sym idle::idle_task,
             tls_mem_addr = const config::TLS_MEM_ADDR,
             kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
             in("r0") stack_bottom,
@@ -269,8 +240,9 @@ pub(crate) unsafe fn start_scheduler() -> ! {
 pub(crate) fn destroy_current_task_and_schedule() {
     EXIST_TASK_NUM.fetch_sub(1, Ordering::SeqCst);
 
-    // Mark the task state as `Empty` so that the scheduler will drop the task struct.
-    super::with_current_task(|cur_task| cur_task.set_state(TaskState::Initializing));
+    // Mark the task state as `Destructing` so that the scheduler will drop
+    // the task struct upon a later context switch.
+    current::with_current_task(|cur_task| cur_task.set_state(TaskState::Destructing));
 
     // Just request a context switch without putting the currently running task
     // back to the ready queue. Although `svc_task_block()` is implemented in
@@ -280,41 +252,13 @@ pub(crate) fn destroy_current_task_and_schedule() {
     cortex_m::peripheral::SCB::set_pendsv()
 }
 
-pub(crate) fn is_running_in_isr() -> bool {
-    let ipsr: u32;
-
-    unsafe {
-        asm!(
-            "mrs {}, ipsr",
-            out(reg) ipsr,
-            options(nomem, nostack)
-        );
-    }
-
-    ipsr != 0
-}
-
-pub(crate) fn is_running_in_pendsv() -> bool {
-    let ipsr: u32;
-
-    unsafe {
-        asm!(
-            "mrs {}, ipsr",
-            out(reg) ipsr,
-            options(nomem, nostack)
-        );
-    }
-
-    ipsr == 14
-}
-
 static SCHEDULER_STARTED: AtomicBool = AtomicBool::new(false);
 
-pub(crate) fn is_scheduler_started() -> bool {
+pub(crate) fn has_started() -> bool {
     SCHEDULER_STARTED.load(Ordering::SeqCst)
 }
 
-pub(super) fn mark_scheduler_started() {
+pub(super) fn set_started() {
     SCHEDULER_STARTED.store(true, Ordering::SeqCst)
 }
 
@@ -345,38 +289,67 @@ pub(crate) fn yield_for_preemption() {
         return;
     }
 
-    if !is_running_in_isr() {
+    if !current::is_in_isr_context() {
         svc::svc_yield_current_task();
-    } else if !is_running_in_pendsv() {
+    } else if !current::is_in_pendsv_context() {
         yield_cur_task_from_isr();
     }
 }
 
-pub(crate) fn make_task_ready_and_enqueue(task: Arc<Task>) {
+/// Insert a new task to the scheduler's ready queue. The task must not be an
+/// existing task, but can be a new restarted instance of a panicked task.
+///
+/// # Return
+/// - `Ok(())` if the new task is ready to be run by the scheduler
+/// - `Err(TaskBuildError::NoMoreTask)` if the maximum number of tasks has
+///    been reached.
+pub(crate) fn accept_new_task(task: Arc<Task>) -> Result<(), TaskBuildError> {
+    // Return error if reached maximum task number, otherwise increment it.
+    if EXIST_TASK_NUM.load(Ordering::SeqCst) >= config::MAX_TASK_NUMBER {
+        return Err(TaskBuildError::NoMoreTask);
+    }
+    EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
+
+    insert_task_to_ready_queue(task);
+
+    Ok(())
+}
+
+/// Insert a task back to the scheduler's ready queue. The task should
+/// previously be blocked or sleeping.
+pub(crate) fn accept_notified_task(task: Arc<Task>) {
+    insert_task_to_ready_queue(task)
+}
+
+/// Internal implementation to insert a task to the ready queue.
+fn insert_task_to_ready_queue(task: Arc<Task>) {
     READY_TASK_QUEUE.lock().with_access(|access| match access {
+        // The queue is not under contention. Directly put the task to the
+        // linked list.
         Access::Full { full_access } => {
-            if is_scheduler_started() {
-                super::with_current_task(|cur_task| {
+            // Request a context switch if the incoming ready task has a
+            // higher priority than the current task. Check it only when
+            // the scheduler has started otherwise there will be no current
+            // task.
+            if has_started() {
+                current::with_current_task(|cur_task| {
                     if task.should_preempt(cur_task) {
                         request_context_switch();
                     }
                 });
             }
+
+            // Put the ready task to the linked list.
             task.set_state(TaskState::Ready);
             let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
             locked_list.push_back(task);
         }
+        // The queue is under contention. The current execution context, which
+        // must be an ISR, preempted another context that is holding the full
+        // access. Place the task in the lock-free buffer. The full access
+        // holder will later put it back to the linked list.
         Access::PendOnly { pend_access } => {
             pend_access.insert_buffer.enqueue(task).unwrap_or_die();
         }
     });
-}
-
-/// Set the task state to [`Blocked`](TaskState::Blocked). When a blocked task
-/// is switched out of the CPU, the scheduler will not add it back to the
-/// ready queue. The code blocking the task should add the task either to a
-/// waiting queue i.e. [`WaitQueue`](crate::sync::WaitQueue) or to the sleeping
-/// queue in [`time`](crate::time).
-pub(crate) fn set_task_state_block(task: &Task) {
-    task.set_state(TaskState::Blocked);
 }

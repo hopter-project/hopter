@@ -35,6 +35,8 @@ pub(crate) enum TaskState {
     Ready,
     /// The task is running on the CPU.
     Running,
+    /// The task is under destruction.
+    Destructing,
 }
 
 #[repr(C)]
@@ -115,7 +117,7 @@ pub(crate) struct Task {
     /// The task context preserved in the kernel. When a task is scheduled to
     /// run on the CPU, the spin lock will be acquired during the running
     /// period. Accidental attempt to modify the context of a running task
-    /// will resultg in a deadlock, which can help us track down the bug
+    /// will result in a deadlock, which can help us track down the bug
     /// faster. The spin lock will be released when the running task is
     /// switched out during context switch.
     ///
@@ -673,8 +675,9 @@ impl Task {
     }
 
     /// Lock the task context and return the mutable raw pointer to the
-    /// context. This is used when the scheduler picks a task to run.
-    /// See [`Task`] for the invariants of the context.
+    /// context. The pointer is used by the context switch assembly sequence
+    /// in [`context_switch`](crate::interrupt::context_switch).
+    /// See [`Task`] for the invariants of the context lock.
     pub(crate) fn lock_ctxt(&self) -> *mut TaskCtxt {
         let mut locked_ctxt = self.ctxt.lock_now_or_die();
         let ptr = &mut *locked_ctxt as *mut _;
@@ -682,9 +685,12 @@ impl Task {
         ptr
     }
 
-    /// Force unlock the task context. This is used when the previously
-    /// running task yields or is blocked. See [`Task`] for the invariants
-    /// of the context.
+    /// Force unlock the task context. This method should be called only when
+    /// context switching a task out of the CPU. See [`Task`] for the
+    /// invariants of the context lock and also [`lock_ctxt`](Self::lock_ctxt).
+    ///
+    /// Safety: When calling this method the context lock must have been
+    /// acquired when the task was being context switched on to the CPU.
     pub(crate) unsafe fn force_unlock_ctxt(&self) {
         self.ctxt.force_unlock()
     }

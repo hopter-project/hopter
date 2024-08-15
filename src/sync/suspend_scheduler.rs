@@ -1,5 +1,5 @@
 use super::Holdable;
-use crate::schedule;
+use crate::schedule::scheduler;
 use core::ops::Deref;
 
 pub struct Scheduler {}
@@ -7,14 +7,14 @@ pub struct Scheduler {}
 pub struct SchedulerSuspendGuard {}
 
 pub fn suspend_scheduler() -> SchedulerSuspendGuard {
-    schedule::increment_suspend_count();
+    scheduler::increment_suspend_count();
     SchedulerSuspendGuard {}
 }
 
 impl Drop for SchedulerSuspendGuard {
     fn drop(&mut self) {
-        schedule::decrement_suspend_count();
-        schedule::yield_for_preemption();
+        scheduler::decrement_suspend_count();
+        scheduler::yield_for_preemption();
     }
 }
 
@@ -28,8 +28,8 @@ impl Holdable for Scheduler {
     }
 
     unsafe fn force_unhold() {
-        schedule::decrement_suspend_count();
-        schedule::yield_for_preemption();
+        scheduler::decrement_suspend_count();
+        scheduler::yield_for_preemption();
     }
 }
 
