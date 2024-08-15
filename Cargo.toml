@@ -174,14 +174,14 @@ path = "examples/tests/sync/channel/multiple_consumers.rs"
 name = "test-task-priority-reduce_priority"
 path = "examples/tests/task/priority/reduce_priority.rs"
 
-[[example]]
-name = "test-task-priority-unwind_priority"
-path = "examples/tests/task/priority/unwind_priority.rs"
-
 # *** Tests for task - priority ***
 [[example]]
 name = "test-sync-channel-produce_consume_single_task"
 path = "examples/tests/sync/channel/produce_consume_single_task.rs"
+
+[[example]]
+name = "test-task-priority-unwind_priority"
+path = "examples/tests/task/priority/unwind_priority.rs"
 
 # *** Tests for task - unwind ***
 
