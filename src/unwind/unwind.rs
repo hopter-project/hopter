@@ -504,11 +504,24 @@ impl UnwindState<'static> {
         let unw_state_ptr: *mut UnwindState = uninit_unw_state_ptr.cast();
         let unw_state = unsafe { &mut *unw_state_ptr };
 
-        // Try concurrent restart if we panic in a task but not in an ISR.
+        // If panic occured in an ISR context, then the panic has nothing to do
+        // with the current task. There was something wrong with the IRQ
+        // handler but do not touch the task.
         if !current::is_in_isr_context() {
-            if current::with_current_task(|cur_task| cur_task.is_restartable()) {
-                try_concurrent_restart();
-            }
+            current::with_current_task(|cur_task| {
+                if cur_task.is_restartable() {
+                    try_concurrent_restart();
+                }
+
+                // Reduce the priority of the previously panicked task, so that
+                // the unwinding procedure of the panicked task uses only
+                // otherwise idle CPU time.
+                cur_task.change_intrinsic_priority(config::UNWIND_PRIORITY);
+            });
+
+            // Let the scheduler re-schedule so the above priority reduction
+            // will take effect.
+            svc::svc_yield_current_task();
         }
 
         // Continue to initialize register states to what they are just before the

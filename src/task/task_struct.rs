@@ -278,13 +278,6 @@ impl Task {
     pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Self {
         let mut new_task = Self::new(false);
         new_task.restart_from(prev_task.clone());
-
-        // Reduce the priority of the previously panicked task, so that the
-        // unwinding procedure of the panicked task uses only otherwise idle
-        // CPU time.
-        // FIXME: should we place this statement here or elsewhere?
-        prev_task.reduce_priority_for_unwind();
-
         new_task
     }
 
@@ -739,14 +732,6 @@ impl Task {
     pub(crate) fn restore_intrinsic_priority(&self) {
         let intrinsic_prio = TaskPriority::restore_intrinsic(&self.priority.load());
         self.priority.store(intrinsic_prio);
-    }
-
-    /// Reduce the task's priority during unwinding, so that the unwinder will
-    /// use the CPU idle time, unless any priority inversion occurs.
-    #[cfg(feature = "unwind")]
-    pub(crate) fn reduce_priority_for_unwind(&self) {
-        self.priority
-            .store(TaskPriority::new_intrinsic(config::UNWIND_PRIORITY))
     }
 
     /// Return true if and only if this task has higher priority than the other
