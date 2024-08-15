@@ -180,6 +180,13 @@ runs:
         sub-category: priority
         test-name: reduce_priority
 
+    - name: Build test test-task-priority-unwind_priority
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: priority
+        test-name: unwind_priority
+
     # *** Tests for task - unwind ***
 
     - name: Build test test-task-unwind-diverted
@@ -225,6 +232,7 @@ runs:
         category: task
         sub-category: segmented_stack
         test-name: return_values
+
     # *** Tests for sync - channel ***
 
     - name: Build test test-sync-channel-produce_consume_single_task
