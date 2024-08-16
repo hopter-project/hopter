@@ -210,3 +210,9 @@ path = "examples/tests/task/segmented_stack/function_arguments.rs"
 [[example]]
 name = "test-task-segmented_stack-return_values"
 path = "examples/tests/task/segmented_stack/return_values.rs"
+
+# *** Tests for interrupt - unwind ***
+
+[[example]]
+name = "test-interrupt-unwind-simple"
+path = "examples/tests/interrupt/unwind/simple.rs"

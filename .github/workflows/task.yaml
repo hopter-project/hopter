@@ -16,7 +16,7 @@ jobs:
       cookie: ${{ secrets.cookie }}
 
   unwind:
-    uses: ./.github/workflows/unwind.yaml
+    uses: ./.github/workflows/task-unwind.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
 

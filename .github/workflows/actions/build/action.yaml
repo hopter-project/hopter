@@ -276,3 +276,12 @@ runs:
         category: sync
         sub-category: channel
         test-name: concurrency_and_stress
+
+    # *** Tests for interrupt - unwind ***
+
+    - name: Build test test-interrupt-unwind-simple
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: interrupt
+        sub-category: unwind
+        test-name: simple

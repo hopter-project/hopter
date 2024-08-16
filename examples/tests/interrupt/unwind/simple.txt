@@ -1,0 +1,8 @@
+Resource released
+TIM2 IRQ count 1
+Resource released
+Resource released
+TIM2 IRQ count 3
+Resource released
+Resource released
+TIM2 IRQ count 5
