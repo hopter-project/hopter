@@ -106,7 +106,7 @@ unsafe extern "C" fn Reset() -> ! {
         "ldr r1, ={deferred_unwind}",
         "str r1, [r0, #12]",
         "mov lr, #0",
-        "b  {entry}",
+        "b  {system_start}",
         sbss = sym __sbss,
         ebss = sym __ebss,
         sdata = sym __sdata,
@@ -127,7 +127,7 @@ unsafe extern "C" fn Reset() -> ! {
         memclr = sym memclr,
         memcpy = sym memcpy,
         memset = sym memset,
-        entry = sym entry::entry,
+        system_start = sym entry::system_start,
         options(noreturn)
     );
 }

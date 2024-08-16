@@ -7,13 +7,13 @@ pub struct Scheduler {}
 pub struct SchedulerSuspendGuard {}
 
 pub fn suspend_scheduler() -> SchedulerSuspendGuard {
-    scheduler::increment_suspend_count();
+    scheduler::incr_suspend_cnt();
     SchedulerSuspendGuard {}
 }
 
 impl Drop for SchedulerSuspendGuard {
     fn drop(&mut self) {
-        scheduler::decrement_suspend_count();
+        scheduler::decr_suspend_cnt();
         scheduler::yield_for_preemption();
     }
 }
@@ -28,7 +28,7 @@ impl Holdable for Scheduler {
     }
 
     unsafe fn force_unhold() {
-        scheduler::decrement_suspend_count();
+        scheduler::decr_suspend_cnt();
         scheduler::yield_for_preemption();
     }
 }

@@ -242,6 +242,11 @@ const_assert!(UNWIND_PRIORITY < IDLE_TASK_PRIORITY);
 pub use hopter_conf_params::IDLE_TASK_ID;
 assert_value_type!(IDLE_TASK_ID, u8);
 
+/// The ID for the idle task. A task ID does not have functional purpose. It
+/// might be helpful for diagnosing bugs.
+pub use hopter_conf_params::MAIN_TASK_ID;
+assert_value_type!(MAIN_TASK_ID, u8);
+
 /// The ID for a task when the ID is not explicitly set during task creation.
 /// Tasks can have the same ID.
 pub use hopter_conf_params::DEFAULT_TASK_ID;

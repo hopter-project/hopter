@@ -1,5 +1,4 @@
 use crate::{
-    config,
     interrupt::svc,
     sync::{SpinSchedSafe, SpinSchedSafeGuard},
 };
@@ -26,17 +25,13 @@ pub(super) fn lock_idle_callbacks() -> SpinSchedSafeGuard<'static, Vec<Arc<dyn I
 /// The idle task. Just endlessly yield itself so that whenever a task becomes
 /// ready, that task will be chosen by the scheduler to run.
 pub(super) unsafe extern "C" fn idle_task() -> ! {
-    super::scheduler::set_started();
-
-    // Enable interrupt.
-    unsafe {
-        cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
-        cortex_m::Peripherals::steal().SCB.set_priority(
-            cortex_m::peripheral::scb::SystemHandler::SVCall,
-            config::SVC_NORMAL_PRIORITY,
-        );
-    }
-
+    // The idle task is always executed first when the scheduler is just
+    // started. A main task should always be present awaiting to run. Perform
+    // a context switch to let the main task run.
     svc::svc_yield_current_task();
-    loop {}
+
+    // If nothing to do, enter low power state.
+    loop {
+        cortex_m::asm::wfe();
+    }
 }

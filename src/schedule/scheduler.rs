@@ -105,7 +105,7 @@ static CUR_TASK_IDLE: AtomicBool = AtomicBool::new(false);
 /// assembly instruction sequence in [`crate::interrupt::context_switch`].
 pub(crate) fn pick_next() {
     // Sanity check that the scheduler is not being suspended.
-    if SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
+    if SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
         unrecoverable::die();
     }
 
@@ -197,6 +197,8 @@ pub(crate) unsafe fn start() -> ! {
 
     CUR_TASK_IDLE.store(true, Ordering::SeqCst);
 
+    STARTED.store(true, Ordering::SeqCst);
+
     unsafe {
         // Run the idle task.
         asm!(
@@ -223,7 +225,8 @@ pub(crate) unsafe fn start() -> ! {
             // registers. Just enabling FPU is NOT enough for the CPU to push
             // floating point registers upon exception.
             "vmov.f32 s0, s0",
-            // Jump to the idle function.
+            // With the stack pointer and boundary updated, now the code runs
+            // in the idle task's context. Jump to the idle task entry.
             "b {idle_task}",
             idle_task = sym idle::idle_task,
             tls_mem_addr = const config::TLS_MEM_ADDR,
@@ -252,24 +255,26 @@ pub(crate) fn destroy_current_task_and_schedule() {
     cortex_m::peripheral::SCB::set_pendsv()
 }
 
-static SCHEDULER_STARTED: AtomicBool = AtomicBool::new(false);
+/// A boolean flag set to true after the scheduler has been started.
+static STARTED: AtomicBool = AtomicBool::new(false);
 
+/// Return if the scheduler has been started.
 pub(crate) fn has_started() -> bool {
-    SCHEDULER_STARTED.load(Ordering::SeqCst)
+    STARTED.load(Ordering::SeqCst)
 }
 
-pub(super) fn set_started() {
-    SCHEDULER_STARTED.store(true, Ordering::SeqCst)
+/// When the counter is positive the scheduler will be suspended and no context
+/// switch will occur.
+static SUSPEND_CNT: AtomicUsize = AtomicUsize::new(0);
+
+/// Increment scheduler suspend count by 1.
+pub(crate) fn incr_suspend_cnt() {
+    SUSPEND_CNT.fetch_add(1, Ordering::SeqCst);
 }
 
-static SCHEDULER_SUSPEND_CNT: AtomicUsize = AtomicUsize::new(0);
-
-pub(crate) fn increment_suspend_count() {
-    SCHEDULER_SUSPEND_CNT.fetch_add(1, Ordering::SeqCst);
-}
-
-pub(crate) fn decrement_suspend_count() {
-    SCHEDULER_SUSPEND_CNT.fetch_sub(1, Ordering::SeqCst);
+/// Decrement scheduler suspend count by 1.
+pub(crate) fn decr_suspend_cnt() {
+    SUSPEND_CNT.fetch_sub(1, Ordering::SeqCst);
 }
 
 pub(crate) fn yield_cur_task_from_isr() {
@@ -283,9 +288,7 @@ fn request_context_switch() {
 }
 
 pub(crate) fn yield_for_preemption() {
-    if !CONTEXT_SWITCH_REQUESTED.load(Ordering::SeqCst)
-        || SCHEDULER_SUSPEND_CNT.load(Ordering::SeqCst) > 0
-    {
+    if !CONTEXT_SWITCH_REQUESTED.load(Ordering::SeqCst) || SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
         return;
     }
 
