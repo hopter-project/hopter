@@ -44,7 +44,10 @@
 //!    the drop logic, i.e., `CNT -= 1`.
 //! 2. A flag checking epilogue that checks the deferred unwinding pending flag
 //!    if the nested drop count is zero after the decrement. If the flag is set,
-//!    call [`deferred_unwind`].
+//!    call [`deferred_unwind`]. The call will be made through a function
+//!    pointer stored at address `0x2000_000c`. The function pointer is
+//!    initialized by the power on reset assembly sequence
+//!    in [boot::reset](crate::boot::reset) and remains constant.
 
 use super::unwind;
 use crate::config;

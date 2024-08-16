@@ -1,10 +1,14 @@
+//! The module performs the initialization before running the user defined main
+//! function.
+
 use crate::{allocator, config, schedule::scheduler, task, unrecoverable::Lethal};
 use alloc::boxed::Box;
 use core::sync::atomic::AtomicPtr;
 use cortex_m::peripheral::scb::SystemHandler;
 
+/// The very first Rust function executed.
 pub(super) extern "C" fn system_start() -> ! {
-    allocator::init_allocator();
+    allocator::initialize();
 
     let mut cp = cortex_m::Peripherals::take().unwrap();
 
@@ -29,6 +33,9 @@ pub(super) extern "C" fn system_start() -> ! {
         .spawn()
         .unwrap_or_die();
 
+    // Start the scheduler. It will transform the current bootstrap thread into
+    // the idle task context and then perform a context switch to run the main
+    // task.
     unsafe {
         scheduler::start();
     }

@@ -37,7 +37,7 @@ use super::{
     },
 };
 use crate::{
-    boot, config,
+    config,
     interrupt::{
         svc,
         trap_frame::{self, TrapFrame},
@@ -56,6 +56,7 @@ use core::{
     mem::MaybeUninit,
     ops::{Index, IndexMut},
     panic::PanicInfo,
+    slice,
     sync::atomic::{AtomicBool, Ordering},
 };
 use gimli::{EndianSlice, LittleEndian};
@@ -552,8 +553,8 @@ impl UnwindState<'static> {
 
         // Find the unwind ability for the last function before
         // the unwinder is invoked.
-        let exidx = boot::get_exidx();
-        let extab = boot::get_extab();
+        let exidx = get_exidx();
+        let extab = get_extab();
         unw_state
             .unw_ability
             .get_for_pc(unw_state.gp_regs[ARMGPReg::PC] as u32, exidx, extab)
@@ -733,8 +734,8 @@ impl<'a> UnwindState<'a> {
         }
 
         // Update unwind ability information.
-        let exidx = boot::get_exidx();
-        let extab = boot::get_extab();
+        let exidx = get_exidx();
+        let extab = get_extab();
         self.unw_ability
             .get_for_pc(self.gp_regs[ARMGPReg::PC] as u32, exidx, extab)?;
 
@@ -1147,6 +1148,58 @@ unsafe fn panic(_info: &PanicInfo) -> ! {
 
     // Should not reach here.
     unrecoverable::die()
+}
+
+/// Return the `.ARM.exidx` section as a static byte slice.
+fn get_exidx() -> &'static [u8] {
+    extern "C" {
+        // These symbols come from `link.ld`
+        static __sarm_exidx: u32;
+        static __earm_exidx: u32;
+    }
+
+    let start: *const u8;
+    let end: *const u8;
+
+    unsafe {
+        asm!(
+            "ldr {start}, ={sexidx}",
+            "ldr {end}, ={eexidx}",
+            start = out(reg) start,
+            end = out(reg) end,
+            sexidx = sym __sarm_exidx,
+            eexidx = sym __earm_exidx,
+        );
+
+        let len = end.byte_offset_from(start) as usize;
+        slice::from_raw_parts(start, len)
+    }
+}
+
+/// Return the `.ARM.extab` section as a static byte slice.
+fn get_extab() -> &'static [u8] {
+    extern "C" {
+        // These symbols come from `link.ld`
+        static __sarm_extab: u32;
+        static __earm_extab: u32;
+    }
+
+    let start: *const u8;
+    let end: *const u8;
+
+    unsafe {
+        asm!(
+            "ldr {start}, ={sextab}",
+            "ldr {end}, ={eextab}",
+            start = out(reg) start,
+            end = out(reg) end,
+            sextab = sym __sarm_extab,
+            eextab = sym __earm_extab,
+        );
+
+        let len = end.byte_offset_from(start) as usize;
+        slice::from_raw_parts(start, len)
+    }
 }
 
 /* Below are unused personality routines. They are marked unsafe because */

@@ -5,7 +5,6 @@ use core::{
 };
 
 use super::{
-    boot,
     interrupt::{svc, trap_frame::TrapFrame},
     schedule::scheduler,
     task,
@@ -38,13 +37,13 @@ impl Allocator {
     }
 
     /// Initialize the allocator.
-    pub fn init(&self) {
+    pub(crate) fn init(&self) {
         if !self.initialized.load(Ordering::SeqCst) {
             // Safety: the boot module should provide the correct
             // starting address of the heap. The heap will extend to
             // the end of the SRAM address space.
             unsafe {
-                heap::mcu_heap_init(boot::heap_start());
+                heap::mcu_heap_init(heap_start());
             }
         }
         self.initialized.store(true, Ordering::SeqCst);
@@ -159,7 +158,7 @@ fn alloc_error(_layout: core::alloc::Layout) -> ! {
 
 /// Initialize the allocator. If the allocator has already been initialized,
 /// it does nothing.
-pub fn init_allocator() {
+pub(crate) fn initialize() {
     GLOBAL_ALLOC.init()
 }
 
@@ -218,4 +217,24 @@ pub(super) fn task_malloc(tf: &mut TrapFrame) {
 pub(super) fn task_free(tf: &TrapFrame) {
     // FIXME: need not go through `alloc::alloc` again.
     unsafe { alloc::alloc::dealloc(tf.gp_regs.r0 as *mut u8, Layout::new::<u8>()) }
+}
+
+/// Returns a pointer to the start of the heap.
+/// The returned pointer is guaranteed to be 4-byte aligned.
+#[inline]
+fn heap_start() -> u32 {
+    extern "C" {
+        // The symbol comes from `link.ld`.
+        static mut __sheap: u32;
+    }
+
+    let p: u32;
+    unsafe {
+        asm!(
+            "ldr  {r}, ={sheap}",
+            r = out(reg) p,
+            sheap = sym __sheap
+        );
+    }
+    p
 }
