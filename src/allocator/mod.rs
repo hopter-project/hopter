@@ -6,7 +6,7 @@ use core::{
 
 use super::{
     interrupt::{svc, trap_frame::TrapFrame},
-    schedule::scheduler,
+    schedule::scheduler::Scheduler,
     task,
     unrecoverable::{self, Lethal},
 };
@@ -165,7 +165,7 @@ pub(crate) fn initialize() {
 fn die_if_not_in_svc() {
     // Only perform sanity check after the scheduler has started, otherwise
     // we may still be running with the bootstrap stack with MSP.
-    if !scheduler::has_started() {
+    if !Scheduler::has_started() {
         return;
     }
 
@@ -187,7 +187,7 @@ fn die_if_not_in_svc() {
 fn die_if_not_in_svc_or_pendsv() {
     // Only perform sanity check after the scheduler has started, otherwise
     // we may still be running with the bootstrap stack with MSP.
-    if !scheduler::has_started() {
+    if !Scheduler::has_started() {
         return;
     }
 

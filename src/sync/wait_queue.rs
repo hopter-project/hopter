@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     interrupt::svc,
-    schedule::{current, scheduler},
+    schedule::{current, scheduler::Scheduler},
     task::{TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable,
 };
@@ -68,7 +68,7 @@ impl<'a> RunPendedOp for InnerFullAccessor<'a> {
         let cnt = self.notify_cnt.swap(0, Ordering::SeqCst);
         for _ in 0..cnt {
             if let Some(task) = locked_queue.pop_highest_priority() {
-                scheduler::accept_notified_task(task);
+                Scheduler::accept_notified_task(task);
             } else {
                 break;
             }
@@ -284,7 +284,7 @@ impl WaitQueue {
             Access::Full { full_access } => {
                 let mut locked_queue = full_access.queue.lock_now_or_die();
                 if let Some(task) = locked_queue.pop_highest_priority() {
-                    scheduler::accept_notified_task(task);
+                    Scheduler::accept_notified_task(task);
                 }
             }
             // If other context is running with the full access and we preempt it,

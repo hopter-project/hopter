@@ -1,5 +1,6 @@
+use super::scheduler::Scheduler;
 use crate::{
-    sync::{self, RwLock},
+    sync::RwLock,
     task::{Task, TaskCtxt},
     unrecoverable,
 };
@@ -69,7 +70,7 @@ where
     F: FnOnce(Arc<Task>) -> R,
 {
     // Suspend the scheduler and lock the current task `Arc` in reader mode.
-    let _sched_suspend_guard = sync::suspend_scheduler();
+    let _sched_suspend_guard = Scheduler::suspend();
     let read_guard = CUR_TASK.read();
 
     // Run the closure.
@@ -90,7 +91,7 @@ where
     F: FnOnce(&Task) -> R,
 {
     // Suspend the scheduler and lock the current task `Arc` in reader mode.
-    let _sched_suspend_guard = sync::suspend_scheduler();
+    let _sched_suspend_guard = Scheduler::suspend();
     let read_guard = CUR_TASK.read();
 
     // Run the closure.
@@ -102,7 +103,7 @@ where
 }
 
 /// Return if the code is currently executing in an interrupt service routine
-/// (ISR) context.
+/// (ISR), in contrast to in a task.
 pub(crate) fn is_in_isr_context() -> bool {
     let ipsr: u32;
 
@@ -115,6 +116,12 @@ pub(crate) fn is_in_isr_context() -> bool {
     }
 
     ipsr != 0
+}
+
+/// Return if the code is currently executing in a task, in contrast to in an
+/// interrupt service routine (ISR).
+pub(crate) fn is_in_task_context() -> bool {
+    !is_in_isr_context()
 }
 
 /// Return if the code is currently executing in the PendSV exception context.

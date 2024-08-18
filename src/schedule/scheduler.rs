@@ -2,7 +2,7 @@ use super::{current, idle};
 use crate::{
     config,
     interrupt::svc,
-    sync::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
+    sync::{Access, AllowPendOp, Holdable, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
     task::{Task, TaskBuildError, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
 };
@@ -63,7 +63,7 @@ impl<'a> RunPendedOp for InnerFullAccessor<'a> {
             let mut locked_list = self.ready_linked_list.lock_now_or_die();
             while let Some(task) = self.insert_buffer.dequeue() {
                 if task.should_preempt(cur_task) {
-                    request_context_switch();
+                    PENDING_CTXT_SWITCH.store(true, Ordering::SeqCst);
                 }
                 task.set_state(TaskState::Ready);
                 locked_list.push_back(task);
@@ -92,267 +92,299 @@ impl<'a> AllowPendOp<'a> for Inner {
 /// The ready task queue.
 static READY_TASK_QUEUE: ReadyQueue = RefCellSchedSafe::new(Interruptable::new(Inner::new()));
 
-/// Existing task number.
+/// The number of existing tasks.
 static EXIST_TASK_NUM: AtomicUsize = AtomicUsize::new(0);
 
 /// Whether the currently running task is the idle task.
 static CUR_TASK_IDLE: AtomicBool = AtomicBool::new(false);
 
-/// Choose the next task to run. The chosen task will be reflected by the
-/// updated global variable [`CUR_TASK_CTXT_PTR`](current::CUR_TASK_CTXT_PTR).
-/// Semantically, the pointer has exclusive mutable access to the context
-/// struct it points to. The pointer will be used by the context switch
-/// assembly instruction sequence in [`crate::interrupt::context_switch`].
-pub(crate) fn pick_next() {
-    // Sanity check that the scheduler is not being suspended.
-    if SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
-        unrecoverable::die();
-    }
-
-    READY_TASK_QUEUE
-        .lock()
-        .must_with_full_access(|full_access| {
-            let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
-
-            // Clean up for the current task.
-            current::with_current_task_arc(|cur_task| {
-                match cur_task.get_state() {
-                    // Put the current task back to the ready queue only if the
-                    // task is in `Running` state.
-                    TaskState::Running => {
-                        cur_task.set_state(TaskState::Ready);
-                        locked_list.push_back(cur_task);
-                    }
-                    // A `Blocked` task should have been put to a waiting queue and
-                    // maintain a positive `Arc` reference count there.
-                    //
-                    // A `Destructing` task have no `Arc` reference elsewhere other
-                    // than the one maintained by the `current` module. We want to
-                    // drop the only reference.
-                    //
-                    // In both cases, we will not put the task back to the ready
-                    // queue and will later use `current::set_cur_task` to overwrite
-                    // the current task reference maintained by the `current` module.
-                    TaskState::Blocked | TaskState::Destructing => {}
-                    // The current task should never be in the `Ready` or
-                    // `Initializing` state.
-                    TaskState::Ready | TaskState::Initializing => unrecoverable::die(),
-                }
-            });
-
-            // Pick the next task based on the priority. An idle task
-            // guarantees that the ready queue will always be non-empty.
-            let next_task = locked_list.pop_highest_priority().unwrap_or_die();
-            next_task.set_state(TaskState::Running);
-
-            let next_idle = next_task.is_idle();
-
-            // Load if the current task is the idle task and also set it to
-            // the new value.
-            let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
-
-            // Invoke idle callbacks if the idle task is switched in or out.
-            {
-                let locked_callbacks = idle::lock_idle_callbacks();
-
-                // When the idle task is switched out of CPU.
-                if was_idle {
-                    for callback in locked_callbacks.iter() {
-                        callback.idle_end();
-                    }
-                }
-
-                // When the idle task is switched on to the CPU.
-                if next_idle {
-                    for callback in locked_callbacks.iter() {
-                        callback.idle_begin();
-                    }
-                }
-            }
-
-            // Set the chosen task to be current.
-            current::update_cur_task(next_task);
-
-            // Clear the context switch request flag because we just
-            // performed one.
-            CONTEXT_SWITCH_REQUESTED.store(false, Ordering::SeqCst);
-        })
-}
-
-/// Start the scheduler and start to run tasks.
-///
-/// Safety: This function should only be called at system initialization stage
-/// when the system is still running with MSP.
-pub(crate) unsafe fn start() -> ! {
-    let mut idle_task = Task::build_idle();
-
-    let stack_bottom = idle_task.get_sp();
-    let idle_stk_bound = idle_task.get_stk_bound();
-
-    // Set the idle task as the currently running task.
-    current::update_cur_task(Arc::new(idle_task));
-
-    // The current task, i.e. idle task, becomes the first existing task.
-    EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
-
-    CUR_TASK_IDLE.store(true, Ordering::SeqCst);
-
-    STARTED.store(true, Ordering::SeqCst);
-
-    unsafe {
-        // Run the idle task.
-        asm!(
-            // Set the idle task's stack pointer.
-            "msr psp, r0",
-            // Set the idle task's TLS fields.
-            "ldr r0, ={tls_mem_addr}",
-            "str r1, [r0]",
-            "mov r1, #0",
-            "str r1, [r0, #4]",
-            "str r1, [r0, #8]",
-            // Start to use PSP instead of MSP.
-            // PSP is for running tasks.
-            // MSP is for the kernel.
-            "mrs r0, control",
-            "orr r0, #2",
-            "msr control, r0",
-            // Let MSP point to the kernel stack bottom.
-            "ldr r0, ={kern_stk_bottom}",
-            "msr msp, r0",
-            // Execute a floating point instruction, so that the CPU will
-            // have the internal floating point context bit set, and later
-            // upon SVC the CPU will push a trap frame with floating point
-            // registers. Just enabling FPU is NOT enough for the CPU to push
-            // floating point registers upon exception.
-            "vmov.f32 s0, s0",
-            // With the stack pointer and boundary updated, now the code runs
-            // in the idle task's context. Jump to the idle task entry.
-            "b {idle_task}",
-            idle_task = sym idle::idle_task,
-            tls_mem_addr = const config::TLS_MEM_ADDR,
-            kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
-            in("r0") stack_bottom,
-            in("r1") idle_stk_bound,
-            options(noreturn)
-        )
-    }
-}
-
-/// Destroy the task struct of the currently running task and switch to another
-/// ready task.
-pub(crate) fn destroy_current_task_and_schedule() {
-    EXIST_TASK_NUM.fetch_sub(1, Ordering::SeqCst);
-
-    // Mark the task state as `Destructing` so that the scheduler will drop
-    // the task struct upon a later context switch.
-    current::with_current_task(|cur_task| cur_task.set_state(TaskState::Destructing));
-
-    // Just request a context switch without putting the currently running task
-    // back to the ready queue. Although `svc_task_block()` is implemented in
-    // the same way, the difference is that prior to some task calling to block,
-    // the task struct of the blocking task would have been put onto a wait queue
-    // and thus not get dropped.
-    cortex_m::peripheral::SCB::set_pendsv()
-}
-
 /// A boolean flag set to true after the scheduler has been started.
 static STARTED: AtomicBool = AtomicBool::new(false);
-
-/// Return if the scheduler has been started.
-pub(crate) fn has_started() -> bool {
-    STARTED.load(Ordering::SeqCst)
-}
 
 /// When the counter is positive the scheduler will be suspended and no context
 /// switch will occur.
 static SUSPEND_CNT: AtomicUsize = AtomicUsize::new(0);
 
-/// Increment scheduler suspend count by 1.
-pub(crate) fn incr_suspend_cnt() {
-    SUSPEND_CNT.fetch_add(1, Ordering::SeqCst);
-}
+/// Whether a context switch should be performed after the scheduler is resumed.
+static PENDING_CTXT_SWITCH: AtomicBool = AtomicBool::new(false);
 
-/// Decrement scheduler suspend count by 1.
-pub(crate) fn decr_suspend_cnt() {
-    SUSPEND_CNT.fetch_sub(1, Ordering::SeqCst);
-}
+/// The scheduler is a singleton in the system. Logically, the components of
+/// the scheduler are defined by the static variables in the
+/// [scheduler](crate::schedule::scheduler) module.
+pub(crate) struct Scheduler;
 
-pub(crate) fn yield_cur_task_from_isr() {
-    cortex_m::peripheral::SCB::set_pendsv()
-}
+impl Scheduler {
+    /// Start the scheduler and start to run tasks.
+    ///
+    /// Safety: This function should only be called at system initialization
+    /// stage when the system is still running with MSP.
+    pub(crate) unsafe fn start() -> ! {
+        let mut idle_task = Task::build_idle();
 
-static CONTEXT_SWITCH_REQUESTED: AtomicBool = AtomicBool::new(false);
+        let stack_bottom = idle_task.get_sp();
+        let idle_stk_bound = idle_task.get_stk_bound();
 
-fn request_context_switch() {
-    CONTEXT_SWITCH_REQUESTED.store(true, Ordering::SeqCst);
-}
+        // Set the idle task as the currently running task.
+        current::update_cur_task(Arc::new(idle_task));
 
-pub(crate) fn yield_for_preemption() {
-    if !CONTEXT_SWITCH_REQUESTED.load(Ordering::SeqCst) || SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
-        return;
+        // The current task, i.e. idle task, becomes the first existing task.
+        EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
+
+        CUR_TASK_IDLE.store(true, Ordering::SeqCst);
+
+        STARTED.store(true, Ordering::SeqCst);
+
+        unsafe {
+            // Run the idle task.
+            asm!(
+                // Set the idle task's stack pointer.
+                "msr psp, r0",
+                // Set the idle task's TLS fields.
+                "ldr r0, ={tls_mem_addr}",
+                "str r1, [r0]",
+                "mov r1, #0",
+                "str r1, [r0, #4]",
+                "str r1, [r0, #8]",
+                // Start to use PSP instead of MSP.
+                // PSP is for running tasks.
+                // MSP is for the kernel.
+                "mrs r0, control",
+                "orr r0, #2",
+                "msr control, r0",
+                // Let MSP point to the kernel stack bottom.
+                "ldr r0, ={kern_stk_bottom}",
+                "msr msp, r0",
+                // Execute a floating point instruction, so that the CPU will
+                // have the internal floating point context bit set, and later
+                // upon SVC the CPU will push a trap frame with floating point
+                // registers. Just enabling FPU is NOT enough for the CPU to
+                // push floating point registers upon exception.
+                "vmov.f32 s0, s0",
+                // With the stack pointer and boundary updated, now the code
+                // runs in the idle task's context. Jump to the idle task entry.
+                "b {idle_task}",
+                idle_task = sym idle::idle_task,
+                tls_mem_addr = const config::TLS_MEM_ADDR,
+                kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
+                in("r0") stack_bottom,
+                in("r1") idle_stk_bound,
+                options(noreturn)
+            )
+        }
     }
 
-    if !current::is_in_isr_context() {
-        svc::svc_yield_current_task();
-    } else if !current::is_in_pendsv_context() {
-        yield_cur_task_from_isr();
-    }
-}
+    /// Choose the next task to run. The chosen task will be reflected by the
+    /// updated global variable [`CUR_TASK_CTXT_PTR`](current::CUR_TASK_CTXT_PTR).
+    /// Semantically, the pointer has exclusive mutable access to the context
+    /// struct it points to. The pointer will be used by the context switch
+    /// assembly instruction sequence in [`crate::interrupt::context_switch`].
+    pub(crate) fn pick_next() {
+        // Sanity check that the scheduler is not being suspended.
+        if SUSPEND_CNT.load(Ordering::SeqCst) > 0 {
+            unrecoverable::die();
+        }
 
-/// Insert a new task to the scheduler's ready queue. The task must not be an
-/// existing task, but can be a new restarted instance of a panicked task.
-///
-/// # Return
-/// - `Ok(())` if the new task is ready to be run by the scheduler
-/// - `Err(TaskBuildError::NoMoreTask)` if the maximum number of tasks has
-///    been reached.
-pub(crate) fn accept_new_task(task: Arc<Task>) -> Result<(), TaskBuildError> {
-    // Return error if reached maximum task number, otherwise increment it.
-    if EXIST_TASK_NUM.load(Ordering::SeqCst) >= config::MAX_TASK_NUMBER {
-        return Err(TaskBuildError::NoMoreTask);
-    }
-    EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
+        READY_TASK_QUEUE
+            .lock()
+            .must_with_full_access(|full_access| {
+                let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
 
-    insert_task_to_ready_queue(task);
-
-    Ok(())
-}
-
-/// Insert a task back to the scheduler's ready queue. The task should
-/// previously be blocked or sleeping.
-pub(crate) fn accept_notified_task(task: Arc<Task>) {
-    insert_task_to_ready_queue(task)
-}
-
-/// Internal implementation to insert a task to the ready queue.
-fn insert_task_to_ready_queue(task: Arc<Task>) {
-    READY_TASK_QUEUE.lock().with_access(|access| match access {
-        // The queue is not under contention. Directly put the task to the
-        // linked list.
-        Access::Full { full_access } => {
-            // Request a context switch if the incoming ready task has a
-            // higher priority than the current task. Check it only when
-            // the scheduler has started otherwise there will be no current
-            // task.
-            if has_started() {
-                current::with_current_task(|cur_task| {
-                    if task.should_preempt(cur_task) {
-                        request_context_switch();
+                // Clean up for the current task.
+                current::with_current_task_arc(|cur_task| {
+                    match cur_task.get_state() {
+                        // Put the current task back to the ready queue only if the
+                        // task is in `Running` state.
+                        TaskState::Running => {
+                            cur_task.set_state(TaskState::Ready);
+                            locked_list.push_back(cur_task);
+                        }
+                        // A `Blocked` task should have been put to a waiting queue and
+                        // maintain a positive `Arc` reference count there.
+                        //
+                        // A `Destructing` task have no `Arc` reference elsewhere other
+                        // than the one maintained by the `current` module. We want to
+                        // drop the only reference.
+                        //
+                        // In both cases, we will not put the task back to the ready
+                        // queue and will later use `current::set_cur_task` to overwrite
+                        // the current task reference maintained by the `current` module.
+                        TaskState::Blocked | TaskState::Destructing => {}
+                        // The current task should never be in the `Ready` or
+                        // `Initializing` state.
+                        TaskState::Ready | TaskState::Initializing => unrecoverable::die(),
                     }
                 });
-            }
 
-            // Put the ready task to the linked list.
-            task.set_state(TaskState::Ready);
-            let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
-            locked_list.push_back(task);
+                // Pick the next task based on the priority. An idle task
+                // guarantees that the ready queue will always be non-empty.
+                let next_task = locked_list.pop_highest_priority().unwrap_or_die();
+                next_task.set_state(TaskState::Running);
+
+                let next_idle = next_task.is_idle();
+
+                // Load if the current task is the idle task and also set it to
+                // the new value.
+                let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
+
+                // Invoke idle callbacks if the idle task is switched in or out.
+                {
+                    let locked_callbacks = idle::lock_idle_callbacks();
+
+                    // When the idle task is switched out of CPU.
+                    if was_idle {
+                        for callback in locked_callbacks.iter() {
+                            callback.idle_end();
+                        }
+                    }
+
+                    // When the idle task is switched on to the CPU.
+                    if next_idle {
+                        for callback in locked_callbacks.iter() {
+                            callback.idle_begin();
+                        }
+                    }
+                }
+
+                // Set the chosen task to be current.
+                current::update_cur_task(next_task);
+
+                // Clear the context switch request flag because we just
+                // performed one.
+                PENDING_CTXT_SWITCH.store(false, Ordering::SeqCst);
+            })
+    }
+
+    /// Return if the scheduler has been started.
+    pub(crate) fn has_started() -> bool {
+        STARTED.load(Ordering::SeqCst)
+    }
+
+    /// Insert a new task to the scheduler's ready queue. The task must not be an
+    /// existing task, but can be a new restarted instance of a panicked task.
+    ///
+    /// # Return
+    /// - `Ok(())` if the new task is ready to be run by the scheduler
+    /// - `Err(TaskBuildError::NoMoreTask)` if the maximum number of tasks has
+    ///    been reached.
+    pub(crate) fn accept_new_task(task: Arc<Task>) -> Result<(), TaskBuildError> {
+        // Return error if reached maximum task number, otherwise increment it.
+        if EXIST_TASK_NUM.load(Ordering::SeqCst) >= config::MAX_TASK_NUMBER {
+            return Err(TaskBuildError::NoMoreTask);
         }
-        // The queue is under contention. The current execution context, which
-        // must be an ISR, preempted another context that is holding the full
-        // access. Place the task in the lock-free buffer. The full access
-        // holder will later put it back to the linked list.
-        Access::PendOnly { pend_access } => {
-            pend_access.insert_buffer.enqueue(task).unwrap_or_die();
+        EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
+
+        Self::insert_task_to_ready_queue(task);
+
+        Ok(())
+    }
+
+    /// Insert a task back to the scheduler's ready queue. The task should
+    /// previously be blocked or sleeping.
+    pub(crate) fn accept_notified_task(task: Arc<Task>) {
+        Self::insert_task_to_ready_queue(task)
+    }
+
+    /// Internal implementation to insert a task to the ready queue.
+    fn insert_task_to_ready_queue(task: Arc<Task>) {
+        READY_TASK_QUEUE.lock().with_access(|access| match access {
+            // The queue is not under contention. Directly put the task to the
+            // linked list.
+            Access::Full { full_access } => {
+                // Request a context switch if the incoming ready task has a
+                // higher priority than the current task. Check it only when
+                // the scheduler has started otherwise there will be no current
+                // task.
+                if Scheduler::has_started() {
+                    current::with_current_task(|cur_task| {
+                        if task.should_preempt(cur_task) {
+                            PENDING_CTXT_SWITCH.store(true, Ordering::SeqCst);
+                        }
+                    });
+                }
+
+                // Put the ready task to the linked list.
+                task.set_state(TaskState::Ready);
+                let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
+                locked_list.push_back(task);
+            }
+            // The queue is under contention. The current execution context, which
+            // must be an ISR, preempted another context that is holding the full
+            // access. Place the task in the lock-free buffer. The full access
+            // holder will later put it back to the linked list.
+            Access::PendOnly { pend_access } => {
+                pend_access.insert_buffer.enqueue(task).unwrap_or_die();
+            }
+        });
+    }
+
+    /// Prevent any context switch while the returned guard type is not dropped.
+    pub(crate) fn suspend() -> SchedSuspendGuard {
+        SUSPEND_CNT.fetch_add(1, Ordering::SeqCst);
+        SchedSuspendGuard
+    }
+
+    /// Resume context switch if all suspension guard have been dropped, and
+    /// perform a context switch immediately if one has been requested during
+    /// the suspension.
+    fn resume() {
+        SUSPEND_CNT.fetch_sub(1, Ordering::SeqCst);
+
+        if SUSPEND_CNT.load(Ordering::SeqCst) == 0 && PENDING_CTXT_SWITCH.load(Ordering::SeqCst) {
+            // Go through an SVC to perform context switch if currently is in
+            // task context.
+            if current::is_in_task_context() {
+                svc::svc_yield_current_task();
+            // Tail chain a PendSV to directly perform a context switch if
+            // currently is in an ISR context. But if the code is already
+            // *performing* context switch, i.e., called by PendSV, then we
+            // should not request PendSV again.
+            } else if !current::is_in_pendsv_context() {
+                cortex_m::peripheral::SCB::set_pendsv()
+            }
         }
-    });
+    }
+
+    /// Drop the task struct of the currently running task and switch to
+    /// another ready task.
+    pub(crate) fn drop_current_task_from_svc() {
+        EXIST_TASK_NUM.fetch_sub(1, Ordering::SeqCst);
+
+        // Mark the task state as `Destructing` so that the scheduler will drop
+        // the task struct upon a later context switch.
+        current::with_current_task(|cur_task| cur_task.set_state(TaskState::Destructing));
+
+        // Tail chain a PendSV to perform a context switch.
+        cortex_m::peripheral::SCB::set_pendsv()
+    }
+
+    /// Switch to another ready task.
+    pub(crate) fn yield_current_task_from_svc() {
+        // Tail chain a PendSV to perform a context switch.
+        cortex_m::peripheral::SCB::set_pendsv()
+    }
+}
+
+/// The guard type returned when suspending the scheduler. The scheduler will
+/// be resumed when the guard is dropped.
+pub(crate) struct SchedSuspendGuard;
+
+impl Drop for SchedSuspendGuard {
+    fn drop(&mut self) {
+        Scheduler::resume();
+    }
+}
+
+/// The guard must not be sent across threads.
+impl !Send for SchedSuspendGuard {}
+
+impl Holdable for Scheduler {
+    type GuardType = SchedSuspendGuard;
+
+    fn hold() -> SchedSuspendGuard {
+        Scheduler::suspend()
+    }
+
+    unsafe fn force_unhold() {
+        Scheduler::resume();
+    }
 }

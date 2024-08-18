@@ -16,7 +16,7 @@
 use super::trap_frame::TrapFrame;
 use crate::{
     allocator, config,
-    schedule::scheduler,
+    schedule::scheduler::Scheduler,
     task::{self, MoreStackReason, TaskLocalStorage},
     unrecoverable::{self, Lethal},
 };
@@ -29,6 +29,9 @@ pub(crate) enum SVCNum {
     /// The calling task wants to get off from CPU. A task may voluntarily
     /// yield the CPU or it may be forced to yield when becoming blocked on a
     /// synchronization primitive.
+    ///
+    /// Note that the SVC handler does not directly perform a context switch.
+    /// Instead, a PendSV will be tail chained to perform it.
     TaskYield = 1,
     /// The task wants to terminate and release its task struct.
     TaskDestroy = 2,
@@ -144,10 +147,8 @@ fn get_svc_num(tf: &TrapFrame) -> SVCNum {
 /// the assembly code.
 extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     match get_svc_num(tf) {
-        // Task wants to yield. Mark its state as ready so that the
-        // scheduler can schedule it later.
-        SVCNum::TaskYield => scheduler::yield_cur_task_from_isr(),
-        SVCNum::TaskDestroy => scheduler::destroy_current_task_and_schedule(),
+        SVCNum::TaskYield => Scheduler::yield_current_task_from_svc(),
+        SVCNum::TaskDestroy => Scheduler::drop_current_task_from_svc(),
         SVCNum::TaskLessStack => task::less_stack(tf, ctxt),
         SVCNum::TaskMoreStack => task::more_stack(tf, ctxt, MoreStackReason::Normal),
         SVCNum::TaskMoreStackFromDrop => task::more_stack(tf, ctxt, MoreStackReason::Drop),

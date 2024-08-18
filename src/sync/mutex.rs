@@ -1,8 +1,14 @@
 use super::{
-    HeldInterrupt, Holdable, Lockable, Scheduler, SchedulerSuspendGuard, SpinGeneric,
-    SpinGenericGuard, SpinSchedSafe, UnlockableGuard, WaitQueue,
+    HeldInterrupt, Holdable, Lockable, SpinGeneric, SpinGenericGuard, SpinSchedSafe,
+    UnlockableGuard, WaitQueue,
 };
-use crate::{schedule::current, task::Task};
+use crate::{
+    schedule::{
+        current,
+        scheduler::{SchedSuspendGuard, Scheduler},
+    },
+    task::Task,
+};
 use alloc::sync::Arc;
 use core::{
     ops::{Deref, DerefMut},
@@ -55,7 +61,7 @@ where
     /// spin lock will be downgraded to a weaker spin lock guard that no longer
     /// suspend the scheduler, but which keeps holding only the additional
     /// condition `H`.
-    spin_lock: SpinGeneric<T, (Scheduler, H), (G, SchedulerSuspendGuard)>,
+    spin_lock: SpinGeneric<T, (Scheduler, H), (G, SchedSuspendGuard)>,
 }
 
 /// Generic type of a mutex guard that can dereference into contained type.

@@ -1,5 +1,5 @@
 use super::Task;
-use crate::{config, schedule::scheduler, unrecoverable::Lethal};
+use crate::{config, schedule::scheduler::Scheduler, unrecoverable::Lethal};
 use alloc::sync::Arc;
 
 /// Enumeration of errors during task creation.
@@ -128,7 +128,7 @@ where
             prio,
         )
         .unwrap_or_die();
-        scheduler::accept_new_task(Arc::new(new_task)).map_err(|_| TaskBuildError::NoMoreTask)
+        Scheduler::accept_new_task(Arc::new(new_task))
     }
 }
 
@@ -157,7 +157,7 @@ where
             prio,
         )
         .unwrap_or_die();
-        scheduler::accept_new_task(Arc::new(new_task)).map_err(|_| TaskBuildError::NoMoreTask)
+        Scheduler::accept_new_task(Arc::new(new_task))
     }
 }
 
@@ -167,7 +167,7 @@ pub(crate) fn spawn_restarted_from_task(prev_task: Arc<Task>) -> Result<(), ()> 
     let new_task = Task::build_restarted(prev_task);
 
     // FIXME: should check for available task slot in advance but not here.
-    scheduler::accept_new_task(Arc::new(new_task)).unwrap_or_die();
+    Scheduler::accept_new_task(Arc::new(new_task)).unwrap_or_die();
 
     Ok(())
 }

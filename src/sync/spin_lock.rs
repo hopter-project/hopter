@@ -1,37 +1,40 @@
-use super::{HeldInterrupt, Holdable, Scheduler, SchedulerSuspendGuard};
-use crate::unrecoverable::Lethal;
+use super::{HeldInterrupt, Holdable};
+use crate::{
+    schedule::scheduler::{SchedSuspendGuard, Scheduler},
+    unrecoverable::Lethal,
+};
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use owning_ref::StableAddress;
 use spin::{Mutex as RawSpin, MutexGuard as RawSpinGuard};
 
 /// The normal spin lock.
-pub type Spin<T> = SpinGeneric<T, (), ()>;
+pub(crate) type Spin<T> = SpinGeneric<T, (), ()>;
 
 /// The lock guard of the normal spin lock.
 #[allow(unused)]
-pub type SpinGuard<'a, T> = SpinGenericGuard<'a, T, ()>;
+pub(crate) type SpinGuard<'a, T> = SpinGenericGuard<'a, T, ()>;
 
 /// A spin lock type that also masks the given interrupt upon locking.
 #[allow(unused)]
-pub type SpinIrqSafe<T, I> = SpinGeneric<T, I, HeldInterrupt<I>>;
+pub(crate) type SpinIrqSafe<T, I> = SpinGeneric<T, I, HeldInterrupt<I>>;
 
 /// The lock guard that can dereference into the contained type.
 /// When the guard is dropped, the lock will be released and the interrupt
 /// will be unmasked conditionally. See `RecursivelyMaskable` for details
 /// about interrupt mask/unmask.
 #[allow(unused)]
-pub type SpinIrqSafeGuard<'a, T, I> = SpinGenericGuard<'a, T, HeldInterrupt<I>>;
+pub(crate) type SpinIrqSafeGuard<'a, T, I> = SpinGenericGuard<'a, T, HeldInterrupt<I>>;
 
 /// A spin lock type that also suspend the scheduler upon locking.
 #[allow(unused)]
-pub type SpinSchedSafe<T> = SpinGeneric<T, Scheduler, SchedulerSuspendGuard>;
+pub(crate) type SpinSchedSafe<T> = SpinGeneric<T, Scheduler, SchedSuspendGuard>;
 
 /// The lock guard that can dereference into the contained type.
 /// When the guard is dropped, the lock will be released and the scheduler
 /// will be resumed conditionally if the suspend count reaches zero.
 #[allow(unused)]
-pub type SpinSchedSafeGuard<'a, T> = SpinGenericGuard<'a, T, SchedulerSuspendGuard>;
+pub(crate) type SpinSchedSafeGuard<'a, T> = SpinGenericGuard<'a, T, SchedSuspendGuard>;
 
 /// A spin lock type that also suspend the scheduler and masks the given
 /// interrupt upon locking. Suspending the scheduler happens before masking
@@ -39,8 +42,8 @@ pub type SpinSchedSafeGuard<'a, T> = SpinGenericGuard<'a, T, SchedulerSuspendGua
 /// is unmasked first and subsequently the scheduler is resumed. See the
 /// `Holdable` trait implementation on tuples for the details of sequence.
 #[allow(unused)]
-pub type SpinSchedIrqSafe<T, I> =
-    SpinGeneric<T, (Scheduler, I), (HeldInterrupt<I>, SchedulerSuspendGuard)>;
+pub(crate) type SpinSchedIrqSafe<T, I> =
+    SpinGeneric<T, (Scheduler, I), (HeldInterrupt<I>, SchedSuspendGuard)>;
 
 /// The lock guard that can dereference into the contained type.
 /// When the guard is dropped, the lock will be released, with the interrupt
@@ -48,8 +51,8 @@ pub type SpinSchedIrqSafe<T, I> =
 /// reach zero. See the `Holdable` trait implementation on tuples for the details
 /// of sequence.
 #[allow(unused)]
-pub type SpinSchedIrqSafeGuard<'a, T, I> =
-    SpinGenericGuard<'a, T, (HeldInterrupt<I>, SchedulerSuspendGuard)>;
+pub(crate) type SpinSchedIrqSafeGuard<'a, T, I> =
+    SpinGenericGuard<'a, T, (HeldInterrupt<I>, SchedSuspendGuard)>;
 
 /// Generic type of a spin lock. When the lock is being held, some extra
 /// condition can also be held. For example, the extra condition may be

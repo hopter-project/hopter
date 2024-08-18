@@ -1,7 +1,7 @@
 //! The module performs the initialization before running the user defined main
 //! function.
 
-use crate::{allocator, config, schedule::scheduler, task, unrecoverable::Lethal};
+use crate::{allocator, config, schedule::scheduler::Scheduler, task, unrecoverable::Lethal};
 use alloc::boxed::Box;
 use core::sync::atomic::AtomicPtr;
 use cortex_m::peripheral::scb::SystemHandler;
@@ -37,7 +37,7 @@ pub(super) extern "C" fn system_start() -> ! {
     // the idle task context and then perform a context switch to run the main
     // task.
     unsafe {
-        scheduler::start();
+        Scheduler::start();
     }
 }
 

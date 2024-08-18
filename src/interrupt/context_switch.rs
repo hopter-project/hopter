@@ -1,6 +1,6 @@
 use crate::{
     config,
-    schedule::{current, scheduler},
+    schedule::{current, scheduler::Scheduler},
     unrecoverable,
 };
 use core::arch::asm;
@@ -110,5 +110,5 @@ extern "C" fn pendsv_handler(ex_ret_lr: u32) {
 
     // The `CUR_TASK_CTXT_PTR` pointer will be updated to reflect the next
     // chosen task to run.
-    scheduler::pick_next();
+    Scheduler::pick_next();
 }
