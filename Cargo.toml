@@ -201,6 +201,10 @@ path = "examples/tests/task/unwind/deferred_indirect_drop.rs"
 name = "test-task-unwind-deferred_nested_drop"
 path = "examples/tests/task/unwind/deferred_nested_drop.rs"
 
+[[example]]
+name = "test-task-unwind-concurrent_restart"
+path = "examples/tests/task/unwind/concurrent_restart.rs"
+
 # *** Tests for task - segmented stack ***
 
 [[example]]

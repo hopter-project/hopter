@@ -65,3 +65,17 @@ jobs:
           category: task
           sub-category: unwind
           test-name: deferred_nested_drop
+
+  concurrent_restart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test concurrent_restart
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: task
+          sub-category: unwind
+          test-name: concurrent_restart

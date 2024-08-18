@@ -217,6 +217,13 @@ runs:
         sub-category: unwind
         test-name: deferred_nested_drop
 
+    - name: Build test test-task-unwind-concurrent_restart
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: concurrent_restart
+
     # *** Tests for task - segmented stack ***
 
     - name: Build test test-task-segmented_stack-function_arguments
