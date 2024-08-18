@@ -26,7 +26,6 @@ def enumerate_tests():
                 file_no_ext = os.path.basename(file_rs_ext)[:-3]
                 file_txt_ext = file_no_ext + '.txt'
                 file_py_ext = file_no_ext + '.py'
-                assert(file_txt_ext in answer_files or file_py_ext in answer_files)
 
                 if file_txt_ext in answer_files:
                     tests.append((
@@ -43,6 +42,7 @@ def enumerate_tests():
                         f'Error: Test file {category}-{subcategory}-{file_rs_ext} does not have an answer file.',
                         file=sys.stderr
                     )
+                    sys.exit(1)
     return tests
 
 def main():

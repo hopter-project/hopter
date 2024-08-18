@@ -590,8 +590,6 @@ impl Task {
         // task.
         self.restarted_from = Some(Arc::downgrade(&prev_task));
 
-        // FIXME: what if this newly built task struct fail to be inserted into
-        // the ready queue?
         // Record that the panicked task has been restarted. This will prevent
         // other restart attempt.
         prev_task.has_restarted.store(true, Ordering::SeqCst);

@@ -392,26 +392,24 @@ impl<'a> Debug for UnwindState<'a> {
 
 #[inline(never)]
 fn try_concurrent_restart() {
-    let res = current::with_current_task_arc(|cur_task| {
+    current::with_current_task_arc(|cur_task| {
         // We will limit the concurrent restart rate to at most one concurrent
         // instance. If this task is a restarted instance, and also if the original
         // instance has not finished unwinding, i.e. the task struct reference
         // count is positive, we will not do concurrent restart.
         if let Some(restarted_from) = cur_task.get_restart_origin_task() {
             if restarted_from.strong_count() != 0 {
-                return Ok(());
+                return;
             }
         }
 
-        // Otherwise, we concurrently restart the task.
-        task::spawn_restarted_from_task(cur_task)
-    });
-
-    // Concurrent restart failed.
-    // FIXME: in this case, we should try normal restart instead of giving up.
-    if res.is_err() {
-        cortex_m::interrupt::free(|_| loop {});
-    }
+        // Otherwise, we try to concurrently restart the panicked task. It is
+        // fine if we are not able to start a new instance running concurrently,
+        // probably because the maximum number of tasks has been reached. In
+        // this case the restarted instance will reuse the current task struct
+        // and will run only after the unwinding finishes.
+        let _ = task::try_spawn_restarted(cur_task);
+    })
 }
 
 impl UnwindState<'static> {

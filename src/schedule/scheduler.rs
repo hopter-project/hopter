@@ -3,7 +3,7 @@ use crate::{
     config,
     interrupt::svc,
     sync::{Access, AllowPendOp, Holdable, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
-    task::{Task, TaskBuildError, TaskListAdapter, TaskListInterfaces, TaskState},
+    task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
 };
 use alloc::sync::Arc;
@@ -259,23 +259,49 @@ impl Scheduler {
         STARTED.load(Ordering::SeqCst)
     }
 
+    /// Check whether the existing task number has already reached the allowed
+    /// maximum ([`MAX_TASK_NUMBER`](config::MAX_TASK_NUMBER)). If not, return
+    /// a [`Quota`] which is a token allowing new task creation.
+    pub(crate) fn request_task_quota() -> Result<Quota, ()> {
+        loop {
+            let exist_task_num = EXIST_TASK_NUM.load(Ordering::SeqCst);
+
+            // If we can still hold more tasks, temporarily increment the task
+            // number and return a `Quota`.
+            if exist_task_num < config::MAX_TASK_NUMBER {
+                match EXIST_TASK_NUM.compare_exchange_weak(
+                    exist_task_num,
+                    exist_task_num + 1,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                ) {
+                    Ok(_) => return Ok(Quota(Seal)),
+                    // In rare case where we have a contention on the counter,
+                    // try again with the test.
+                    Err(_) => continue,
+                }
+            // Maximum number of tasks reached, return error.
+            } else {
+                return Err(());
+            }
+        }
+    }
+
     /// Insert a new task to the scheduler's ready queue. The task must not be an
     /// existing task, but can be a new restarted instance of a panicked task.
+    ///
+    /// # Parameter
+    /// - `task`: The task struct of the new task.
+    /// - `quota`: The previously acquired quota by calling
+    ///   [`request_task_quota`](Self::request_task_quota).
     ///
     /// # Return
     /// - `Ok(())` if the new task is ready to be run by the scheduler
     /// - `Err(TaskBuildError::NoMoreTask)` if the maximum number of tasks has
     ///    been reached.
-    pub(crate) fn accept_new_task(task: Arc<Task>) -> Result<(), TaskBuildError> {
-        // Return error if reached maximum task number, otherwise increment it.
-        if EXIST_TASK_NUM.load(Ordering::SeqCst) >= config::MAX_TASK_NUMBER {
-            return Err(TaskBuildError::NoMoreTask);
-        }
-        EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
-
-        Self::insert_task_to_ready_queue(task);
-
-        Ok(())
+    pub(crate) fn accept_new_task(task: Task, quota: Quota) {
+        core::mem::forget(quota);
+        Self::insert_task_to_ready_queue(Arc::new(task));
     }
 
     /// Insert a task back to the scheduler's ready queue. The task should
@@ -388,3 +414,13 @@ impl Holdable for Scheduler {
         Scheduler::resume();
     }
 }
+
+pub(crate) struct Quota(Seal);
+
+impl Drop for Quota {
+    fn drop(&mut self) {
+        EXIST_TASK_NUM.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+struct Seal;

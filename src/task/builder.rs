@@ -1,5 +1,5 @@
 use super::Task;
-use crate::{config, schedule::scheduler::Scheduler, unrecoverable::Lethal};
+use crate::{config, schedule::scheduler::Scheduler};
 use alloc::sync::Arc;
 
 /// Enumeration of errors during task creation.
@@ -120,15 +120,20 @@ where
             return Err(TaskBuildError::NoStack);
         }
 
+        // Get a quota from the scheduler to ensure that the maximum number of
+        // tasks has not been reached yet.
+        let quota = Scheduler::request_task_quota().map_err(|_| TaskBuildError::NoMoreTask)?;
+
         let new_task = Task::build(
             id,
             entry_closure,
             self.init_stklet_size,
             self.is_dynamic_stack,
             prio,
-        )
-        .unwrap_or_die();
-        Scheduler::accept_new_task(Arc::new(new_task))
+        )?;
+        Scheduler::accept_new_task(new_task, quota);
+
+        Ok(())
     }
 }
 
@@ -149,25 +154,31 @@ where
             return Err(TaskBuildError::NoStack);
         }
 
+        // Get a quota from the scheduler to ensure that the maximum number of
+        // tasks has not been reached yet.
+        let quota = Scheduler::request_task_quota().map_err(|_| TaskBuildError::NoMoreTask)?;
+
         let new_task = Task::build_restartable(
             id,
             entry_closure,
             self.init_stklet_size,
             self.is_dynamic_stack,
             prio,
-        )
-        .unwrap_or_die();
-        Scheduler::accept_new_task(Arc::new(new_task))
+        )?;
+        Scheduler::accept_new_task(new_task, quota);
+
+        Ok(())
     }
 }
 
 /// Start a new task from a previously failed task.
 #[cfg(feature = "unwind")]
-pub(crate) fn spawn_restarted_from_task(prev_task: Arc<Task>) -> Result<(), ()> {
-    let new_task = Task::build_restarted(prev_task);
+pub(crate) fn try_spawn_restarted(prev_task: Arc<Task>) -> Result<(), ()> {
+    // Get a quota from the scheduler to ensure that the maximum number of
+    // tasks has not been reached yet.
+    let quota = Scheduler::request_task_quota()?;
 
-    // FIXME: should check for available task slot in advance but not here.
-    Scheduler::accept_new_task(Arc::new(new_task)).unwrap_or_die();
-
+    let restarted_task = Task::build_restarted(prev_task);
+    Scheduler::accept_new_task(restarted_task, quota);
     Ok(())
 }

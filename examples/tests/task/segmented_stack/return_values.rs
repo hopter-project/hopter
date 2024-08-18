@@ -1,6 +1,4 @@
 //! Test function return values via registers.
-//!
-//! FIXME: Does return value ever get passed through stack?
 
 #![no_std]
 #![no_main]
