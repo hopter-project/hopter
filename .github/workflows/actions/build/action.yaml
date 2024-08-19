@@ -292,3 +292,12 @@ runs:
         category: interrupt
         sub-category: unwind
         test-name: simple
+
+    # *** Tests for debug - cpu load ***
+
+    - name: Build test test-debug-cpu_load-load_40_percent
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: debug
+        sub-category: cpu_load
+        test-name: load_40_percent

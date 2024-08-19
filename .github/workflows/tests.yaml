@@ -24,3 +24,8 @@ jobs:
     uses: ./.github/workflows/interrupt.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
+
+  debug:
+    uses: ./.github/workflows/debug.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}

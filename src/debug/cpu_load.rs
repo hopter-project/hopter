@@ -1,4 +1,5 @@
-use super::IdleCallback;
+use crate::schedule::idle::{self, IdleCallback};
+use alloc::sync::Arc;
 use core::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 
 /// Each slot corresponds to `US_PER_SLOT` microseconds. Each slot count the number
@@ -9,7 +10,11 @@ const US_PER_SLOT: u32 = 1 << 20;
 /// A bit mask used for calculating the number of microseconds that falls in a slot.
 const SLOT_PERIOD_MASK: u32 = US_PER_SLOT - 1;
 
-pub struct CpuUsage<Clock>
+/// Allowing CPU load inspection. Clients of this struct must provide a clock
+/// that can give microsecond precision timestamp by implementing the
+/// [`MicrosecPrecision`] trait. The CPU load can be inspected with the
+/// [`get_cpu_load`](Self::get_cpu_load) method.
+pub struct LoadInspector<Clock>
 where
     Clock: MicrosecPrecision + Send + Sync,
 {
@@ -21,19 +26,22 @@ where
     clock: Clock,
 }
 
-impl<Clock> CpuUsage<Clock>
+impl<Clock> LoadInspector<Clock>
 where
-    Clock: MicrosecPrecision + Send + Sync,
+    Clock: MicrosecPrecision + Send + Sync + 'static,
 {
-    pub fn new(clock: Clock) -> Self {
-        Self {
+    pub fn new(clock: Clock) -> Arc<Self> {
+        let x = Self {
             idle_start_time_low: Default::default(),
             idle_start_time_high: Default::default(),
             slots: Default::default(),
             recent_slot_idx: Default::default(),
             completely_idle: Default::default(),
             clock,
-        }
+        };
+        let x = Arc::new(x);
+        idle::insert_idle_callback(x.clone());
+        x
     }
 
     /// Set the saved timestamp to the given value and return the previous value.
@@ -128,9 +136,9 @@ where
     }
 }
 
-impl<Clock> IdleCallback for CpuUsage<Clock>
+impl<Clock> IdleCallback for LoadInspector<Clock>
 where
-    Clock: MicrosecPrecision + Send + Sync,
+    Clock: MicrosecPrecision + Send + Sync + 'static,
 {
     fn idle_begin(&self) {
         // Save the timestamp that the idle task resumes.

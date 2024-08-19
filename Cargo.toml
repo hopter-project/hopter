@@ -224,3 +224,9 @@ path = "examples/tests/task/segmented_stack/return_values.rs"
 [[example]]
 name = "test-interrupt-unwind-simple"
 path = "examples/tests/interrupt/unwind/simple.rs"
+
+# *** Tests for debug - cpu load ***
+
+[[example]]
+name = "test-debug-cpu_load-load_40_percent"
+path = "examples/tests/debug/cpu_load/load_40_percent.rs"

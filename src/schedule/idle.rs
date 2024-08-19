@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::{sync::Arc, vec::Vec};
 
-pub trait IdleCallback: Send + Sync {
+pub(crate) trait IdleCallback: Send + Sync {
     /// Invoked every time the idle task is switched on to the CPU.
     fn idle_begin(&self) {}
     /// Invoked every time the idle task is switched out of the CPU.
@@ -14,7 +14,7 @@ pub trait IdleCallback: Send + Sync {
 /// Callbacks to invoke when the idle task is switched in or out.
 static IDLE_CALLBACKS: SpinSchedSafe<Vec<Arc<dyn IdleCallback>>> = SpinSchedSafe::new(Vec::new());
 
-pub fn insert_idle_callback(callback: Arc<dyn IdleCallback>) {
+pub(crate) fn insert_idle_callback(callback: Arc<dyn IdleCallback>) {
     IDLE_CALLBACKS.lock_now_or_die().push(callback);
 }
 
