@@ -125,13 +125,14 @@ where
         let quota = Scheduler::request_task_quota().map_err(|_| TaskBuildError::NoMoreTask)?;
 
         let new_task = Task::build(
+            quota,
             id,
             entry_closure,
             self.init_stklet_size,
             self.is_dynamic_stack,
             prio,
         )?;
-        Scheduler::accept_new_task(new_task, quota);
+        Scheduler::accept_task(Arc::new(new_task));
 
         Ok(())
     }
@@ -159,13 +160,14 @@ where
         let quota = Scheduler::request_task_quota().map_err(|_| TaskBuildError::NoMoreTask)?;
 
         let new_task = Task::build_restartable(
+            quota,
             id,
             entry_closure,
             self.init_stklet_size,
             self.is_dynamic_stack,
             prio,
         )?;
-        Scheduler::accept_new_task(new_task, quota);
+        Scheduler::accept_task(Arc::new(new_task));
 
         Ok(())
     }
@@ -178,7 +180,7 @@ pub(crate) fn try_spawn_restarted(prev_task: Arc<Task>) -> Result<(), ()> {
     // tasks has not been reached yet.
     let quota = Scheduler::request_task_quota()?;
 
-    let restarted_task = Task::build_restarted(prev_task);
-    Scheduler::accept_new_task(restarted_task, quota);
+    let restarted_task = Task::build_restarted(quota, prev_task);
+    Scheduler::accept_task(Arc::new(restarted_task));
     Ok(())
 }

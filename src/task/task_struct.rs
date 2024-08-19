@@ -6,6 +6,7 @@ use super::{
 use crate::{
     config,
     interrupt::{svc, trap_frame::TrapFrame},
+    schedule::scheduler::TaskQuota,
     sync::{AtomicCell, Spin},
     unrecoverable::{self, Lethal},
 };
@@ -114,6 +115,8 @@ pub(crate) struct TaskCtxt {
 
 /// The struct representing a task.
 pub(crate) struct Task {
+    /// When dropped it will decrement the number of existing tasks by 1.
+    _quota: TaskQuota,
     /// The task context preserved in the kernel. When a task is scheduled to
     /// run on the CPU, the spin lock will be acquired during the running
     /// period. Accidental attempt to modify the context of a running task
@@ -212,6 +215,7 @@ impl Task {
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     pub(crate) fn build<F>(
+        quota: TaskQuota,
         id: u8,
         entry_closure: F,
         init_stklet_size: usize,
@@ -221,7 +225,7 @@ impl Task {
     where
         F: FnOnce() + Send + 'static,
     {
-        let mut task = Self::new(false);
+        let mut task = Self::new(quota, false);
         task.initialize(
             id,
             entry_closure,
@@ -251,6 +255,7 @@ impl Task {
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
     pub(crate) fn build_restartable<F>(
+        quota: TaskQuota,
         id: u8,
         entry_closure: F,
         reserve_stack_size: usize,
@@ -260,7 +265,7 @@ impl Task {
     where
         F: FnOnce() + Send + Sync + Clone + 'static,
     {
-        let mut task = Self::new(false);
+        let mut task = Self::new(quota, false);
         task.initialize_restartable(
             id,
             entry_closure,
@@ -275,21 +280,21 @@ impl Task {
     /// panicked task. The new task will start its execution from the same
     /// closure as the panicked task.
     #[cfg(feature = "unwind")]
-    pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Self {
-        let mut new_task = Self::new(false);
+    pub(crate) fn build_restarted(quota: TaskQuota, prev_task: Arc<Task>) -> Self {
+        let mut new_task = Self::new(quota, false);
         new_task.restart_from(prev_task.clone());
         new_task
     }
 
     /// Build the task struct of the idle task.
-    pub(crate) fn build_idle() -> Self {
+    pub(crate) fn build_idle(quota: TaskQuota) -> Self {
         // Make sure the idle task is built only once. It is an unrecoverable
         // error if attempt to build it twice.
         static IDLE_CREATED: AtomicBool = AtomicBool::new(false);
         let created = IDLE_CREATED.swap(true, Ordering::SeqCst);
         unrecoverable::die_if(|| created);
 
-        let mut idle_task = Self::new(true);
+        let mut idle_task = Self::new(quota, true);
 
         // Create the idle task. The closure passed in `.initialize()` is
         // actually not used. The `idle()` function is invoked through the
@@ -313,8 +318,9 @@ impl Task {
 
     /// Create a new task struct, with all the fields set to their default
     /// values.
-    fn new(is_idle: bool) -> Self {
+    fn new(quota: TaskQuota, is_idle: bool) -> Self {
         Self {
+            _quota: quota,
             ctxt: Spin::new(TaskCtxt::default()),
             id: AtomicU8::new(0),
             is_idle,

@@ -119,16 +119,14 @@ impl Scheduler {
     /// Safety: This function should only be called at system initialization
     /// stage when the system is still running with MSP.
     pub(crate) unsafe fn start() -> ! {
-        let mut idle_task = Task::build_idle();
+        let quota = Self::request_task_quota().unwrap_or_die();
+        let mut idle_task = Task::build_idle(quota);
 
         let stack_bottom = idle_task.get_sp();
         let idle_stk_bound = idle_task.get_stk_bound();
 
         // Set the idle task as the currently running task.
         current::update_cur_task(Arc::new(idle_task));
-
-        // The current task, i.e. idle task, becomes the first existing task.
-        EXIST_TASK_NUM.fetch_add(1, Ordering::SeqCst);
 
         CUR_TASK_IDLE.store(true, Ordering::SeqCst);
 
@@ -261,52 +259,13 @@ impl Scheduler {
 
     /// Check whether the existing task number has already reached the allowed
     /// maximum ([`MAX_TASK_NUMBER`](config::MAX_TASK_NUMBER)). If not, return
-    /// a [`Quota`] which is a token allowing new task creation.
-    pub(crate) fn request_task_quota() -> Result<Quota, ()> {
-        loop {
-            let exist_task_num = EXIST_TASK_NUM.load(Ordering::SeqCst);
-
-            // If we can still hold more tasks, temporarily increment the task
-            // number and return a `Quota`.
-            if exist_task_num < config::MAX_TASK_NUMBER {
-                match EXIST_TASK_NUM.compare_exchange_weak(
-                    exist_task_num,
-                    exist_task_num + 1,
-                    Ordering::SeqCst,
-                    Ordering::SeqCst,
-                ) {
-                    Ok(_) => return Ok(Quota(Seal)),
-                    // In rare case where we have a contention on the counter,
-                    // try again with the test.
-                    Err(_) => continue,
-                }
-            // Maximum number of tasks reached, return error.
-            } else {
-                return Err(());
-            }
-        }
+    /// a [`TaskQuota`] which is a token allowing new task creation.
+    pub(crate) fn request_task_quota() -> Result<TaskQuota, ()> {
+        TaskQuota::new()
     }
 
-    /// Insert a new task to the scheduler's ready queue. The task must not be an
-    /// existing task, but can be a new restarted instance of a panicked task.
-    ///
-    /// # Parameter
-    /// - `task`: The task struct of the new task.
-    /// - `quota`: The previously acquired quota by calling
-    ///   [`request_task_quota`](Self::request_task_quota).
-    ///
-    /// # Return
-    /// - `Ok(())` if the new task is ready to be run by the scheduler
-    /// - `Err(TaskBuildError::NoMoreTask)` if the maximum number of tasks has
-    ///    been reached.
-    pub(crate) fn accept_new_task(task: Task, quota: Quota) {
-        core::mem::forget(quota);
-        Self::insert_task_to_ready_queue(Arc::new(task));
-    }
-
-    /// Insert a task back to the scheduler's ready queue. The task should
-    /// previously be blocked or sleeping.
-    pub(crate) fn accept_notified_task(task: Arc<Task>) {
+    /// Insert a task to the scheduler's ready queue.
+    pub(crate) fn accept_task(task: Arc<Task>) {
         Self::insert_task_to_ready_queue(task)
     }
 
@@ -373,8 +332,6 @@ impl Scheduler {
     /// Drop the task struct of the currently running task and switch to
     /// another ready task.
     pub(crate) fn drop_current_task_from_svc() {
-        EXIST_TASK_NUM.fetch_sub(1, Ordering::SeqCst);
-
         // Mark the task state as `Destructing` so that the scheduler will drop
         // the task struct upon a later context switch.
         current::with_current_task(|cur_task| cur_task.set_state(TaskState::Destructing));
@@ -415,12 +372,49 @@ impl Holdable for Scheduler {
     }
 }
 
-pub(crate) struct Quota(Seal);
+/// The struct represents the permission to create a new task, created by
+/// calling [`request_task_quota`](Scheduler::request_task_quota). The number
+/// of existing tasks will be incremented each time a quota instance is built,
+/// and will be decremented when a quota is dropped.
+///
+/// The [`Task`] holds the quota as a struct field, so when a task is dropped
+/// the number of existing tasks will also be decremented.
+pub(crate) struct TaskQuota(Seal);
 
-impl Drop for Quota {
+impl TaskQuota {
+    fn new() -> Result<Self, ()> {
+        loop {
+            let exist_task_num = EXIST_TASK_NUM.load(Ordering::SeqCst);
+
+            // If we can still hold more tasks, temporarily increment the task
+            // number and return a `Quota`.
+            if exist_task_num < config::MAX_TASK_NUMBER {
+                match EXIST_TASK_NUM.compare_exchange_weak(
+                    exist_task_num,
+                    exist_task_num + 1,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                ) {
+                    Ok(_) => return Ok(Self(Seal)),
+                    // In rare case where we have a contention on the counter,
+                    // try again with the test.
+                    Err(_) => continue,
+                }
+            // Maximum number of tasks reached, return error.
+            } else {
+                return Err(());
+            }
+        }
+    }
+}
+
+/// Decrement the existing task number counter when the struct is dropped.
+impl Drop for TaskQuota {
     fn drop(&mut self) {
         EXIST_TASK_NUM.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
+/// Declared as a private struct so that no [`TaskQuota`] instance can be
+/// forged outside this module.
 struct Seal;

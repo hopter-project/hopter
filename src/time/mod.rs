@@ -71,7 +71,7 @@ impl<'a> InnerFullAccessor<'a> {
         while let Some(task) = cursor_mut.get() {
             if task.get_wake_tick() <= cur_tick {
                 let task = cursor_mut.remove().unwrap_or_die();
-                Scheduler::accept_notified_task(task);
+                Scheduler::accept_task(task);
             } else {
                 break;
             }
@@ -79,7 +79,7 @@ impl<'a> InnerFullAccessor<'a> {
 
         while let Some(task) = self.delete_buffer.dequeue() {
             if let Some(task) = locked_queue.remove_task(&task) {
-                Scheduler::accept_notified_task(task);
+                Scheduler::accept_task(task);
             }
         }
     }
@@ -160,7 +160,7 @@ pub(crate) fn remove_task_from_sleep_queue_allow_isr(task: Arc<Task>) {
         Access::Full { full_access } => {
             let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
             if let Some(task) = locked_queue.remove_task(&task) {
-                Scheduler::accept_notified_task(task);
+                Scheduler::accept_task(task);
             }
         }
         Access::PendOnly { pend_access } => {
