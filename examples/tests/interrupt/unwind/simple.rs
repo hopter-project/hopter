@@ -1,4 +1,4 @@
-//!
+//! Tests that panics can be caught in an interrupt handler.
 
 #![no_main]
 #![no_std]
