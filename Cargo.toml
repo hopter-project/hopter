@@ -235,15 +235,15 @@ path = "examples/tests/task/context_switch/fp_registers.rs"
 name = "test-interrupt-unwind-simple"
 path = "examples/tests/interrupt/unwind/simple.rs"
 
-# *** Tests for interrupt - semaphore_isr ***
+# *** Tests for interrupt - semaphore ***
 
 [[example]]
 name = "test-interrupt-semaphore-try_up_allow_isr"
-path = "examples/tests/interrupt/semaphore_isr/try_up_allow_isr.rs"
+path = "examples/tests/interrupt/semaphore/try_up_allow_isr.rs"
 
 [[example]]
 name = "test-interrupt-semaphore-try_down_allow_isr"
-path = "examples/tests/interrupt/semaphore_isr/try_down_allow_isr.rs"
+path = "examples/tests/interrupt/semaphore/try_down_allow_isr.rs"
 
 
 [[example]]
