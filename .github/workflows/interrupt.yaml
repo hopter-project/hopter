@@ -14,3 +14,13 @@ jobs:
     uses: ./.github/workflows/interrupt-unwind.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
+
+  semaphore:
+    uses: ./.github/workflows/interrupt-semaphore.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
+
+  mailbox:
+    uses: ./.github/workflows/interrupt-mailbox.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}

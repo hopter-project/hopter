@@ -1,0 +1,26 @@
+name: Run Tests for ISR methods for mailbox
+
+on:
+  workflow_call:
+    secrets:
+      cookie:
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  notify_allow_isr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test notify_allow_isr
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: interrupt
+          sub-category: mailbox
+          test-name: notify_allow_isr
+          timeout: 15s

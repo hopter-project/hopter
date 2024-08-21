@@ -1,0 +1,9 @@
+Before task blocking
+Semaphore down to 0
+After task resuming
+Before task blocking
+Semaphore down to 0
+After task resuming
+Before task blocking
+Semaphore down to 0
+After task resuming

@@ -80,6 +80,10 @@ path = "examples/tests/sync/mailbox/task_not_timeout.rs"
 name = "test-sync-mailbox-notify_in_advance_after_timeout"
 path = "examples/tests/sync/mailbox/notify_in_advance_after_timeout.rs"
 
+[[example]]
+name = "test-sync-mailbox-notify_from_isr"
+path = "examples/tests/sync/mailbox/notify_from_isr.rs"
+
 # *** Tests for sync - semaphore ***
 
 [[example]]
@@ -125,6 +129,14 @@ path = "examples/tests/sync/semaphore/down_priority_scheduling.rs"
 [[example]]
 name = "test-sync-semaphore-up_priority_scheduling"
 path = "examples/tests/sync/semaphore/up_priority_scheduling.rs"
+
+[[example]]
+name = "test-sync-semaphore-try_up_from_isr"
+path = "examples/tests/sync/semaphore/try_up_from_isr.rs"
+
+[[example]]
+name = "test-sync-semaphore-try_down_from_isr"
+path = "examples/tests/sync/semaphore/try_down_from_isr.rs"
 
 # *** Tests for sync - mutex ***
 
