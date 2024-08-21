@@ -1,4 +1,4 @@
-//! Tests try_down_allow_isr functionality in periodic interrupts
+//! Tests notifying a task from an ISR with `try_down_allow_isr`.
 
 #![no_main]
 #![no_std]
@@ -6,8 +6,10 @@
 
 extern crate alloc;
 
+use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     boot::main,
+    config,
     debug::semihosting,
     hprintln,
     interrupt::handler,
@@ -22,10 +24,20 @@ use stm32f4xx_hal::{
 
 static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, AllIrqExceptSvc> = MutexIrqSafe::new(None);
 
-static SEMAPHORE: Semaphore = Semaphore::new(1, 0);
+static SEMAPHORE: Semaphore = Semaphore::new(1, 1);
 
 #[main]
 fn main(_cp: cortex_m::Peripherals) {
+    // Allow the new task below to run first until it blocks.
+    task::change_current_priority(config::DEFAULT_TASK_PRIORITY).unwrap();
+
+    // The new task should block on the semaphore.
+    task::build()
+        .set_entry(up_function)
+        .set_priority(config::DEFAULT_TASK_PRIORITY - 1)
+        .spawn()
+        .unwrap();
+
     let dp = Peripherals::take().unwrap();
 
     // For unknown reason QEMU accepts only the following clock frequency.
@@ -36,12 +48,6 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // Generate an interrupt when the timer expires.
     timer.listen(Event::Update);
-
-    task::build()
-        .set_entry(down_function)
-        .set_priority(2)
-        .spawn()
-        .unwrap();
 
     // Enable TIM2 interrupt.
     unsafe {
@@ -57,24 +63,35 @@ fn main(_cp: cortex_m::Peripherals) {
     *TIMER.lock() = Some(timer);
 }
 
-fn down_function() {
-    hprintln!("Before decrementing in task");
-    SEMAPHORE.down();
-    hprintln!("After decrementing in task");
+fn up_function() {
+    for _ in 0..3 {
+        hprintln!("Before task blocking");
+        SEMAPHORE.up();
+        hprintln!("After task resuming");
+    }
     semihosting::terminate(true);
 }
 
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
 extern "C" fn tim2_handler() {
-    // attempt to increment SEMAPHORE
-    let result = SEMAPHORE.try_up_allow_isr();
+    // Only run this handler for three times. If running more than three times,
+    // the test task must have been stuck.
+    static COUNT: AtomicUsize = AtomicUsize::new(0);
+    if COUNT.fetch_add(1, Ordering::SeqCst) >= 3 {
+        semihosting::terminate(false);
+    }
+
+    // Attempt to `down` the semaphore. Assuming that the task can keep up with
+    // the interval of 1 second, which it just should unless QEMU is super
+    // broken.
+    let result = SEMAPHORE.try_down_allow_isr();
     match result {
-        Ok(()) => {
-            hprintln!("Semaphore incremented to {}", SEMAPHORE.count())
+        Ok(_) => {
+            hprintln!("Semaphore down to {}", SEMAPHORE.count())
         }
-        Err(()) => {
-            hprintln!("Failed to increment");
+        Err(_) => {
+            hprintln!("Failed to down");
             semihosting::terminate(false);
         }
     }

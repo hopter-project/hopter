@@ -55,6 +55,13 @@ runs:
         sub-category: mailbox
         test-name: notify_in_advance_after_timeout
 
+    - name: Build test test-sync-semaphore-notify_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_from_isr
+
     # *** Tests for sync - semaphore ***
 
     - name: Build test test-sync-semaphore-initialization
@@ -134,6 +141,20 @@ runs:
         sub-category: semaphore
         test-name: up_priority_scheduling
 
+    - name: Build test test-sync-semaphore-try_down_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_down_from_isr
+
+    - name: Build test test-sync-semaphore-try_up_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_up_from_isr
+
     # *** Tests for sync - mutex ***
 
     - name: Build test test-sync-mutex-basic
@@ -170,6 +191,50 @@ runs:
         category: sync
         sub-category: mutex
         test-name: priority_inversion
+
+    # *** Tests for sync - channel ***
+
+    - name: Build test test-sync-channel-produce_consume_single_task
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: produce_consume_single_task
+
+    - name: Build test test-sync-channel-produce_with_overflow
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: produce_with_overflow
+
+    - name: Build test test-sync-channel-try_consume
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: try_consume
+
+    - name: Build test test-sync-channel-multiple_producers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: multiple_producers
+
+    - name: Build test test-sync-channel-multiple_consumers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: multiple_consumers
+
+    - name: Build test test-sync-channel-concurrency_and_stress
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: concurrency_and_stress
 
     # *** Tests for task - priority ***
 
@@ -256,50 +321,6 @@ runs:
         sub-category: context_switch
         test-name: fp_registers
 
-    # *** Tests for sync - channel ***
-
-    - name: Build test test-sync-channel-produce_consume_single_task
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: channel
-        test-name: produce_consume_single_task
-
-    - name: Build test test-sync-channel-produce_with_overflow
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: channel
-        test-name: produce_with_overflow
-
-    - name: Build test test-sync-channel-try_consume
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: channel
-        test-name: try_consume
-
-    - name: Build test test-sync-channel-multiple_producers
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: channel
-        test-name: multiple_producers
-
-    - name: Build test test-sync-channel-multiple_consumers
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: channel
-        test-name: multiple_consumers
-
-    - name: Build test test-sync-channel-concurrency_and_stress
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: sync
-        sub-category: channel
-        test-name: concurrency_and_stress
-
     # *** Tests for interrupt - unwind ***
 
     - name: Build test test-interrupt-unwind-simple
@@ -308,31 +329,6 @@ runs:
         category: interrupt
         sub-category: unwind
         test-name: simple
-
-    # *** Tests for interrupt - semaphore ***
-
-    - name: Build test test-interrupt-semaphore-try_down_allow_isr
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: interrupt
-        sub-category: semaphore
-        test-name: try_down_allow_isr
-
-    - name: Build test test-interrupt-semaphore-try_up_allow_isr
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: interrupt
-        sub-category: semaphore
-        test-name: try_up_allow_isr
-
-    # *** Tests for interrupt - mailbox ***
-
-    - name: Build test test-interrupt-semaphore-notify_allow_isr
-      uses: ./.github/workflows/actions/build-test
-      with:
-        category: interrupt
-        sub-category: mailbox
-        test-name: notify_allow_isr
 
     # *** Tests for debug - cpu load ***
 

@@ -1,4 +1,4 @@
-//! Tests notify_allow_isr functionality in periodic interrupts
+//! Tests notifying a task from an ISR with `notify_allow_isr`.
 
 #![no_main]
 #![no_std]
@@ -9,13 +9,13 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     boot::main,
+    config,
     debug::semihosting,
     hprintln,
     interrupt::handler,
     sync::{AllIrqExceptSvc, Mailbox, MutexIrqSafe},
     task,
 };
-
 use stm32f4xx_hal::{
     pac::{Interrupt, Peripherals, TIM2},
     prelude::*,
@@ -28,6 +28,16 @@ static MAILBOX: Mailbox = Mailbox::new();
 
 #[main]
 fn main(_cp: cortex_m::Peripherals) {
+    // Allow the new task below to run first until it blocks.
+    task::change_current_priority(config::DEFAULT_TASK_PRIORITY).unwrap();
+
+    // The new task should block on the semaphore.
+    task::build()
+        .set_entry(listener_function)
+        .set_priority(config::DEFAULT_TASK_PRIORITY - 1)
+        .spawn()
+        .unwrap();
+
     let dp = Peripherals::take().unwrap();
 
     // For unknown reason QEMU accepts only the following clock frequency.
@@ -38,11 +48,6 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // Generate an interrupt when the timer expires.
     timer.listen(Event::Update);
-    task::build()
-        .set_entry(listener_function)
-        .set_priority(2)
-        .spawn()
-        .unwrap();
 
     // Enable TIM2 interrupt.
     unsafe {
@@ -77,7 +82,8 @@ extern "C" fn tim2_handler() {
 
     let prev_cnt = IRQ_CNT.fetch_add(1, Ordering::SeqCst);
 
-    // if prev_cnt is greater than 2, the program is stuck in a loop and should be terminated
+    // If `prev_cnt`` is greater than 2, the program is stuck and should be
+    // terminated.
     if prev_cnt > 2 {
         semihosting::terminate(false);
     }

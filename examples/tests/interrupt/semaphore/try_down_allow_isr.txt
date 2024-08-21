@@ -1,3 +1,0 @@
-Before incrementing in task
-Semaphore decremented to 0
-After incrementing in task

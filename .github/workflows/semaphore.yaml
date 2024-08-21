@@ -163,3 +163,33 @@ jobs:
           category: sync
           sub-category: semaphore
           test-name: up_priority_scheduling
+
+  try_down_from_isr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test try_down_from_isr
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: try_down_from_isr
+          timeout: 15s
+
+  try_up_from_isr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test try_up_from_isr
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: semaphore
+          test-name: try_up_from_isr
+          timeout: 15s
