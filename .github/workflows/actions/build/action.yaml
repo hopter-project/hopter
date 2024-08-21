@@ -240,6 +240,22 @@ runs:
         sub-category: segmented_stack
         test-name: return_values
 
+    # *** Tests for task - context switch ***
+
+    - name: Build test test-task-context_switch-gp_registers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: context_switch
+        test-name: gp_registers
+
+    - name: Build test test-task-context_switch-fp_registers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: context_switch
+        test-name: fp_registers
+
     # *** Tests for sync - channel ***
 
     - name: Build test test-sync-channel-produce_consume_single_task

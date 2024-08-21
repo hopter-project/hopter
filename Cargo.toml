@@ -219,6 +219,16 @@ path = "examples/tests/task/segmented_stack/function_arguments.rs"
 name = "test-task-segmented_stack-return_values"
 path = "examples/tests/task/segmented_stack/return_values.rs"
 
+# *** Tests for task - context switch ***
+
+[[example]]
+name = "test-task-context_switch-gp_registers"
+path = "examples/tests/task/context_switch/gp_registers.rs"
+
+[[example]]
+name = "test-task-context_switch-fp_registers"
+path = "examples/tests/task/context_switch/fp_registers.rs"
+
 # *** Tests for interrupt - unwind ***
 
 [[example]]

@@ -24,3 +24,8 @@ jobs:
     uses: ./.github/workflows/segmented_stack.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
+
+  context_switch:
+    uses: ./.github/workflows/context_switch.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
