@@ -309,6 +309,31 @@ runs:
         sub-category: unwind
         test-name: simple
 
+    # *** Tests for interrupt - semaphore ***
+
+    - name: Build test test-interrupt-semaphore-try_down_allow_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: interrupt
+        sub-category: semaphore
+        test-name: try_down_allow_isr
+
+    - name: Build test test-interrupt-semaphore-try_up_allow_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: interrupt
+        sub-category: semaphore
+        test-name: try_up_allow_isr
+
+    # *** Tests for interrupt - mailbox ***
+
+    - name: Build test test-interrupt-semaphore-notify_allow_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: interrupt
+        sub-category: mailbox
+        test-name: notify_allow_isr
+
     # *** Tests for debug - cpu load ***
 
     - name: Build test test-debug-cpu_load-load_40_percent
