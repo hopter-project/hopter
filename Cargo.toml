@@ -245,10 +245,11 @@ path = "examples/tests/interrupt/semaphore/try_up_allow_isr.rs"
 name = "test-interrupt-semaphore-try_down_allow_isr"
 path = "examples/tests/interrupt/semaphore/try_down_allow_isr.rs"
 
+# *** Tests for interrupt - mailbox ***
 
 [[example]]
 name = "test-interrupt-mailbox-notify_allow_isr"
-path = "examples/tests/interrupt/mailbox_isr/notify_allow_isr.rs"
+path = "examples/tests/interrupt/mailbox/notify_allow_isr.rs"
 
 # *** Tests for debug - cpu load ***
 
