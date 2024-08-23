@@ -8,7 +8,7 @@ extern crate alloc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
-    boot::main, debug::semihosting, declare_irq, hprintln, interrupt::handler, sync::MutexIrqSafe,
+    boot::main, debug::semihosting, declare_irq, hprintln, interrupt::handler, sync::SpinIrqSafe,
 };
 use stm32f4xx_hal::{
     pac::{Interrupt, Peripherals, TIM2},
@@ -17,7 +17,7 @@ use stm32f4xx_hal::{
 };
 
 declare_irq!(Tim2Irq, Interrupt::TIM2);
-static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = MutexIrqSafe::new(None);
+static TIMER: SpinIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = SpinIrqSafe::new(None);
 
 #[main]
 fn main(_cp: cortex_m::Peripherals) {

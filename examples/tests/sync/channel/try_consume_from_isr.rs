@@ -14,7 +14,7 @@ use hopter::{
     declare_irq, hprintln,
     interrupt::handler,
     sync,
-    sync::{Consumer, MutexIrqSafe, Producer},
+    sync::{Consumer, Producer, SpinIrqSafe},
     task,
 };
 use stm32f4xx_hal::{
@@ -24,9 +24,8 @@ use stm32f4xx_hal::{
 };
 
 declare_irq!(Tim2Irq, Interrupt::TIM2);
-static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = MutexIrqSafe::new(None);
-static CHANNEL_CONSUMER: MutexIrqSafe<Option<Consumer<usize, 2>>, Tim2Irq> =
-    MutexIrqSafe::new(None);
+static TIMER: SpinIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = SpinIrqSafe::new(None);
+static CHANNEL_CONSUMER: SpinIrqSafe<Option<Consumer<usize, 2>>, Tim2Irq> = SpinIrqSafe::new(None);
 
 #[main]
 fn main(_cp: cortex_m::Peripherals) {

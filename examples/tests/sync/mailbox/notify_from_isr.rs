@@ -13,7 +13,7 @@ use hopter::{
     debug::semihosting,
     declare_irq, hprintln,
     interrupt::handler,
-    sync::{Mailbox, MutexIrqSafe},
+    sync::{Mailbox, SpinIrqSafe},
     task,
 };
 use stm32f4xx_hal::{
@@ -23,7 +23,7 @@ use stm32f4xx_hal::{
 };
 
 declare_irq!(Tim2Irq, Interrupt::TIM2);
-static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = MutexIrqSafe::new(None);
+static TIMER: SpinIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = SpinIrqSafe::new(None);
 
 static MAILBOX: Mailbox = Mailbox::new();
 

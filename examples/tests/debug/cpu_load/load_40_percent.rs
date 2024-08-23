@@ -13,7 +13,7 @@ use hopter::{
         semihosting,
     },
     declare_irq, hprintln,
-    sync::MutexIrqSafe,
+    sync::SpinIrqSafe,
     task, time,
 };
 use stm32f4xx_hal::{
@@ -25,7 +25,7 @@ use stm32f4xx_hal::{
 declare_irq!(Tim5Irq, stm32f4xx_hal::pac::Interrupt::TIM5);
 
 /// Provide microsecond precision timestamp via TIM5.
-struct Timestamp(MutexIrqSafe<TIM5, Tim5Irq>);
+struct Timestamp(SpinIrqSafe<TIM5, Tim5Irq>);
 
 impl MicrosecPrecision for Timestamp {
     fn read_clock_us(&self) -> u64 {
@@ -34,8 +34,8 @@ impl MicrosecPrecision for Timestamp {
     }
 }
 
-static LOAD_INSPECTOR: MutexIrqSafe<Option<Arc<LoadInspector<Timestamp>>>, Tim5Irq> =
-    MutexIrqSafe::new(None);
+static LOAD_INSPECTOR: SpinIrqSafe<Option<Arc<LoadInspector<Timestamp>>>, Tim5Irq> =
+    SpinIrqSafe::new(None);
 
 #[main]
 fn main(_cp: cortex_m::Peripherals) {
@@ -51,7 +51,7 @@ fn main(_cp: cortex_m::Peripherals) {
     let tim5 = init_tim5(dp.TIM5);
 
     // Construct load inspector.
-    let usage = LoadInspector::new(Timestamp(MutexIrqSafe::new(tim5)));
+    let usage = LoadInspector::new(Timestamp(SpinIrqSafe::new(tim5)));
     *LOAD_INSPECTOR.lock() = Some(usage);
 
     // Spawn a task that occupies the CPU by 40%.

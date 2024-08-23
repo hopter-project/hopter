@@ -13,7 +13,7 @@ use hopter::{
     debug::semihosting,
     declare_irq, hprintln,
     interrupt::handler,
-    sync::{MutexIrqSafe, Semaphore},
+    sync::{Semaphore, SpinIrqSafe},
     task,
 };
 use stm32f4xx_hal::{
@@ -23,7 +23,7 @@ use stm32f4xx_hal::{
 };
 
 declare_irq!(Tim2Irq, Interrupt::TIM2);
-static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = MutexIrqSafe::new(None);
+static TIMER: SpinIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = SpinIrqSafe::new(None);
 
 static SEMAPHORE: Semaphore = Semaphore::new(1, 1);
 
@@ -83,8 +83,8 @@ extern "C" fn tim2_handler() {
         semihosting::terminate(false);
     }
 
-    // Attempt to `down` the semaphore. Assuming that the task can keep up with
-    // the interval of 1 second, which it just should unless QEMU is super
+    // Attempt to consume from the channel. Assuming that the task can keep up
+    // with the interval of 1 second, which should just be unless QEMU is super
     // broken.
     let result = SEMAPHORE.try_down_allow_isr();
     match result {
