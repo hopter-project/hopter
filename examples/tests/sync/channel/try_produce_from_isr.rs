@@ -88,16 +88,16 @@ extern "C" fn tim2_handler() {
     // with the interval of 1 second, which should just be unless QEMU is super
     // broken.
     if let Some(producer) = CHANNEL_PRODUCER.lock().as_ref() {
-        let result = producer.produce_with_overflow_allow_isr(prev_cnt);
+        let result = producer.try_produce_allow_isr(prev_cnt);
         match result {
             // The first 5 produce attempt should be successful.
-            None => {
+            Ok(_) => {
                 if COUNT.load(Ordering::SeqCst) > 5 {
                     semihosting::terminate(false);
                 }
             }
             // The 6th produce attempt should be unsuccessful.
-            Some(_) => {
+            Err(_) => {
                 hprintln!("Failed to produce");
                 if COUNT.load(Ordering::SeqCst) == 6 {
                     semihosting::terminate(true);

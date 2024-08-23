@@ -201,12 +201,12 @@ runs:
         sub-category: channel
         test-name: produce_consume_single_task
 
-    - name: Build test test-sync-channel-produce_with_overflow_from_task
+    - name: Build test test-sync-channel-try_produce_from_task
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: channel
-        test-name: produce_with_overflow_from_task
+        test-name: try_produce_from_task
 
     - name: Build test test-sync-channel-try_consume_from_task
       uses: ./.github/workflows/actions/build-test
@@ -236,12 +236,12 @@ runs:
         sub-category: channel
         test-name: concurrency_and_stress
 
-    - name: Build test test-sync-channel-produce_with_overflow_from_isr
+    - name: Build test test-sync-channel-try_produce_from_isr
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: channel
-        test-name: produce_with_overflow_from_isr
+        test-name: try_produce_from_isr
 
     - name: Build test test-sync-channel-try_consume_from_isr
       uses: ./.github/workflows/actions/build-test

@@ -19,8 +19,8 @@ fn main(_: cortex_m::Peripherals) {
     // Attempt to push values 4-7. `produce_with_overflow_allow_isr` should
     // return the value we attempt to push each time.
     for i in 4..=7 {
-        let result = producer.produce_with_overflow_allow_isr(i);
-        if result != Some(i) {
+        let result = producer.try_produce_allow_isr(i);
+        if result != Err(i) {
             hprintln!("Test Failed");
             semihosting::terminate(false);
         }

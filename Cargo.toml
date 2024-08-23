@@ -163,8 +163,8 @@ path = "examples/tests/sync/mutex/priority_inversion.rs"
 # *** Tests for sync - channel ***
 
 [[example]]
-name = "test-sync-channel-produce_with_overflow_from_task"
-path = "examples/tests/sync/channel/produce_with_overflow_from_task.rs"
+name = "test-sync-channel-try_produce_from_task"
+path = "examples/tests/sync/channel/try_produce_from_task.rs"
 
 [[example]]
 name = "test-sync-channel-try_consume_from_task"
@@ -191,8 +191,8 @@ name = "test-sync-channel-try_consume_from_isr"
 path = "examples/tests/sync/channel/try_consume_from_isr.rs"
 
 [[example]]
-name = "test-sync-channel-produce_with_overflow_from_isr"
-path = "examples/tests/sync/channel/produce_with_overflow_from_isr.rs"
+name = "test-sync-channel-try_produce_from_isr"
+path = "examples/tests/sync/channel/try_produce_from_isr.rs"
 
 # *** Tests for task - priority ***
 
