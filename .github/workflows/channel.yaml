@@ -24,33 +24,33 @@ jobs:
           sub-category: channel
           test-name: produce_consume_single_task
 
-  produce_with_overflow:
+  produce_with_overflow_from_task:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test produce_with_overflow
+      - name: Run test produce_with_overflow_from_task
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: channel
-          test-name: produce_with_overflow
+          test-name: produce_with_overflow_from_task
 
-  try_consume:
+  try_consume_from_task:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run test try_consume
+      - name: Run test try_consume_from_task
         uses: ./.github/workflows/actions/run-test
         with:
           cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: channel
-          test-name: try_consume
+          test-name: try_consume_from_task
 
   multiple_producers:
     runs-on: ubuntu-latest
@@ -93,3 +93,31 @@ jobs:
           category: sync
           sub-category: channel
           test-name: concurrency_and_stress
+
+  produce_with_overflow_from_isr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test produce_with_overflow_from_isr
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: channel
+          test-name: produce_with_overflow_from_isr
+
+  try_consume_from_isr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test try_consume_from_isr
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: sync
+          sub-category: channel
+          test-name: try_consume_from_isr

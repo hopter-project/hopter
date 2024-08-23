@@ -163,12 +163,12 @@ path = "examples/tests/sync/mutex/priority_inversion.rs"
 # *** Tests for sync - channel ***
 
 [[example]]
-name = "test-sync-channel-produce_with_overflow"
-path = "examples/tests/sync/channel/produce_with_overflow.rs"
+name = "test-sync-channel-produce_with_overflow_from_task"
+path = "examples/tests/sync/channel/produce_with_overflow_from_task.rs"
 
 [[example]]
-name = "test-sync-channel-try_consume"
-path = "examples/tests/sync/channel/try_consume.rs"
+name = "test-sync-channel-try_consume_from_task"
+path = "examples/tests/sync/channel/try_consume_from_task.rs"
 
 [[example]]
 name = "test-sync-channel-multiple_producers"
@@ -183,17 +183,22 @@ name = "test-sync-channel-multiple_consumers"
 path = "examples/tests/sync/channel/multiple_consumers.rs"
 
 [[example]]
-name = "test-sync-channel-try_consume_allow_isr"
-path = "examples/tests/sync/channel/try_consume_allow_isr.rs"
+name = "test-sync-channel-produce_consume_single_task"
+path = "examples/tests/sync/channel/produce_consume_single_task.rs"
+
+[[example]]
+name = "test-sync-channel-try_consume_from_isr"
+path = "examples/tests/sync/channel/try_consume_from_isr.rs"
+
+[[example]]
+name = "test-sync-channel-produce_with_overflow_from_isr"
+path = "examples/tests/sync/channel/produce_with_overflow_from_isr.rs"
+
+# *** Tests for task - priority ***
 
 [[example]]
 name = "test-task-priority-reduce_priority"
 path = "examples/tests/task/priority/reduce_priority.rs"
-
-# *** Tests for task - priority ***
-[[example]]
-name = "test-sync-channel-produce_consume_single_task"
-path = "examples/tests/sync/channel/produce_consume_single_task.rs"
 
 [[example]]
 name = "test-task-priority-unwind_priority"

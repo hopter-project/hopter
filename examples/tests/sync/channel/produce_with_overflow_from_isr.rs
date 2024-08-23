@@ -1,4 +1,5 @@
-//! Tests consuming data produced in a task from an ISR with `try_consume_allow_isr`.
+//! Tests producing data to a task from an ISR with
+//! `produce_with_overflow_allow_isr`.
 
 #![no_main]
 #![no_std]
@@ -24,7 +25,7 @@ use stm32f4xx_hal::{
 };
 
 static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, AllIrqExceptSvc> = MutexIrqSafe::new(None);
-static CHANNEL_CONSUMER: MutexIrqSafe<Option<Consumer<usize, 2>>, AllIrqExceptSvc> =
+static CHANNEL_PRODUCER: MutexIrqSafe<Option<Producer<usize, 2>>, AllIrqExceptSvc> =
     MutexIrqSafe::new(None);
 
 #[main]
@@ -34,13 +35,11 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // Initalize channel
     let (producer, consumer) = sync::create_channel::<usize, 2>();
-    *CHANNEL_CONSUMER.lock() = Some(consumer);
-    producer.produce(0);
-    producer.produce(1);
+    *CHANNEL_PRODUCER.lock() = Some(producer);
 
     // The new task should block on the channel.
     task::build()
-        .set_entry(move || produce_function(&producer))
+        .set_entry(move || consume_function(consumer))
         .set_priority(config::DEFAULT_TASK_PRIORITY - 1)
         .spawn()
         .unwrap();
@@ -70,43 +69,45 @@ fn main(_cp: cortex_m::Peripherals) {
     *TIMER.lock() = Some(timer);
 }
 
-fn produce_function(producer: &Producer<usize, 2>) {
-    for i in 3..5 {
-        hprintln!("Before task blocking");
-        producer.produce(i);
-        hprintln!("After task resuming");
+fn consume_function(consumer: Consumer<usize, 2>) {
+    // Consume the first three values produced. The buffer of the channel
+    // should be able to hold two more values produced.
+    for _ in 0..3 {
+        let val = consumer.consume();
+        hprintln!("Consumed {}", val);
     }
-    semihosting::terminate(true);
 }
 
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
 extern "C" fn tim2_handler() {
-    // Only run this handler for three times. If running more than three times,
-    // the test task must have been stuck.
     static COUNT: AtomicUsize = AtomicUsize::new(0);
-    if COUNT.fetch_add(1, Ordering::SeqCst) >= 3 {
-        semihosting::terminate(false);
-    }
+    let prev_cnt = COUNT.fetch_add(1, Ordering::SeqCst);
 
-    // Attempt to consume from the channel. Assuming that the task can keep up with
-    // the interval of 1 second, which it just should unless QEMU is super
+    // Attempt to consume from the channel. Assuming that the task can keep up
+    // with the interval of 1 second, which should just be unless QEMU is super
     // broken.
-    if let Some(consumer) = CHANNEL_CONSUMER.lock().as_ref() {
-        hprintln!("Before consuming in ISR");
-        let result = consumer.try_consume_allow_isr();
-        hprintln!("After consuming in ISR");
+    if let Some(producer) = CHANNEL_PRODUCER.lock().as_ref() {
+        let result = producer.produce_with_overflow_allow_isr(prev_cnt);
         match result {
-            Some(value) => {
-                hprintln!("Consumed {}", value);
-            }
+            // The first 5 produce attempt should be successful.
             None => {
-                hprintln!("Failed to consume");
+                if COUNT.load(Ordering::SeqCst) > 5 {
+                    semihosting::terminate(false);
+                }
+            }
+            // The 6th produce attempt should be unsuccessful.
+            Some(_) => {
+                hprintln!("Failed to produce");
+                if COUNT.load(Ordering::SeqCst) == 6 {
+                    semihosting::terminate(true);
+                }
+                hprintln!("Unexpectedly succeed to produce");
                 semihosting::terminate(false);
             }
         }
     } else {
-        hprintln!("Consumer not initialized!");
+        hprintln!("Producer not initialized!");
         semihosting::terminate(false);
     }
 }

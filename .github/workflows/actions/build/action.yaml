@@ -201,19 +201,19 @@ runs:
         sub-category: channel
         test-name: produce_consume_single_task
 
-    - name: Build test test-sync-channel-produce_with_overflow
+    - name: Build test test-sync-channel-produce_with_overflow_from_task
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: channel
-        test-name: produce_with_overflow
+        test-name: produce_with_overflow_from_task
 
-    - name: Build test test-sync-channel-try_consume
+    - name: Build test test-sync-channel-try_consume_from_task
       uses: ./.github/workflows/actions/build-test
       with:
         category: sync
         sub-category: channel
-        test-name: try_consume
+        test-name: try_consume_from_task
 
     - name: Build test test-sync-channel-multiple_producers
       uses: ./.github/workflows/actions/build-test
@@ -235,6 +235,20 @@ runs:
         category: sync
         sub-category: channel
         test-name: concurrency_and_stress
+
+    - name: Build test test-sync-channel-produce_with_overflow_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: produce_with_overflow_from_isr
+
+    - name: Build test test-sync-channel-try_consume_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: try_consume_from_isr
 
     # *** Tests for task - priority ***
 
