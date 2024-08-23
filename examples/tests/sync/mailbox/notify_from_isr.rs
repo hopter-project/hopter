@@ -11,9 +11,9 @@ use hopter::{
     boot::main,
     config,
     debug::semihosting,
-    hprintln,
+    declare_irq, hprintln,
     interrupt::handler,
-    sync::{AllIrqExceptSvc, Mailbox, MutexIrqSafe},
+    sync::{Mailbox, MutexIrqSafe},
     task,
 };
 use stm32f4xx_hal::{
@@ -22,7 +22,8 @@ use stm32f4xx_hal::{
     timer::{CounterUs, Event},
 };
 
-static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, AllIrqExceptSvc> = MutexIrqSafe::new(None);
+declare_irq!(Tim2Irq, Interrupt::TIM2);
+static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = MutexIrqSafe::new(None);
 
 static MAILBOX: Mailbox = Mailbox::new();
 

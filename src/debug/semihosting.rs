@@ -16,7 +16,7 @@
 //!
 //! Original license: https://opensource.org/license/mit
 
-use crate::sync::{AllIrqExceptSvc, SpinSchedIrqSafe};
+use crate::{interrupt::mask::AllIrqExceptSvc, sync::SpinSchedIrqSafe};
 use core::fmt::{self, Write};
 use cortex_m_semihosting::{
     debug,

@@ -11,10 +11,10 @@ use hopter::{
     boot::main,
     config,
     debug::semihosting,
-    hprintln,
+    declare_irq, hprintln,
     interrupt::handler,
     sync,
-    sync::{AllIrqExceptSvc, Consumer, MutexIrqSafe, Producer},
+    sync::{Consumer, MutexIrqSafe, Producer},
     task,
 };
 use stm32f4xx_hal::{
@@ -23,8 +23,9 @@ use stm32f4xx_hal::{
     timer::{CounterUs, Event},
 };
 
-static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, AllIrqExceptSvc> = MutexIrqSafe::new(None);
-static CHANNEL_CONSUMER: MutexIrqSafe<Option<Consumer<usize, 2>>, AllIrqExceptSvc> =
+declare_irq!(Tim2Irq, Interrupt::TIM2);
+static TIMER: MutexIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = MutexIrqSafe::new(None);
+static CHANNEL_CONSUMER: MutexIrqSafe<Option<Consumer<usize, 2>>, Tim2Irq> =
     MutexIrqSafe::new(None);
 
 #[main]

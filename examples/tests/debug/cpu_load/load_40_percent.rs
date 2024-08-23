@@ -12,8 +12,8 @@ use hopter::{
         cpu_load::{LoadInspector, MicrosecPrecision},
         semihosting,
     },
-    hprintln,
-    sync::{AllIrqExceptSvc, MutexIrqSafe},
+    declare_irq, hprintln,
+    sync::MutexIrqSafe,
     task, time,
 };
 use stm32f4xx_hal::{
@@ -22,8 +22,10 @@ use stm32f4xx_hal::{
     rcc::{Enable, Reset},
 };
 
+declare_irq!(Tim5Irq, stm32f4xx_hal::pac::Interrupt::TIM5);
+
 /// Provide microsecond precision timestamp via TIM5.
-struct Timestamp(MutexIrqSafe<TIM5, AllIrqExceptSvc>);
+struct Timestamp(MutexIrqSafe<TIM5, Tim5Irq>);
 
 impl MicrosecPrecision for Timestamp {
     fn read_clock_us(&self) -> u64 {
@@ -32,7 +34,7 @@ impl MicrosecPrecision for Timestamp {
     }
 }
 
-static LOAD_INSPECTOR: MutexIrqSafe<Option<Arc<LoadInspector<Timestamp>>>, AllIrqExceptSvc> =
+static LOAD_INSPECTOR: MutexIrqSafe<Option<Arc<LoadInspector<Timestamp>>>, Tim5Irq> =
     MutexIrqSafe::new(None);
 
 #[main]

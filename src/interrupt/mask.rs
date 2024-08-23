@@ -63,3 +63,37 @@ impl RecursivelyMaskable for AllIrqExceptSvc {
         }
     }
 }
+
+pub use core::sync::atomic::{AtomicUsize as __AtomicUsize, Ordering as __Ordering};
+pub use paste as __paste;
+
+#[macro_export]
+macro_rules! declare_irq {
+    ($name:ident, $irq:path) => {
+        hopter::interrupt::mask::__paste::paste! {
+            #[allow(non_upper_case_globals)]
+            static [<__ $name _MASK_CNT>]: hopter::interrupt::mask::__AtomicUsize
+                = hopter::interrupt::mask::__AtomicUsize::new(0);
+
+            pub struct $name {}
+
+            impl hopter::interrupt::mask::RecursivelyMaskable for $name {
+                fn mask_recursive() {
+                    cortex_m::peripheral::NVIC::mask($irq);
+                    let prev_cnt = [<__ $name _MASK_CNT>]
+                        .fetch_add(1, hopter::interrupt::mask::__Ordering::SeqCst);
+                    assert!(prev_cnt < usize::MAX);
+                }
+
+                unsafe fn unmask_recursive() {
+                    let prev_cnt = [<__ $name _MASK_CNT>]
+                        .fetch_sub(1, hopter::interrupt::mask::__Ordering::SeqCst);
+                    assert!(prev_cnt > 0);
+                    if prev_cnt == 1 {
+                        cortex_m::peripheral::NVIC::unmask($irq);
+                    }
+                }
+            }
+        }
+    };
+}

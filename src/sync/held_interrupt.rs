@@ -1,4 +1,5 @@
-use super::{Holdable, RecursivelyMaskable};
+use super::Holdable;
+use crate::interrupt::mask::RecursivelyMaskable;
 use core::marker::PhantomData;
 
 /// Representing interrupt(s) being masked. When the struct is dropped,
