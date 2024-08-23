@@ -1,6 +1,5 @@
 mod channel;
 mod condvar;
-mod held_interrupt;
 mod imported;
 mod interruptable;
 mod lock_traits;
@@ -13,7 +12,6 @@ mod wait_queue;
 
 pub use channel::*;
 pub use condvar::*;
-pub use held_interrupt::*;
 pub use imported::*;
 pub use interruptable::*;
 pub use lock_traits::*;

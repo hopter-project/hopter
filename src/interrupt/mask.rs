@@ -1,5 +1,8 @@
-use crate::config;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use crate::{config, sync::Holdable};
+use core::{
+    marker::PhantomData,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 /// Representing recursively maskable interrupt(s). Recursive means one can
 /// `mask_recursive` an already masked interrupt, which will increase the
@@ -67,6 +70,25 @@ impl RecursivelyMaskable for AllIrqExceptSvc {
 pub use core::sync::atomic::{AtomicUsize as __AtomicUsize, Ordering as __Ordering};
 pub use paste as __paste;
 
+/// Declare an IRQ to be used with the `IrqSafe` variant of locks, e.g.,
+/// [`SpinIrqSafe`](crate::sync::SpinIrqSafe),
+/// [`SpinSchedIrqSafe`](crate::sync::SpinSchedIrqSafe),
+/// [`MutexIrqSafe`](crate::sync::MutexIrqSafe).
+///
+/// [`declare_irq`] accepts two arguments as in `declare_irq!($name, $irq)`.
+/// The macro expands to produce a type with name `$name` which can be passed
+/// to the type construction of `IrqSafe` locks. `$irq` should be an enum
+/// variant that implements [`cortex_m::interrupt::InterruptNumber`].
+///
+/// # Example
+/// ```rust
+/// /// Produce the type `Tim2Irq`.
+/// declare_irq!(Tim2Irq, stm32f4xx_hal::pac::Interrupt::TIM2);
+///
+/// /// The interrupt `TIM2` will be masked whenever the spin lock is acquired.
+/// static TIMER: SpinIrqSafe<stm32f4xx_hal::pac::TIM2>, Tim2Irq>
+///     = SpinIrqSafe::new(None);
+/// ```
 #[macro_export]
 macro_rules! declare_irq {
     ($name:ident, $irq:path) => {
@@ -96,4 +118,50 @@ macro_rules! declare_irq {
             }
         }
     };
+}
+
+/// Representing interrupt(s) being masked. When the struct is dropped, the
+/// masked interrupt(s) will be unmasked if no where else is still masking
+/// it. See [`RecursivelyMaskable`] for details.
+pub struct HeldInterrupt<I>
+where
+    I: RecursivelyMaskable,
+{
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Drop for HeldInterrupt<I>
+where
+    I: RecursivelyMaskable,
+{
+    fn drop(&mut self) {
+        // Safety: An instance can be created only by calling `hold()` where
+        // `mask_recursive` would have been called.
+        unsafe {
+            I::unmask_recursive();
+        }
+    }
+}
+
+/// The status of some interrupt being masked should not be sent across
+/// different tasks.
+impl<I> !Send for HeldInterrupt<I> {}
+
+/// That some interrupts are being masked is a holdable condition.
+impl<I> Holdable for I
+where
+    I: RecursivelyMaskable,
+{
+    type GuardType = HeldInterrupt<I>;
+
+    fn hold() -> HeldInterrupt<I> {
+        I::mask_recursive();
+        HeldInterrupt {
+            _phantom: PhantomData,
+        }
+    }
+
+    unsafe fn force_unhold() {
+        I::unmask_recursive();
+    }
 }

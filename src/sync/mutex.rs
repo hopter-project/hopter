@@ -1,8 +1,8 @@
 use super::{
-    HeldInterrupt, Holdable, Lockable, SpinGeneric, SpinGenericGuard, SpinSchedSafe,
-    UnlockableGuard, WaitQueue,
+    Holdable, Lockable, SpinGeneric, SpinGenericGuard, SpinSchedSafe, UnlockableGuard, WaitQueue,
 };
 use crate::{
+    interrupt::mask::HeldInterrupt,
     schedule::{
         current,
         scheduler::{SchedSuspendGuard, Scheduler},

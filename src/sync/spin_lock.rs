@@ -1,5 +1,6 @@
-use super::{HeldInterrupt, Holdable};
+use super::Holdable;
 use crate::{
+    interrupt::mask::HeldInterrupt,
     schedule::scheduler::{SchedSuspendGuard, Scheduler},
     unrecoverable::Lethal,
 };

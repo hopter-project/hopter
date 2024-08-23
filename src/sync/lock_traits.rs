@@ -56,3 +56,13 @@ where
         H0::force_unhold();
     }
 }
+
+/// Used when no additional condition needs to be held.
+impl Holdable for () {
+    type GuardType = ();
+
+    fn hold() -> () {
+        ()
+    }
+    unsafe fn force_unhold() {}
+}
