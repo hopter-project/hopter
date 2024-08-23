@@ -1,4 +1,5 @@
 use super::Semaphore;
+use crate::unrecoverable::Lethal;
 use alloc::sync::Arc;
 use heapless::mpmc::MpMcQueue;
 
@@ -40,7 +41,7 @@ impl<T, const N: usize> Channel<T, N> {
     /// Important: *must not* call this method in ISR context.
     fn push(&self, data: T) {
         self.sem_empty.down();
-        self.buffer.enqueue(data).ok().unwrap();
+        self.buffer.enqueue(data).ok().unwrap_or_die();
         self.sem_occupied.up();
     }
 
@@ -50,7 +51,7 @@ impl<T, const N: usize> Channel<T, N> {
     /// Important: *must not* call this method in ISR context.
     fn pop(&self) -> T {
         self.sem_occupied.down();
-        let data = self.buffer.dequeue().unwrap();
+        let data = self.buffer.dequeue().unwrap_or_die();
         self.sem_empty.up();
         data
     }
@@ -63,8 +64,8 @@ impl<T, const N: usize> Channel<T, N> {
             return None;
         }
 
-        let data = self.buffer.dequeue().unwrap();
-        self.sem_empty.up();
+        let data = self.buffer.dequeue().unwrap_or_die();
+        self.sem_empty.try_up_allow_isr().unwrap_or_die();
 
         Some(data)
     }
@@ -76,8 +77,8 @@ impl<T, const N: usize> Channel<T, N> {
     fn push_with_overflow_allow_isr(&self, data: T) -> Option<T> {
         // If there is empty space in the buffer, simply push it.
         if self.sem_empty.try_down_allow_isr().is_ok() {
-            self.buffer.enqueue(data).ok().unwrap();
-            let _ = self.sem_occupied.try_up_allow_isr();
+            self.buffer.enqueue(data).ok().unwrap_or_die();
+            self.sem_occupied.try_up_allow_isr().unwrap_or_die();
             return None;
         }
 
