@@ -107,6 +107,7 @@ jobs:
           category: sync
           sub-category: channel
           test-name: produce_with_overflow_from_isr
+          timeout: 15s
 
   try_consume_from_isr:
     runs-on: ubuntu-latest
@@ -121,3 +122,4 @@ jobs:
           category: sync
           sub-category: channel
           test-name: try_consume_from_isr
+          timeout: 15s
