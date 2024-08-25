@@ -1,5 +1,5 @@
 use super::{
-    Holdable, Lockable, SpinGeneric, SpinGenericGuard, SpinSchedSafe, UnlockableGuard, WaitQueue,
+    GenericSpin, GenericSpinGuard, Holdable, Lockable, SpinSchedSafe, UnlockableGuard, WaitQueue,
 };
 use crate::{
     interrupt::mask::HeldInterrupt,
@@ -61,7 +61,7 @@ where
     /// spin lock will be downgraded to a weaker spin lock guard that no longer
     /// suspend the scheduler, but which keeps holding only the additional
     /// condition `H`.
-    spin_lock: SpinGeneric<T, (Scheduler, H), (G, SchedSuspendGuard)>,
+    spin_lock: GenericSpin<T, (Scheduler, H), (G, SchedSuspendGuard)>,
 }
 
 /// Generic type of a mutex guard that can dereference into contained type.
@@ -72,7 +72,7 @@ where
     T: ?Sized,
     H: Holdable<GuardType = G>,
 {
-    guard: Option<SpinGenericGuard<'a, T, G>>,
+    guard: Option<GenericSpinGuard<'a, T, G>>,
     mutex: &'a MutexGeneric<T, H, G>,
 }
 
@@ -86,7 +86,7 @@ where
             queue: WaitQueue::new(),
             owner: SpinSchedSafe::new(None),
             poisoned: AtomicBool::new(false),
-            spin_lock: SpinGeneric::new(data),
+            spin_lock: GenericSpin::new(data),
         }
     }
 
@@ -140,7 +140,7 @@ where
             // downgrade the guard that both suspends the scheduler and holds the
             // condition `H` to a weaker one that no longer suspends the scheduler
             // but still holds `H`.
-            .map(|guard| SpinGenericGuard {
+            .map(|guard| GenericSpinGuard {
                 raw_spin_guard: guard.raw_spin_guard,
                 // Discard the `.1` component which is the scheduler suspend guard.
                 _held: guard._held.0,
