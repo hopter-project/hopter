@@ -12,15 +12,16 @@
 
 extern crate alloc;
 
-pub mod allocator;
+mod allocator;
 mod assembly;
-pub mod boot;
+mod boot;
+mod schedule;
+mod unrecoverable;
+
 pub mod config;
 pub mod debug;
 pub mod interrupt;
-pub mod schedule;
 pub mod sync;
 pub mod task;
 pub mod time;
-mod unrecoverable;
 pub mod unwind;

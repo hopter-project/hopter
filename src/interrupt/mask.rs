@@ -70,7 +70,7 @@ impl RecursivelyMaskable for AllIrqExceptSvc {
 /// Representing interrupt(s) being masked. When the struct is dropped, the
 /// masked interrupt(s) will be unmasked if no where else is still masking
 /// it. See [`RecursivelyMaskable`] for details.
-pub struct HeldInterrupt<I>
+pub(crate) struct HeldInterrupt<I>
 where
     I: RecursivelyMaskable,
 {

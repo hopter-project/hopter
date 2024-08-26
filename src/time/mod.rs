@@ -100,7 +100,7 @@ static SLEEP_TASK_QUEUE: SleepQueue = RefCellSchedSafe::new(SoftLock::new(Inner:
 static TICKS: AtomicU32 = AtomicU32::new(0);
 
 /// Advance the SysTick count by 1.
-pub fn advance_tick() {
+pub(crate) fn advance_tick() {
     TICKS.fetch_add(1, Ordering::SeqCst);
 }
 
@@ -109,7 +109,7 @@ pub fn get_tick() -> u32 {
 }
 
 /// Wake up those sleeping tasks that have their sleeping time expired.
-pub fn wake_sleeping_tasks() {
+pub(crate) fn wake_sleeping_tasks() {
     SLEEP_TASK_QUEUE.lock().with_access(|access| match access {
         Access::Full { full_access } => {
             full_access.wake_expired_tasks();
