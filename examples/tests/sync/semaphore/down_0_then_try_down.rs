@@ -2,7 +2,11 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync::Semaphore, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -17,11 +21,11 @@ fn main(_: cortex_m::Peripherals) {
 
     match result {
         Ok(()) => {
-            hprintln!("Decremented at 0");
+            dbg_println!("Decremented at 0");
             semihosting::terminate(false);
         }
         Err(()) => {
-            hprintln!("Test Passed");
+            dbg_println!("Test Passed");
             semihosting::terminate(true);
         }
     }

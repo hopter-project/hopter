@@ -9,8 +9,7 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     config,
-    debug::semihosting,
-    hprintln,
+    debug::semihosting::{self, dbg_println},
     interrupt::declare::{handler, irq},
     sync::{Semaphore, SpinIrqSafe},
     task,
@@ -66,9 +65,9 @@ fn main(_cp: cortex_m::Peripherals) {
 
 fn down_function() {
     for _ in 0..3 {
-        hprintln!("Before task blocking");
+        dbg_println!("Before task blocking");
         SEMAPHORE.down();
-        hprintln!("After task resuming");
+        dbg_println!("After task resuming");
     }
     semihosting::terminate(true);
 }
@@ -89,10 +88,10 @@ extern "C" fn tim2_handler() {
     let result = SEMAPHORE.try_up_allow_isr();
     match result {
         Ok(_) => {
-            hprintln!("Semaphore up to {}", SEMAPHORE.count())
+            dbg_println!("Semaphore up to {}", SEMAPHORE.count())
         }
         Err(_) => {
-            hprintln!("Failed to up");
+            dbg_println!("Failed to up");
             semihosting::terminate(false);
         }
     }

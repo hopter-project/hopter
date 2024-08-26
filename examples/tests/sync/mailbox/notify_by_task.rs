@@ -5,7 +5,13 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync::Mailbox, task, task::main, time};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Mailbox,
+    task,
+    task::main,
+    time,
+};
 
 static MAILBOX: Mailbox = Mailbox::new();
 
@@ -25,7 +31,7 @@ fn notifier() {
 fn listener() {
     for _ in 0..5 {
         MAILBOX.wait();
-        hprintln!("received");
+        dbg_println!("received");
     }
 
     semihosting::terminate(true);

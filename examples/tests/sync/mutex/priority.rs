@@ -5,7 +5,13 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{config, debug::semihosting, hprintln, sync::Mutex, task, task::main};
+use hopter::{
+    config,
+    debug::semihosting::{self, dbg_println},
+    sync::Mutex,
+    task,
+    task::main,
+};
 
 static MUTEX: Mutex<()> = Mutex::new(());
 
@@ -43,15 +49,15 @@ fn main(_: cortex_m::Peripherals) {
 
 fn high_task() {
     let _gaurd = MUTEX.lock();
-    hprintln!("High priority task locking data");
+    dbg_println!("High priority task locking data");
 }
 
 fn middle_task() {
     let _gaurd = MUTEX.lock();
-    hprintln!("Middle priority task locking data");
+    dbg_println!("Middle priority task locking data");
 }
 
 fn low_task() {
     let _gaurd = MUTEX.lock();
-    hprintln!("Low priority task locking data");
+    dbg_println!("Low priority task locking data");
 }

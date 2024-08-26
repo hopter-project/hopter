@@ -5,7 +5,11 @@
 
 extern crate alloc;
 use alloc::string::String;
-use hopter::{debug::semihosting, hprintln, sync::Mutex, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Mutex,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -13,7 +17,7 @@ fn main(_: cortex_m::Peripherals) {
     let mutex = Mutex::new(String::from("Hello, World"));
 
     // Test `into_inner`.
-    hprintln!("Data: {}", mutex.into_inner());
+    dbg_println!("Data: {}", mutex.into_inner());
 
     // Test `try_lock`.
     let mutex = Mutex::new(());
@@ -21,18 +25,18 @@ fn main(_: cortex_m::Peripherals) {
 
     match gaurd {
         Some(_) => {
-            hprintln!("First try lock success");
+            dbg_println!("First try lock success");
             let guard = mutex.try_lock();
             if guard.is_none() {
-                hprintln!("Second try lock failed");
+                dbg_println!("Second try lock failed");
                 semihosting::terminate(true);
             } else {
-                hprintln!("Second try lock success");
+                dbg_println!("Second try lock success");
                 semihosting::terminate(false);
             }
         }
         None => {
-            hprintln!("First try lock failed");
+            dbg_println!("First try lock failed");
             semihosting::terminate(false);
         }
     }

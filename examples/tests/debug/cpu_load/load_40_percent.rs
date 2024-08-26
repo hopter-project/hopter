@@ -9,9 +9,8 @@ use alloc::sync::Arc;
 use hopter::{
     debug::{
         cpu_load::{LoadInspector, MicrosecPrecision},
-        semihosting,
+        semihosting::{self, dbg_println},
     },
-    hprintln,
     interrupt::declare::irq,
     sync::SpinIrqSafe,
     task,
@@ -75,7 +74,7 @@ fn print_load() {
         time::sleep_ms(500);
         if let Some(usage) = LOAD_INSPECTOR.lock().as_ref() {
             let (x, y) = usage.get_cpu_load();
-            hprintln!("CPU load {}.{}%", x, y);
+            dbg_println!("CPU load {}.{}%", x, y);
         }
     }
     semihosting::terminate(true);

@@ -2,7 +2,12 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync::Semaphore, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -17,19 +22,19 @@ fn main(_: cortex_m::Peripherals) {
 static SEMAPHORE: Semaphore = Semaphore::new(3, 3);
 
 fn task1() {
-    hprintln!("Task 1 started");
+    dbg_println!("Task 1 started");
     for i in 1..6 {
         SEMAPHORE.down();
-        hprintln!("Down {}", i);
+        dbg_println!("Down {}", i);
     }
-    hprintln!("Task1 completed");
+    dbg_println!("Task1 completed");
 }
 
 fn task2() {
-    hprintln!("Task 2 started");
+    dbg_println!("Task 2 started");
     for i in 1..6 {
         SEMAPHORE.up();
-        hprintln!("Up {}", i);
+        dbg_println!("Up {}", i);
     }
-    hprintln!("Task2 completed");
+    dbg_println!("Task2 completed");
 }

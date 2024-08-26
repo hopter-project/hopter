@@ -2,7 +2,13 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync::Semaphore, task, task::main, time};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task,
+    task::main,
+    time,
+};
 
 static SEMAPHORE: Semaphore = Semaphore::new(3, 3);
 
@@ -18,57 +24,57 @@ fn main(_: cortex_m::Peripherals) {
 }
 
 fn task1() {
-    hprintln!("Task 1 started");
+    dbg_println!("Task 1 started");
 
     SEMAPHORE.down();
-    hprintln!("Task 1 acquired semaphore");
+    dbg_println!("Task 1 acquired semaphore");
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 1 releasing semaphore");
+    dbg_println!("Task 1 releasing semaphore");
     SEMAPHORE.up();
 
-    hprintln!("Task 1 completed");
+    dbg_println!("Task 1 completed");
 }
 
 fn task2() {
-    hprintln!("Task 2 started");
+    dbg_println!("Task 2 started");
 
     SEMAPHORE.down();
-    hprintln!("Task 2 acquired semaphore");
+    dbg_println!("Task 2 acquired semaphore");
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 2 releasing semaphore");
+    dbg_println!("Task 2 releasing semaphore");
     SEMAPHORE.up();
 
-    hprintln!("Task 2 completed");
+    dbg_println!("Task 2 completed");
 }
 
 fn task3() {
-    hprintln!("Task 3 started");
+    dbg_println!("Task 3 started");
 
     SEMAPHORE.down();
-    hprintln!("Task 3 acquired semaphore");
+    dbg_println!("Task 3 acquired semaphore");
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 3 releasing semaphore");
+    dbg_println!("Task 3 releasing semaphore");
     SEMAPHORE.up();
 
-    hprintln!("Task 3 completed");
+    dbg_println!("Task 3 completed");
 }
 
 fn task4() {
-    hprintln!("Task 4 started");
+    dbg_println!("Task 4 started");
 
     SEMAPHORE.down();
-    hprintln!("Task 4 acquired semaphore");
+    dbg_println!("Task 4 acquired semaphore");
 
     time::sleep_ms(1000);
 
-    hprintln!("Task 4 releasing semaphore");
+    dbg_println!("Task 4 releasing semaphore");
     SEMAPHORE.up();
 
-    hprintln!("Task 4 completed");
+    dbg_println!("Task 4 completed");
 }

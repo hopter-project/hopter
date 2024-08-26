@@ -9,7 +9,11 @@ use core::{
     mem::MaybeUninit,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use hopter::{debug::semihosting, hprintln, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    task,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -38,11 +42,11 @@ fn test_task() {
     if cnt == 0 {
         // The task should have been unwound so this print should not be
         // reachable.
-        hprintln!("Should not print this.");
+        dbg_println!("Should not print this.");
     }
 
     if cnt > 0 {
-        hprintln!("Task successfully restarted after a diverted forced unwinding.");
+        dbg_println!("Task successfully restarted after a diverted forced unwinding.");
         semihosting::terminate(true);
     } else {
         semihosting::terminate(false);

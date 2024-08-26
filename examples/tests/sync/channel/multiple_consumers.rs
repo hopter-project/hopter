@@ -6,7 +6,13 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync, sync::Consumer, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync,
+    sync::Consumer,
+    task,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -41,14 +47,14 @@ fn main(_: cortex_m::Peripherals) {
 
     // Check if the channel is empty after both consumers have finished
     if consumer.try_consume_allow_isr() != None {
-        hprintln!("Channel not empty");
+        dbg_println!("Channel not empty");
         semihosting::terminate(false);
     }
-    hprintln!("Test Passed");
+    dbg_println!("Test Passed");
     semihosting::terminate(true);
 }
 
 fn consume_function(consumer: &mut Consumer<usize, 4>) {
-    hprintln!("{}", consumer.consume());
-    hprintln!("{}", consumer.consume());
+    dbg_println!("{}", consumer.consume());
+    dbg_println!("{}", consumer.consume());
 }

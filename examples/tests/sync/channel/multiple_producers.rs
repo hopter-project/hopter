@@ -6,7 +6,13 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync, sync::Producer, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync,
+    sync::Producer,
+    task,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -42,10 +48,10 @@ fn main(_: cortex_m::Peripherals) {
 
     // Verify the consumed values against the expected order
     if values != [1, 2, 3, 4] {
-        hprintln!("Test Failed");
+        dbg_println!("Test Failed");
         semihosting::terminate(false);
     }
-    hprintln!("Test Passed");
+    dbg_println!("Test Passed");
     semihosting::terminate(true);
 }
 

@@ -9,8 +9,7 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     config,
-    debug::semihosting,
-    hprintln,
+    debug::semihosting::{self, dbg_println},
     interrupt::declare::{handler, irq},
     sync,
     sync::{Consumer, Producer, SpinIrqSafe},
@@ -90,23 +89,23 @@ extern "C" fn tim2_handler() {
         match result {
             // The first 5 consume attempt should be successful.
             Some(value) => {
-                hprintln!("Consumed {}", value);
+                dbg_println!("Consumed {}", value);
                 if COUNT.load(Ordering::SeqCst) > 5 {
                     semihosting::terminate(false);
                 }
             }
             // The 6th consume attempt should be unsuccessful.
             None => {
-                hprintln!("Failed to consume");
+                dbg_println!("Failed to consume");
                 if COUNT.load(Ordering::SeqCst) == 6 {
                     semihosting::terminate(true);
                 }
-                hprintln!("Unexpectedly succeed to consume");
+                dbg_println!("Unexpectedly succeed to consume");
                 semihosting::terminate(false);
             }
         }
     } else {
-        hprintln!("Consumer not initialized!");
+        dbg_println!("Consumer not initialized!");
         semihosting::terminate(false);
     }
 }

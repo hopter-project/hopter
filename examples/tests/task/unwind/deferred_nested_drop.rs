@@ -12,7 +12,11 @@ use core::{
     mem::MaybeUninit,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use hopter::{debug::semihosting, hprintln, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    task,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -45,11 +49,11 @@ fn test_task() {
     if cnt == 0 {
         // The task should have been unwound so this print should not be
         // reachable.
-        hprintln!("Should not print this.");
+        dbg_println!("Should not print this.");
     }
 
     if cnt > 0 {
-        hprintln!("Task successfully restarted after a deferred forced unwinding.");
+        dbg_println!("Task successfully restarted after a deferred forced unwinding.");
         semihosting::terminate(true);
     } else {
         semihosting::terminate(false);
@@ -62,7 +66,7 @@ struct OuterDrop(InnerDrop);
 impl Drop for OuterDrop {
     #[inline(never)]
     fn drop(&mut self) {
-        hprintln!("Outter drop executed.");
+        dbg_println!("Outter drop executed.");
     }
 }
 
@@ -73,7 +77,7 @@ impl Drop for InnerDrop {
     #[inline(never)]
     fn drop(&mut self) {
         let _padding = StackFramePadding::new();
-        hprintln!("Inner drop executed.");
+        dbg_println!("Inner drop executed.");
     }
 }
 

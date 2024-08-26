@@ -6,7 +6,11 @@
 
 extern crate alloc;
 use core::arch::asm;
-use hopter::{debug::semihosting, hprintln, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    task,
+    task::main,
+};
 
 #[naked]
 extern "C" fn callee() {
@@ -88,11 +92,11 @@ extern "C" fn caller() {
 }
 
 extern "C" fn success() {
-    hprintln!("Test Passed");
+    dbg_println!("Test Passed");
 }
 
 extern "C" fn error() {
-    hprintln!("Test Failed");
+    dbg_println!("Test Failed");
     semihosting::terminate(false);
 }
 

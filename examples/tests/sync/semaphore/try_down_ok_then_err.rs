@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync::Semaphore, task::main};
+use hopter::{debug::semihosting::{self, dbg_println}, sync::Semaphore, task::main};
 
 static SEMAPHORE: Semaphore = Semaphore::new(5, 3);
 
@@ -13,7 +13,7 @@ fn main(_: cortex_m::Peripherals) {
     match result {
         Ok(()) => {}
         Err(()) => {
-            hprintln!("Did not decrement");
+            dbg_println!("Did not decrement");
             semihosting::terminate(false);
         }
     }
@@ -27,11 +27,11 @@ fn main(_: cortex_m::Peripherals) {
 
     match second_result {
         Ok(()) => {
-            hprintln!("Decremented at 0");
+            dbg_println!("Decremented at 0");
             semihosting::terminate(false);
         }
         Err(()) => {
-            hprintln!("Test Passed");
+            dbg_println!("Test Passed");
             semihosting::terminate(true);
         }
     }

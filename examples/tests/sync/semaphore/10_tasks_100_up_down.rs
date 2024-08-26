@@ -3,7 +3,12 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use hopter::{debug::semihosting, hprintln, sync::Semaphore, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task,
+    task::main,
+};
 
 static SEMAPHORE: Semaphore = Semaphore::new(10, 5);
 static TASK_COMPLETION_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -37,10 +42,10 @@ fn check() {
         let final_count = SEMAPHORE.count();
         // Check if the count matches the initial value
         if final_count == 5 {
-            hprintln!("Test Passed");
+            dbg_println!("Test Passed");
             semihosting::terminate(true);
         } else {
-            hprintln!("Test Failed");
+            dbg_println!("Test Failed");
             semihosting::terminate(false);
         }
     }

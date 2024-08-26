@@ -4,7 +4,7 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync, task::main};
+use hopter::{debug::semihosting::{self, dbg_println}, sync, task::main};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -21,7 +21,7 @@ fn main(_: cortex_m::Peripherals) {
     for i in 4..=7 {
         let result = producer.try_produce_allow_isr(i);
         if result != Err(i) {
-            hprintln!("Test Failed");
+            dbg_println!("Test Failed");
             semihosting::terminate(false);
         }
     }
@@ -30,10 +30,10 @@ fn main(_: cortex_m::Peripherals) {
     for i in 0..4 {
         let value = consumer.consume();
         if value != i {
-            hprintln!("Test Failed");
+            dbg_println!("Test Failed");
             semihosting::terminate(false);
         }
     }
-    hprintln!("Test Passed");
+    dbg_println!("Test Passed");
     semihosting::terminate(true);
 }

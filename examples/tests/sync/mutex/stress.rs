@@ -5,7 +5,13 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{config, debug::semihosting, hprintln, sync::Mutex, task, task::main};
+use hopter::{
+    config,
+    debug::semihosting::{self, dbg_println},
+    sync::Mutex,
+    task,
+    task::main,
+};
 
 static MUTEX: Mutex<usize> = Mutex::new(0);
 const ITERATIONS: usize = 10;
@@ -24,10 +30,10 @@ fn main(_: cortex_m::Peripherals) {
     task::change_current_priority(config::DEFAULT_TASK_PRIORITY + 1).unwrap();
 
     if *MUTEX.lock() == ITERATIONS * NUM_TASK {
-        hprintln!("Test Passed");
+        dbg_println!("Test Passed");
         semihosting::terminate(true);
     } else {
-        hprintln!("Test Failed");
+        dbg_println!("Test Failed");
         semihosting::terminate(false);
     }
 }

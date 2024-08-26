@@ -10,7 +10,13 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use hopter::{debug::semihosting, hprintln, sync, sync::Producer, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync,
+    sync::Producer,
+    task,
+    task::main,
+};
 
 const NUM_TASKS: usize = 4;
 const NUM_ITEMS: usize = 3; // Number of items each task will produce
@@ -65,10 +71,10 @@ fn main(_: cortex_m::Peripherals) {
 
     // Check if the produced results match the expected sequence
     if results != compare_vec {
-        hprintln!("Test Failed");
+        dbg_println!("Test Failed");
         semihosting::terminate(false);
     }
-    hprintln!("Test Passed");
+    dbg_println!("Test Passed");
     semihosting::terminate(true);
 }
 

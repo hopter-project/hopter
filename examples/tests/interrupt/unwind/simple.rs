@@ -8,8 +8,7 @@ extern crate alloc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
-    debug::semihosting,
-    hprintln,
+    debug::semihosting::{self, dbg_println},
     interrupt::declare::{handler, irq},
     sync::SpinIrqSafe,
     task::main,
@@ -62,7 +61,7 @@ extern "C" fn tim2_handler() {
         panic!();
     }
 
-    hprintln!("TIM2 IRQ count {}", prev_cnt);
+    dbg_println!("TIM2 IRQ count {}", prev_cnt);
 
     if prev_cnt >= 5 {
         semihosting::terminate(true);
@@ -73,6 +72,6 @@ struct PrintOnDrop(&'static str);
 
 impl Drop for PrintOnDrop {
     fn drop(&mut self) {
-        hprintln!("{}", self.0);
+        dbg_println!("{}", self.0);
     }
 }

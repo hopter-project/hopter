@@ -3,7 +3,11 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use hopter::{debug::semihosting, hprintln, schedule, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    schedule, task,
+    task::main,
+};
 
 // Attribute `#[main]` marks the function as the entry function for the main
 // task. The function name can be arbitrary. The main function should accept
@@ -26,7 +30,7 @@ fn will_panic() {
     // Every time the task runs we increment it by 1.
     let cnt = CNT.fetch_add(1, Ordering::SeqCst);
 
-    hprintln!("Current count: {}", cnt);
+    dbg_println!("Current count: {}", cnt);
 
     // Panic and get restarted for 5 times.
     if cnt < 5 {

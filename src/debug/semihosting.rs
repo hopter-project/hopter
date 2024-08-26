@@ -14,7 +14,7 @@
 //! cause HardFault if the segmented stack tries to extend when the interrupt is
 //! globally masked.
 //!
-//! Original license: https://opensource.org/license/mit
+//! Original license: <https://opensource.org/license/mit>
 
 use crate::{interrupt::mask::AllIrqExceptSvc, sync::SpinSchedIrqSafe};
 use core::fmt::{self, Write};
@@ -76,8 +76,9 @@ pub fn hstderr_fmt(args: fmt::Arguments) {
 ///
 /// This is similar to the `print!` macro in the standard library. Both will panic on any failure to
 /// print.
+#[doc(hidden)]
 #[macro_export]
-macro_rules! hprint {
+macro_rules! __macro_impl_dbg_print {
     ($s:expr) => {
         $crate::debug::semihosting::hstdout_str($s)
     };
@@ -90,8 +91,9 @@ macro_rules! hprint {
 ///
 /// This is similar to the `println!` macro in the standard library. Both will panic on any failure to
 /// print.
+#[doc(hidden)]
 #[macro_export]
-macro_rules! hprintln {
+macro_rules! __macro_impl_dbg_println {
     () => {
         $crate::debug::semihosting::hstdout_str("\n")
     };
@@ -107,8 +109,9 @@ macro_rules! hprintln {
 ///
 /// This is similar to the `eprint!` macro in the standard library. Both will panic on any failure
 /// to print.
+#[doc(hidden)]
 #[macro_export]
-macro_rules! heprint {
+macro_rules! __macro_impl_dbg_eprint {
     ($s:expr) => {
         $crate::debug::semihosting::hstderr_str($s)
     };
@@ -121,8 +124,9 @@ macro_rules! heprint {
 ///
 /// This is similar to the `eprintln!` macro in the standard library. Both will panic on any failure
 /// to print.
+#[doc(hidden)]
 #[macro_export]
-macro_rules! heprintln {
+macro_rules! __macro_impl_dbg_eprintln {
     () => {
         $crate::debug::semihosting::hstderr_str("\n")
     };
@@ -133,3 +137,12 @@ macro_rules! heprintln {
         $crate::debug::semihosting::hstderr_fmt(format_args!(concat!($s, "\n"), $($tt)*))
     };
 }
+
+#[doc(inline)]
+pub use __macro_impl_dbg_eprint as dbg_eprint;
+#[doc(inline)]
+pub use __macro_impl_dbg_eprintln as dbg_eprintln;
+#[doc(inline)]
+pub use __macro_impl_dbg_print as dbg_print;
+#[doc(inline)]
+pub use __macro_impl_dbg_println as dbg_println;

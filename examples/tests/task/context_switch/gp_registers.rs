@@ -6,7 +6,12 @@
 
 extern crate alloc;
 use core::{arch::asm, sync::atomic::AtomicBool};
-use hopter::{config, debug::semihosting, hprintln, task, task::main};
+use hopter::{
+    config,
+    debug::semihosting::{self, dbg_println},
+    task,
+    task::main,
+};
 
 /// Whether the verifier task is running.
 static TEST_STARTED: AtomicBool = AtomicBool::new(false);
@@ -167,11 +172,11 @@ extern "C" fn clobber_all_gp_regs() -> ! {
 }
 
 extern "C" fn error() -> ! {
-    hprintln!("Test Failed");
+    dbg_println!("Test Failed");
     semihosting::terminate(false);
 }
 
 extern "C" fn success() -> ! {
-    hprintln!("Test Succeeded");
+    dbg_println!("Test Succeeded");
     semihosting::terminate(true);
 }

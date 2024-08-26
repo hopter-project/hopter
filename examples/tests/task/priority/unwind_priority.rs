@@ -7,7 +7,12 @@
 
 extern crate alloc;
 use alloc::string::String;
-use hopter::{config, debug::semihosting, hprintln, task, task::main};
+use hopter::{
+    config,
+    debug::semihosting::{self, dbg_println},
+    task,
+    task::main,
+};
 
 struct DataPointer {
     data: String,
@@ -15,7 +20,7 @@ struct DataPointer {
 
 impl Drop for DataPointer {
     fn drop(&mut self) {
-        hprintln!("Dropping {}", self.data);
+        dbg_println!("Dropping {}", self.data);
     }
 }
 
@@ -47,7 +52,7 @@ fn high_task() {
     let _resource = DataPointer {
         data: String::from("High priority resource"),
     };
-    hprintln!("High priority task going to panic");
+    dbg_println!("High priority task going to panic");
     panic!();
 }
 
@@ -55,12 +60,12 @@ fn middle_task() {
     let _resource = DataPointer {
         data: String::from("Middle priority resource"),
     };
-    hprintln!("Middle priority task executed");
+    dbg_println!("Middle priority task executed");
 }
 
 fn low_task() {
     let _resource = DataPointer {
         data: String::from("Low priority resource"),
     };
-    hprintln!("Low priority task executed");
+    dbg_println!("Low priority task executed");
 }

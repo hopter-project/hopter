@@ -3,7 +3,11 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -15,7 +19,7 @@ fn main(_: cortex_m::Peripherals) {
 
     // Check against expected behavior
     if result != None {
-        hprintln!("consumed from an empty channel");
+        dbg_println!("consumed from an empty channel");
         semihosting::terminate(false);
     }
 
@@ -29,7 +33,7 @@ fn main(_: cortex_m::Peripherals) {
     for _i in 0..4 {
         let result = consumer.try_consume_allow_isr();
         if result == None {
-            hprintln!("failed to consume from a non-empty channel");
+            dbg_println!("failed to consume from a non-empty channel");
             semihosting::terminate(false);
         }
     }
@@ -38,11 +42,11 @@ fn main(_: cortex_m::Peripherals) {
     let final_result = consumer.try_consume_allow_isr();
     match final_result {
         None => {
-            hprintln!("Test Passed");
+            dbg_println!("Test Passed");
             semihosting::terminate(true);
         }
         Some(_t) => {
-            hprintln!("consumed from an empty channel");
+            dbg_println!("consumed from an empty channel");
             semihosting::terminate(false);
         }
     }

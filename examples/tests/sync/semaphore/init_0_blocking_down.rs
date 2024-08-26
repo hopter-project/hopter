@@ -2,7 +2,12 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting, hprintln, sync::Semaphore, task, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task,
+    task::main,
+};
 
 static SEMAPHORE: Semaphore = Semaphore::new(1, 0);
 
@@ -13,13 +18,13 @@ fn main(_: cortex_m::Peripherals) {
 }
 
 fn acquire() {
-    hprintln!("attempting to acquire semaphore..");
+    dbg_println!("attempting to acquire semaphore..");
     SEMAPHORE.down();
-    hprintln!("semaphore acquired");
+    dbg_println!("semaphore acquired");
     semihosting::terminate(true);
 }
 
 fn release() {
     SEMAPHORE.up();
-    hprintln!("semaphore released");
+    dbg_println!("semaphore released");
 }

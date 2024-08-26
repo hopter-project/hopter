@@ -2,7 +2,13 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{config, debug::semihosting, hprintln, sync::Semaphore, task, task::main};
+use hopter::{
+    config,
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task,
+    task::main,
+};
 
 static SEMAPHORE: Semaphore = Semaphore::new(1, 0);
 
@@ -39,15 +45,15 @@ fn main(_: cortex_m::Peripherals) {
 
 fn high_task() {
     SEMAPHORE.down();
-    hprintln!("High priority task executed");
+    dbg_println!("High priority task executed");
 }
 
 fn middle_task() {
     SEMAPHORE.down();
-    hprintln!("Middle priority task executed");
+    dbg_println!("Middle priority task executed");
 }
 
 fn low_task() {
     SEMAPHORE.down();
-    hprintln!("Low priority task executed");
+    dbg_println!("Low priority task executed");
 }

@@ -4,7 +4,13 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{config, debug::semihosting, hprintln, sync::Mutex, task, task::main};
+use hopter::{
+    config,
+    debug::semihosting::{self, dbg_println},
+    sync::Mutex,
+    task,
+    task::main,
+};
 
 // Define a global mutex
 static MUTEX: Mutex<()> = Mutex::new(());
@@ -22,7 +28,7 @@ fn main(_: cortex_m::Peripherals) {
 fn low_task() {
     // Attempt to acquire the mutex
     let guard = MUTEX.lock();
-    hprintln!("Low priority task locked mutex");
+    dbg_println!("Low priority task locked mutex");
 
     // Spawn a high priority task
     task::build()
@@ -31,8 +37,8 @@ fn low_task() {
         .spawn()
         .unwrap();
 
-    hprintln!("High priority task blocked by mutex and low priority task continued");
-    hprintln!("Low priority task got elevated to high priority");
+    dbg_println!("High priority task blocked by mutex and low priority task continued");
+    dbg_println!("Low priority task got elevated to high priority");
 
     // Spawn a middle priority task
     task::build()
@@ -41,22 +47,22 @@ fn low_task() {
         .spawn()
         .unwrap();
 
-    hprintln!("Middle priority task was not able to run for now");
+    dbg_println!("Middle priority task was not able to run for now");
 
     // Drop the mutex. Low priority task should be reduced back to low priority.
     core::mem::drop(guard);
 
-    hprintln!("Low priority task finished last");
+    dbg_println!("Low priority task finished last");
 
     semihosting::terminate(true);
 }
 
 fn high_task() {
-    hprintln!("High priority task trying to lock mutex");
+    dbg_println!("High priority task trying to lock mutex");
     let _guard = MUTEX.lock();
-    hprintln!("High priority task locked mutex");
+    dbg_println!("High priority task locked mutex");
 }
 
 fn middle_task() {
-    hprintln!("Middle priority task executed");
+    dbg_println!("Middle priority task executed");
 }

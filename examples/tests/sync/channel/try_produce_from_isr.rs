@@ -10,8 +10,7 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     config,
-    debug::semihosting,
-    hprintln,
+    debug::semihosting::{self, dbg_println},
     interrupt::declare::{handler, irq},
     sync,
     sync::{Consumer, Producer, SpinIrqSafe},
@@ -74,7 +73,7 @@ fn consume_function(consumer: Consumer<usize, 2>) {
     // should be able to hold two more values produced.
     for _ in 0..3 {
         let val = consumer.consume();
-        hprintln!("Consumed {}", val);
+        dbg_println!("Consumed {}", val);
     }
 }
 
@@ -98,16 +97,16 @@ extern "C" fn tim2_handler() {
             }
             // The 6th produce attempt should be unsuccessful.
             Err(_) => {
-                hprintln!("Failed to produce");
+                dbg_println!("Failed to produce");
                 if COUNT.load(Ordering::SeqCst) == 6 {
                     semihosting::terminate(true);
                 }
-                hprintln!("Unexpectedly succeed to produce");
+                dbg_println!("Unexpectedly succeed to produce");
                 semihosting::terminate(false);
             }
         }
     } else {
-        hprintln!("Producer not initialized!");
+        dbg_println!("Producer not initialized!");
         semihosting::terminate(false);
     }
 }

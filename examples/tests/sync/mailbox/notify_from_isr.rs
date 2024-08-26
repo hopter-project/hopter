@@ -9,8 +9,7 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     config,
-    debug::semihosting,
-    hprintln,
+    debug::semihosting::{self, dbg_println},
     interrupt::declare::{handler, irq},
     sync::{Mailbox, SpinIrqSafe},
     task,
@@ -66,9 +65,9 @@ fn main(_cp: cortex_m::Peripherals) {
 
 fn listener_function() {
     for _ in 0..3 {
-        hprintln!("Waiting");
+        dbg_println!("Waiting");
         MAILBOX.wait();
-        hprintln!("Recieved");
+        dbg_println!("Recieved");
     }
     semihosting::terminate(true);
 }
@@ -79,7 +78,7 @@ extern "C" fn tim2_handler() {
     static IRQ_CNT: AtomicUsize = AtomicUsize::new(0);
 
     MAILBOX.notify_allow_isr();
-    hprintln!("Notified");
+    dbg_println!("Notified");
 
     let prev_cnt = IRQ_CNT.fetch_add(1, Ordering::SeqCst);
 

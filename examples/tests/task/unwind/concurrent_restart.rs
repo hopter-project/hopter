@@ -8,7 +8,12 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicBool, Ordering};
-use hopter::{config, debug::semihosting, hprintln, task, task::main};
+use hopter::{
+    config,
+    debug::semihosting::{self, dbg_println},
+    task,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -34,13 +39,13 @@ fn will_panic() {
         panic!()
     }
 
-    hprintln!("Second run completed");
+    dbg_println!("Second run completed");
 }
 
 struct PrintOnDrop(&'static str);
 
 impl Drop for PrintOnDrop {
     fn drop(&mut self) {
-        hprintln!("{}", self.0)
+        dbg_println!("{}", self.0)
     }
 }

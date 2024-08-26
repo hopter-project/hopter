@@ -24,7 +24,7 @@ pub use paste as __paste;
 /// ```
 #[doc(hidden)]
 #[macro_export]
-macro_rules! __declare_irq {
+macro_rules! __macro_impl_declare_irq {
     ($name:ident, $irq:path) => {
         $crate::interrupt::declare::__paste::paste! {
             #[allow(non_upper_case_globals)]
@@ -55,7 +55,7 @@ macro_rules! __declare_irq {
 }
 
 #[doc(inline)]
-pub use __declare_irq as irq;
+pub use __macro_impl_declare_irq as irq;
 
 #[doc(inline)]
 pub use hopter_proc_macro::handler;
