@@ -1,4 +1,4 @@
-use super::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin};
+use super::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin};
 use crate::{
     interrupt::svc,
     schedule::current,
@@ -28,7 +28,7 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 /// and returns immediately. A task blocks on [`wait`](Mailbox::wait) only when
 /// the notification counter is zero.
 pub struct Mailbox {
-    inner: RefCellSchedSafe<Interruptable<Inner>>,
+    inner: RefCellSchedSafe<SoftLock<Inner>>,
 }
 
 struct Inner {
@@ -125,7 +125,7 @@ impl Mailbox {
     /// zero.
     pub const fn new() -> Self {
         Self {
-            inner: RefCellSchedSafe::new(Interruptable::new(Inner::new())),
+            inner: RefCellSchedSafe::new(SoftLock::new(Inner::new())),
         }
     }
 

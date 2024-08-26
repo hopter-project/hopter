@@ -2,7 +2,7 @@ use super::{current, idle};
 use crate::{
     config,
     interrupt::svc,
-    sync::{Access, AllowPendOp, Holdable, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
+    sync::{Access, AllowPendOp, Holdable, RefCellSchedSafe, RunPendedOp, SoftLock, Spin},
     task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
 };
@@ -16,7 +16,7 @@ use intrusive_collections::LinkedList;
 
 /// A ready task queue. Ready tasks will be popped out with respect to
 /// their priorities.
-type ReadyQueue = RefCellSchedSafe<Interruptable<Inner>>;
+type ReadyQueue = RefCellSchedSafe<SoftLock<Inner>>;
 
 /// The inner content of a ready task queue.
 struct Inner {
@@ -90,7 +90,7 @@ impl<'a> AllowPendOp<'a> for Inner {
 }
 
 /// The ready task queue.
-static READY_TASK_QUEUE: ReadyQueue = RefCellSchedSafe::new(Interruptable::new(Inner::new()));
+static READY_TASK_QUEUE: ReadyQueue = RefCellSchedSafe::new(SoftLock::new(Inner::new()));
 
 /// The number of existing tasks.
 static EXIST_TASK_NUM: AtomicUsize = AtomicUsize::new(0);

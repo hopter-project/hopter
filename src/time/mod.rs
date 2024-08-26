@@ -2,7 +2,7 @@ use crate::{
     config,
     interrupt::svc,
     schedule::{current, scheduler::Scheduler},
-    sync::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
+    sync::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin},
     task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::Lethal,
 };
@@ -29,7 +29,7 @@ impl Inner {
     }
 }
 
-type SleepQueue = RefCellSchedSafe<Interruptable<Inner>>;
+type SleepQueue = RefCellSchedSafe<SoftLock<Inner>>;
 
 struct InnerFullAccessor<'a> {
     time_sorted_queue: &'a Spin<LinkedList<TaskListAdapter>>,
@@ -94,7 +94,7 @@ impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     }
 }
 
-static SLEEP_TASK_QUEUE: SleepQueue = RefCellSchedSafe::new(Interruptable::new(Inner::new()));
+static SLEEP_TASK_QUEUE: SleepQueue = RefCellSchedSafe::new(SoftLock::new(Inner::new()));
 
 /// The tick number of SysTick.
 static TICKS: AtomicU32 = AtomicU32::new(0);

@@ -1,6 +1,5 @@
 use super::{
-    Access, AllowPendOp, Interruptable, Lockable, RefCellSchedSafe, RunPendedOp, Spin,
-    UnlockableGuard,
+    Access, AllowPendOp, Lockable, RefCellSchedSafe, RunPendedOp, SoftLock, Spin, UnlockableGuard,
 };
 use crate::{
     interrupt::svc,
@@ -15,7 +14,7 @@ use intrusive_collections::LinkedList;
 ///
 /// FIXME: what should happen when a wait queue gets dropped?
 pub struct WaitQueue {
-    inner: RefCellSchedSafe<Interruptable<Inner>>,
+    inner: RefCellSchedSafe<SoftLock<Inner>>,
 }
 
 /// The inner content of a wait queue.
@@ -89,7 +88,7 @@ impl WaitQueue {
     /// Create a new empty wait queue.
     pub const fn new() -> Self {
         Self {
-            inner: RefCellSchedSafe::new(Interruptable::<Inner>::new(Inner::new())),
+            inner: RefCellSchedSafe::new(SoftLock::<Inner>::new(Inner::new())),
         }
     }
 

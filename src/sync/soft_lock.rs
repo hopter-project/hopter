@@ -14,7 +14,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 ///
 /// The two required methods should respectively return the two accessor types
 /// given the `&self` reference.
-pub trait AllowPendOp<'a> {
+pub(crate) trait AllowPendOp<'a> {
     type FullAccessor: RunPendedOp + 'a;
     type PendOnlyAccessor: 'a;
 
@@ -24,7 +24,7 @@ pub trait AllowPendOp<'a> {
 
 /// The `FullAccessor` should check whether there is any pended operation and run
 /// it if exists.
-pub trait RunPendedOp {
+pub(crate) trait RunPendedOp {
     fn run_pended_op(&mut self);
 }
 
@@ -47,7 +47,7 @@ pub trait RunPendedOp {
 /// Important Note: The wrapper assumes that the preemting thread of execution always
 /// finishes before returning to the prreempted thread of execution, which is the case
 /// for ISRs, but not the case for task context switching in general.
-pub struct Interruptable<T>
+pub(crate) struct SoftLock<T>
 where
     for<'b> T: AllowPendOp<'b>,
 {
@@ -59,11 +59,11 @@ where
     locked: AtomicBool,
 }
 
-impl<T> Interruptable<T>
+impl<T> SoftLock<T>
 where
     for<'b> T: AllowPendOp<'b>,
 {
-    pub const fn new(val: T) -> Self {
+    pub(crate) const fn new(val: T) -> Self {
         Self {
             content: val,
             pending: AtomicBool::new(false),
@@ -74,7 +74,7 @@ where
     /// Get access to the protected content and execute the operation. The closure
     /// should take an `Access` enum type as the argument. The operation should run
     /// based on the `Access` variant. It may be either `Full` or `PendOnly`.
-    pub fn with_access<'a, F, R>(&'a self, op: F) -> R
+    pub(crate) fn with_access<'a, F, R>(&'a self, op: F) -> R
     where
         F: FnOnce(
             Access<<T as AllowPendOp>::FullAccessor, <T as AllowPendOp>::PendOnlyAccessor>,
@@ -88,7 +88,7 @@ where
     /// Get the full access to the protected content and execute the operation. If
     /// `Full` access cannot be granted, the code spins. Otherwise, the closure is
     /// invoked with `FullAccessor` variant as the argument.
-    pub fn must_with_full_access<'a, F, R>(&'a self, op: F) -> R
+    pub(crate) fn must_with_full_access<'a, F, R>(&'a self, op: F) -> R
     where
         F: FnOnce(<T as AllowPendOp>::FullAccessor) -> R,
     {
@@ -100,7 +100,7 @@ where
 
 /// Access to the protected contents can be either `Full` or `PendOnly`, yielding
 /// the `FullAccessor` or `PendOnlyAccessor`, respectively.
-pub enum Access<FullAccessor, PendOnlyAccessor>
+pub(crate) enum Access<FullAccessor, PendOnlyAccessor>
 where
     FullAccessor: RunPendedOp,
 {
@@ -116,8 +116,8 @@ where
 {
     /// If true, the guard assumes full access, otherwise pend-only access.
     lock_held: bool,
-    /// Reference to interruptable struct instance.
-    interruptable: &'a Interruptable<T>,
+    /// Reference to a soft lock instance.
+    soft_lock: &'a SoftLock<T>,
 }
 
 impl<'a, T> AccessGuard<'a, T>
@@ -127,13 +127,13 @@ where
     /// Get access to the protected content. If there is no active full access,
     /// the returned guard will assume full access by setting the `locked` bit.
     /// Otherwise, the guard will assume pend-only access.
-    fn guard(interruptable: &'a Interruptable<T>) -> Self {
+    fn guard(soft_lock: &'a SoftLock<T>) -> Self {
         Self {
-            lock_held: interruptable
+            lock_held: soft_lock
                 .locked
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                 .is_ok(),
-            interruptable,
+            soft_lock,
         }
     }
 
@@ -144,10 +144,10 @@ where
     ) -> Access<<T as AllowPendOp>::FullAccessor, <T as AllowPendOp>::PendOnlyAccessor> {
         match self.lock_held {
             true => Access::Full {
-                full_access: self.interruptable.content.full_access(),
+                full_access: self.soft_lock.content.full_access(),
             },
             false => Access::PendOnly {
-                pend_access: self.interruptable.content.pend_only_access(),
+                pend_access: self.soft_lock.content.pend_only_access(),
             },
         }
     }
@@ -156,7 +156,7 @@ where
     /// access, the function spins.
     fn must_get_full_access(&self) -> <T as AllowPendOp>::FullAccessor {
         match self.lock_held {
-            true => self.interruptable.content.full_access(),
+            true => self.soft_lock.content.full_access(),
             false => loop {},
         }
     }
@@ -171,14 +171,14 @@ where
             // If the guard assumes full access, we should now check if there is any
             // pended operation and run it if exists.
             true => {
-                let mut full_access = self.interruptable.content.full_access();
+                let mut full_access = self.soft_lock.content.full_access();
 
                 // While we are performing the pended operation, we may be preempted by an
                 // ISR that again adds more pended operations. We keep checking until we are
                 // certain that we miss no operation.
                 loop {
                     // Check if we have pended operation and clear the pending flag.
-                    let prev_pending = self.interruptable.pending.swap(false, Ordering::SeqCst);
+                    let prev_pending = self.soft_lock.pending.swap(false, Ordering::SeqCst);
 
                     // If some tasks are pended to be added to the ready queue, add them in.
                     if prev_pending {
@@ -188,10 +188,10 @@ where
                     // *** ISR might set pending again here. ***
 
                     // Release the lock here.
-                    self.interruptable.locked.store(false, Ordering::SeqCst);
+                    self.soft_lock.locked.store(false, Ordering::SeqCst);
 
                     // If the pending flag is still clear, we are done and can return.
-                    if !self.interruptable.pending.load(Ordering::SeqCst) {
+                    if !self.soft_lock.pending.load(Ordering::SeqCst) {
                         break;
 
                     // Otherwise, we have more tasks to add to the ready queue. We lock the
@@ -199,7 +199,7 @@ where
                     // `locked`, but we use `compare_exchange` here for sanity checking that
                     // the previous value is `false`.
                     } else {
-                        let res = self.interruptable.locked.compare_exchange(
+                        let res = self.soft_lock.locked.compare_exchange(
                             false,
                             true,
                             Ordering::SeqCst,
@@ -215,7 +215,7 @@ where
             // to true so that the owner having full access will later run the pended
             // operation.
             false => {
-                self.interruptable.pending.store(true, Ordering::SeqCst);
+                self.soft_lock.pending.store(true, Ordering::SeqCst);
             }
         }
     }
