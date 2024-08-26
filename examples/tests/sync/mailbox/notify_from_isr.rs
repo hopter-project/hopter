@@ -10,8 +10,8 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     config,
     debug::semihosting,
-    declare_irq, hprintln,
-    interrupt::handler,
+    hprintln,
+    interrupt::declare::{handler, irq},
     sync::{Mailbox, SpinIrqSafe},
     task,
     task::main,
@@ -22,7 +22,7 @@ use stm32f4xx_hal::{
     timer::{CounterUs, Event},
 };
 
-declare_irq!(Tim2Irq, Interrupt::TIM2);
+irq!(Tim2Irq, Interrupt::TIM2);
 static TIMER: SpinIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = SpinIrqSafe::new(None);
 
 static MAILBOX: Mailbox = Mailbox::new();

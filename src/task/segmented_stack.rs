@@ -56,8 +56,8 @@ use crate::{
     config,
     interrupt::{
         svc,
+        svc_handler::TaskSVCCtxt,
         trap_frame::{TrapFrame, TRAP_FRAME_PAD_SIZE},
-        TaskSVCCtxt,
     },
     schedule::current,
     unrecoverable::{self, Lethal},

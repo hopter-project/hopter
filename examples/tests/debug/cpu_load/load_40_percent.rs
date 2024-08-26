@@ -11,7 +11,8 @@ use hopter::{
         cpu_load::{LoadInspector, MicrosecPrecision},
         semihosting,
     },
-    declare_irq, hprintln,
+    hprintln,
+    interrupt::declare::irq,
     sync::SpinIrqSafe,
     task,
     task::main,
@@ -23,7 +24,7 @@ use stm32f4xx_hal::{
     rcc::{Enable, Reset},
 };
 
-declare_irq!(Tim5Irq, stm32f4xx_hal::pac::Interrupt::TIM5);
+irq!(Tim5Irq, stm32f4xx_hal::pac::Interrupt::TIM5);
 
 /// Provide microsecond precision timestamp via TIM5.
 struct Timestamp(SpinIrqSafe<TIM5, Tim5Irq>);

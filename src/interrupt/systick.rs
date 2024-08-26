@@ -7,8 +7,8 @@ use core::arch::asm;
 unsafe extern "C" fn systick_entry() {
     asm!(
         "ldr r0, ={systick_handler}",
-        "b {fast_irq_entry}",
-        fast_irq_entry = sym super::default::fast_irq_entry,
+        "b {entry}",
+        entry = sym super::entry_exit::entry,
         systick_handler = sym systick_handler,
         options(noreturn)
     )

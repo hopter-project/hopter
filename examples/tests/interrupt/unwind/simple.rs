@@ -8,7 +8,11 @@ extern crate alloc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
-    debug::semihosting, declare_irq, hprintln, interrupt::handler, sync::SpinIrqSafe, task::main,
+    debug::semihosting,
+    hprintln,
+    interrupt::declare::{handler, irq},
+    sync::SpinIrqSafe,
+    task::main,
 };
 use stm32f4xx_hal::{
     pac::{Interrupt, Peripherals, TIM2},
@@ -16,7 +20,7 @@ use stm32f4xx_hal::{
     timer::{CounterUs, Event},
 };
 
-declare_irq!(Tim2Irq, Interrupt::TIM2);
+irq!(Tim2Irq, Interrupt::TIM2);
 static TIMER: SpinIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = SpinIrqSafe::new(None);
 
 #[main]

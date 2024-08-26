@@ -1,7 +1,7 @@
 //! The vector table code is derived from the `cortex-m-rt` crate.
 
 use super::reset;
-use crate::interrupt::default;
+use crate::interrupt::hardfault;
 
 #[link_section = ".vector_table.reset_vector"]
 #[no_mangle]
@@ -21,7 +21,7 @@ pub static __EXCEPTIONS: [Vector; 14] = [
     },
     // Exception 3: Hard Fault Interrupt.
     Vector {
-        handler: default::hardfault_trampoline,
+        handler: hardfault::hardfault_trampoline,
     },
     // Exception 4: Memory Management Interrupt [not on Cortex-M0 variants].
     #[cfg(not(armv6m))]

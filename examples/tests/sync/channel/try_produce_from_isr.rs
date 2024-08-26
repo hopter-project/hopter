@@ -11,8 +11,8 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     config,
     debug::semihosting,
-    declare_irq, hprintln,
-    interrupt::handler,
+    hprintln,
+    interrupt::declare::{handler, irq},
     sync,
     sync::{Consumer, Producer, SpinIrqSafe},
     task,
@@ -24,7 +24,7 @@ use stm32f4xx_hal::{
     timer::{CounterUs, Event},
 };
 
-declare_irq!(Tim2Irq, Interrupt::TIM2);
+irq!(Tim2Irq, Interrupt::TIM2);
 static TIMER: SpinIrqSafe<Option<CounterUs<TIM2>>, Tim2Irq> = SpinIrqSafe::new(None);
 static CHANNEL_PRODUCER: SpinIrqSafe<Option<Producer<usize, 2>>, Tim2Irq> = SpinIrqSafe::new(None);
 

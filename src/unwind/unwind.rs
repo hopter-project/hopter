@@ -40,8 +40,8 @@ use crate::{
     config,
     interrupt::{
         svc,
+        svc_handler::SVCNum,
         trap_frame::{self, TrapFrame},
-        SVCNum,
     },
     schedule::current,
     task,
