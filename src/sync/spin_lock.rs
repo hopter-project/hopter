@@ -263,7 +263,7 @@ macro_rules! define_spin_lock {
             /// Forecefully set the lock into released state.
             ///
             /// Safety: The previous acquired lock guard must not be used to
-            /// access the protected data.
+            /// access the protected data in the future.
             pub unsafe fn force_unlock(&self) {
                 self.generic_spin.force_unlock()
             }

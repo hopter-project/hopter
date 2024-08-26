@@ -24,7 +24,7 @@ use owning_ref::StableAddress;
 /// - `T``: The type that the lock is protecting.
 /// - `H``: A holdable condition.
 /// - `G``: The guard type representing the additional held condition.
-pub struct GenericMutex<T, H, G>
+struct GenericMutex<T, H, G>
 where
     T: ?Sized,
     H: Holdable<GuardType = G>,
@@ -49,7 +49,7 @@ where
 /// Generic type of a mutex guard that can dereference into contained type.
 /// When the guard is dropped, the mutex will be released and the additionally
 /// held condition will be released atomically.
-pub struct GenericMutexGuard<'a, T, H, G>
+struct GenericMutexGuard<'a, T, H, G>
 where
     T: ?Sized,
     H: Holdable<GuardType = G>,
@@ -73,13 +73,13 @@ where
     }
 
     /// Discard the mutex and get back the contained data.
-    pub fn into_inner(self) -> T {
+    fn into_inner(self) -> T {
         self.spin_lock.into_inner()
     }
 
     /// Return if the mutex was acquired by a task when the task is being
     /// unwound.
-    pub fn is_poisoned(&self) -> bool {
+    fn is_poisoned(&self) -> bool {
         self.poisoned.load(Ordering::SeqCst)
     }
 
@@ -87,7 +87,7 @@ where
     ///
     /// Safety: The previous acquired mutex guard must not be used to access
     /// the protected data in the future.
-    pub unsafe fn force_unlock(&self) {
+    unsafe fn force_unlock(&self) {
         self.owner.lock_now_or_die().take();
         self.spin_lock.force_unlock();
         self.queue.notify_one_allow_isr();

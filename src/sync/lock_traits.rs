@@ -18,7 +18,7 @@ pub trait Lockable {
 }
 
 /// A holdable condition. It may be masking an interrupt or suspending the scheduler.
-pub trait Holdable {
+pub(crate) trait Holdable {
     type GuardType;
 
     /// Hold a condition and return a guard. While the guard is active, the condition
