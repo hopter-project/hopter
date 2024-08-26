@@ -1,4 +1,4 @@
-#[allow(unused)]
-pub use crossbeam::atomic::AtomicCell;
-#[allow(unused)]
-pub use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
+pub(crate) use crossbeam::atomic::AtomicCell;
+pub(crate) use spin::{
+    RwLock as RwSpin, RwLockReadGuard as RwSpinReadGuard, RwLockWriteGuard as RwSpinWriteGuard,
+};

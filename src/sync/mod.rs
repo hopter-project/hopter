@@ -12,7 +12,7 @@ mod wait_queue;
 
 pub use channel::*;
 pub use condvar::*;
-pub use imported::*;
+pub(crate) use imported::*;
 pub use lock_traits::*;
 pub use mailbox::*;
 pub use mutex::*;

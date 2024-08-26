@@ -1,6 +1,6 @@
 use super::scheduler::Scheduler;
 use crate::{
-    sync::RwLock,
+    sync::{RwSpin, RwSpinReadGuard, RwSpinWriteGuard},
     task::{Task, TaskCtxt},
     unrecoverable,
 };
@@ -14,21 +14,21 @@ use core::{
 /// it should always be `Some`. When no other user task is ready, the current
 /// task should be the idle task.
 ///
-/// The [`RwLock`] around it is only for sanity check.
+/// The [`RwSpin`] around it is only for sanity check.
 ///
-/// NOTE: We must use a [`RwLock`] instead of a
+/// NOTE: We must use a [`RwSpin`] instead of a
 /// [`SpinSchedSafe`](crate::sync::SpinSchedSafe) to protect the data. This is
 /// because the [`more_stack`](crate::task::more_stack) and
 /// [`less_stack`](crate::task::less_stack) function need to access the current
 /// task struct. However, `more_stack` or `less_stack` may be invoked when the
 /// current task struct is being accessed. Thus, using a spin lock will cause
-/// deadlock, and `RwLock` is necessary.
-static CUR_TASK: RwLock<Option<Arc<Task>>> = RwLock::new(None);
+/// deadlock, and [`RwSpin`] is necessary.
+static CUR_TASK: RwSpin<Option<Arc<Task>>> = RwSpin::new(None);
 
 /// Set another task to be the current task. The current task will lock its
 /// context field. See [`Task`] for the context lock invariant.
 pub(super) fn update_cur_task(task: Arc<Task>) {
-    let mut write_guard = CUR_TASK.write();
+    let mut write_guard: RwSpinWriteGuard<_> = CUR_TASK.write();
 
     // Unlock the context struct for the task being context switched out of
     // the CPU. The only case where the current task is `None` is upon system
@@ -92,7 +92,7 @@ where
 {
     // Suspend the scheduler and lock the current task `Arc` in reader mode.
     let _sched_suspend_guard = Scheduler::suspend();
-    let read_guard = CUR_TASK.read();
+    let read_guard: RwSpinReadGuard<_> = CUR_TASK.read();
 
     // Run the closure.
     if let Some(cur_task) = &*read_guard {
