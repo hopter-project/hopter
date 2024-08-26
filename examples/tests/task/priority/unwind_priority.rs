@@ -7,7 +7,7 @@
 
 extern crate alloc;
 use alloc::string::String;
-use hopter::{boot::main, config, debug::semihosting, hprintln, task};
+use hopter::{config, debug::semihosting, hprintln, task, task::main};
 
 struct DataPointer {
     data: String,

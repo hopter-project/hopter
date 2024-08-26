@@ -5,7 +5,7 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, sync::Mailbox, task, time};
+use hopter::{debug::semihosting, hprintln, sync::Mailbox, task, task::main, time};
 
 static MAILBOX: Mailbox = Mailbox::new();
 

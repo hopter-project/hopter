@@ -5,7 +5,7 @@
 
 extern crate alloc;
 use alloc::string::String;
-use hopter::{boot::main, debug::semihosting, hprintln, sync::Mutex};
+use hopter::{debug::semihosting, hprintln, sync::Mutex, task::main};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {

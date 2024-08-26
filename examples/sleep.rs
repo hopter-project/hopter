@@ -2,7 +2,7 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, time};
+use hopter::{debug::semihosting, hprintln, task::main, time};
 
 // Attribute `#[main]` marks the function as the entry function for the main
 // task. The function name can be arbitrary. The main function should accept

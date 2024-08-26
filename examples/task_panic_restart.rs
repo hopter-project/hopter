@@ -3,7 +3,7 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use hopter::{boot::main, debug::semihosting, hprintln, schedule, task};
+use hopter::{debug::semihosting, hprintln, schedule, task, task::main};
 
 // Attribute `#[main]` marks the function as the entry function for the main
 // task. The function name can be arbitrary. The main function should accept

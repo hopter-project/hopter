@@ -8,7 +8,7 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicBool, Ordering};
-use hopter::{boot::main, config, debug::semihosting, hprintln, task};
+use hopter::{config, debug::semihosting, hprintln, task, task::main};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {

@@ -7,7 +7,7 @@
 
 extern crate alloc;
 use core::arch::asm;
-use hopter::{boot::main, debug::semihosting, hprintln, task};
+use hopter::{debug::semihosting, hprintln, task, task::main};
 
 #[naked]
 extern "C" fn prepare_regs_stack() {

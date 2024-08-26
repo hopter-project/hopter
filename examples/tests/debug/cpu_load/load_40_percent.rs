@@ -7,14 +7,15 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use hopter::{
-    boot::main,
     debug::{
         cpu_load::{LoadInspector, MicrosecPrecision},
         semihosting,
     },
     declare_irq, hprintln,
     sync::SpinIrqSafe,
-    task, time,
+    task,
+    task::main,
+    time,
 };
 use stm32f4xx_hal::{
     pac::{Peripherals, TIM5},

@@ -5,7 +5,7 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, task};
+use hopter::{debug::semihosting, hprintln, task, task::main};
 
 /// The main task always starts with the highest priority (numerical value 0).
 #[main]

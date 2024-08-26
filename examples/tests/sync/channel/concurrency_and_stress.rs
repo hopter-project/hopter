@@ -10,7 +10,7 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use hopter::{boot::main, debug::semihosting, hprintln, sync, sync::Producer, task};
+use hopter::{debug::semihosting, hprintln, sync, sync::Producer, task, task::main};
 
 const NUM_TASKS: usize = 4;
 const NUM_ITEMS: usize = 3; // Number of items each task will produce

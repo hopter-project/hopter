@@ -8,7 +8,7 @@ extern crate alloc;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
-    boot::main, debug::semihosting, declare_irq, hprintln, interrupt::handler, sync::SpinIrqSafe,
+    debug::semihosting, declare_irq, hprintln, interrupt::handler, sync::SpinIrqSafe, task::main,
 };
 use stm32f4xx_hal::{
     pac::{Interrupt, Peripherals, TIM2},

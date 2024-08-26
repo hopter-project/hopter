@@ -5,7 +5,7 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, config, debug::semihosting, hprintln, sync::Mutex, task};
+use hopter::{config, debug::semihosting, hprintln, sync::Mutex, task, task::main};
 
 static MUTEX: Mutex<usize> = Mutex::new(0);
 const ITERATIONS: usize = 10;

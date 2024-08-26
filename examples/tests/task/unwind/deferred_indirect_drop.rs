@@ -10,7 +10,7 @@ use core::{
     mem::MaybeUninit,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use hopter::{boot::main, debug::semihosting, hprintln, task};
+use hopter::{debug::semihosting, hprintln, task, task::main};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {

@@ -1,6 +1,6 @@
 //! A deferred forced unwinding should occur when a drop handler function
 //! overflows the call stack of a task that does not enable dynamic stack
-//! extension. 
+//! extension.
 
 #![no_std]
 #![no_main]
@@ -10,7 +10,7 @@ use core::{
     mem::MaybeUninit,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use hopter::{boot::main, debug::semihosting, hprintln, task};
+use hopter::{debug::semihosting, hprintln, task, task::main};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {

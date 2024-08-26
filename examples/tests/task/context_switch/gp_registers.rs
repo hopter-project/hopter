@@ -6,7 +6,7 @@
 
 extern crate alloc;
 use core::{arch::asm, sync::atomic::AtomicBool};
-use hopter::{boot::main, config, debug::semihosting, hprintln, task};
+use hopter::{config, debug::semihosting, hprintln, task, task::main};
 
 /// Whether the verifier task is running.
 static TEST_STARTED: AtomicBool = AtomicBool::new(false);

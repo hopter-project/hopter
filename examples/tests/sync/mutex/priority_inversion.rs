@@ -4,7 +4,7 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, config, debug::semihosting, hprintln, sync::Mutex, task};
+use hopter::{config, debug::semihosting, hprintln, sync::Mutex, task, task::main};
 
 // Define a global mutex
 static MUTEX: Mutex<()> = Mutex::new(());
