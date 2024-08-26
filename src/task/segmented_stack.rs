@@ -72,7 +72,9 @@ use core::{
 #[no_mangle]
 static STACK_EXTEND_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-#[allow(unused)]
+/// Return the number of times of dynamic task call stack extension since
+/// system boot. The counter will wrap around back to zero after reaching
+/// `usize::MAX`.
 pub fn get_stack_extend_count() -> usize {
     STACK_EXTEND_COUNT.load(Ordering::Relaxed)
 }
@@ -80,6 +82,7 @@ pub fn get_stack_extend_count() -> usize {
 #[no_mangle]
 static ACTIVE_STACKLET_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+/// Return the number of currently existing stacklets in the system.
 pub fn get_active_stacklet_count() -> usize {
     ACTIVE_STACKLET_COUNT.load(Ordering::Relaxed)
 }
