@@ -11,9 +11,7 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use intrusive_collections::LinkedList;
 
 /// Queue for blocked tasks waiting for notification.
-///
-/// FIXME: what should happen when a wait queue gets dropped?
-pub struct WaitQueue {
+pub(super) struct WaitQueue {
     inner: RefCellSchedSafe<SoftLock<Inner>>,
 }
 
@@ -86,7 +84,7 @@ impl Inner {
 
 impl WaitQueue {
     /// Create a new empty wait queue.
-    pub const fn new() -> Self {
+    pub(super) const fn new() -> Self {
         Self {
             inner: RefCellSchedSafe::new(SoftLock::<Inner>::new(Inner::new())),
         }
@@ -97,7 +95,8 @@ impl WaitQueue {
     ///
     /// Important: *must not* call this method in ISR context.
     #[inline]
-    pub fn wait(&self) {
+    #[allow(unused)]
+    pub(super) fn wait(&self) {
         unrecoverable::die_if_in_isr();
 
         add_cur_task_to_block_queue(self);
@@ -135,7 +134,7 @@ impl WaitQueue {
     /// will be in turn notified, i.e., the notification is treated as spurious and
     /// is discarded.
     #[inline]
-    pub fn wait_until<F, R>(&self, mut condition: F) -> R
+    pub(super) fn wait_until<F, R>(&self, mut condition: F) -> R
     where
         F: FnMut() -> Option<R>,
     {
@@ -203,7 +202,11 @@ impl WaitQueue {
     /// will be in turn notified, i.e., the notification is treated as spurious and
     /// is discarded.
     #[inline]
-    pub fn wait_until_with_lock<'a, F, G, R, L>(&self, mut guard: G, mut condition: F) -> (G, R)
+    pub(super) fn wait_until_with_lock<'a, F, G, R, L>(
+        &self,
+        mut guard: G,
+        mut condition: F,
+    ) -> (G, R)
     where
         F: FnMut(&mut G) -> Option<R>,
         G: UnlockableGuard<'a, LockType = L>,
@@ -276,7 +279,7 @@ impl WaitQueue {
     /// have its condition met, it will be placed back to the queue. No other task
     /// will be in turn notified, i.e., the notification is treated as spurious and
     /// is discarded.
-    pub fn notify_one_allow_isr(&self) {
+    pub(super) fn notify_one_allow_isr(&self) {
         self.inner.lock().with_access(|access| match access {
             // If we have full access to the inner components, we directly operate
             // on the queue to make the popped task ready.

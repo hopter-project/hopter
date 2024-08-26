@@ -20,4 +20,4 @@ pub(crate) use refcell_sched_safe::*;
 pub use semaphore::*;
 pub(crate) use soft_lock::*;
 pub use spin_lock::*;
-pub use wait_queue::*;
+use wait_queue::*;
