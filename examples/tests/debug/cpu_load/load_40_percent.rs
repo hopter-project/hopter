@@ -48,9 +48,21 @@ fn main(_cp: cortex_m::Peripherals) {
     let rcc = dp.RCC.constrain();
     // rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
     #[cfg(feature = "stm32f411")]
-    let clocks = rcc.cfgr.sysclk(180.MHz()).pclk1(90.MHz()).freeze();
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(180.MHz())
+        .pclk1(45.MHz())
+        .pclk2(90.MHz())
+        .freeze();
     #[cfg(feature = "stm32f407")]
-    let clocks = rcc.cfgr.sysclk(168.MHz()).pclk1(84.MHz()).freeze();
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(168.MHz())
+        .pclk1(42.MHz())
+        .pclk2(84.MHz())
+        .freeze();
 
     // Initialize TIM5 to provide microsecond timestamp.
     let tim5 = init_tim5(dp.TIM5);
