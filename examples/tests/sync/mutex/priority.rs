@@ -44,7 +44,9 @@ fn main(_: cortex_m::Peripherals) {
     // respective priority.
     core::mem::drop(guard);
 
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn high_task() {

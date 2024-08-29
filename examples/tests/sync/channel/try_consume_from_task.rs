@@ -20,7 +20,9 @@ fn main(_: cortex_m::Peripherals) {
     // Check against expected behavior
     if result != None {
         dbg_println!("consumed from an empty channel");
-        semihosting::terminate(false);
+        // semihosting::terminate(false);
+        dbg_println!("test complete!");
+        loop {}
     }
 
     // Fill channel to capacity with 4 elements
@@ -34,7 +36,9 @@ fn main(_: cortex_m::Peripherals) {
         let result = consumer.try_consume_allow_isr();
         if result == None {
             dbg_println!("failed to consume from a non-empty channel");
-            semihosting::terminate(false);
+            // semihosting::terminate(false);
+            dbg_println!("test complete!");
+            loop {}
         }
     }
 
@@ -43,11 +47,15 @@ fn main(_: cortex_m::Peripherals) {
     match final_result {
         None => {
             dbg_println!("Test Passed");
-            semihosting::terminate(true);
+            // semihosting::terminate(true);
+            dbg_println!("test complete!");
+            loop {}
         }
         Some(_t) => {
             dbg_println!("consumed from an empty channel");
-            semihosting::terminate(false);
+            // semihosting::terminate(false);
+            dbg_println!("test complete!");
+            loop {}
         }
     }
 }

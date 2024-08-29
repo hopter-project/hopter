@@ -2,7 +2,11 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting::{self, dbg_println}, sync::Semaphore, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task::main,
+};
 
 #[main]
 fn main(_: cortex_m::Peripherals) {
@@ -11,10 +15,14 @@ fn main(_: cortex_m::Peripherals) {
             let semaphore = Semaphore::new(j, i);
             if semaphore.count() != i || semaphore.max_count() != j {
                 dbg_println!("Test Failed");
-                semihosting::terminate(false);
+                // semihosting::terminate(false);
+                dbg_println!("test complete!");
+                loop {}
             }
         }
     }
     dbg_println!("Test Passed");
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }

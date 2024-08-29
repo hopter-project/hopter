@@ -26,9 +26,13 @@ fn main(_: cortex_m::Peripherals) {
         let value = consumer.consume();
         if value != 23 + i {
             dbg_println!("Test Failed");
-            semihosting::terminate(false);
+            // semihosting::terminate(false);
+            dbg_println!("test complete!");
+            loop {}
         }
     }
     dbg_println!("Test Passed");
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }

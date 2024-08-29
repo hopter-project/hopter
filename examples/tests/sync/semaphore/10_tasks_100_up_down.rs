@@ -43,10 +43,14 @@ fn check() {
         // Check if the count matches the initial value
         if final_count == 5 {
             dbg_println!("Test Passed");
-            semihosting::terminate(true);
+            // semihosting::terminate(true);
+            dbg_println!("test complete!");
+            loop {}
         } else {
             dbg_println!("Test Failed");
-            semihosting::terminate(false);
+            // semihosting::terminate(false);
+            dbg_println!("test complete!");
+            loop {}
         }
     }
 }

@@ -48,7 +48,11 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
-    let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
+    // let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
+    #[cfg(feature = "stm32f411")]
+    let clocks = rcc.cfgr.sysclk(180.MHz()).pclk1(90.MHz()).freeze();
+    #[cfg(feature = "stm32f407")]
+    let clocks = rcc.cfgr.sysclk(168.MHz()).pclk1(84.MHz()).freeze();
 
     let mut timer = dp.TIM2.counter(&clocks);
 
@@ -63,7 +67,8 @@ fn main(_cp: cortex_m::Peripherals) {
     // Set the timer to expire every 1 second.
     // Empirically when set to 62 seconds the interval is actually
     // approximately 1 second. Weird QEMU.
-    timer.start(62.secs()).unwrap();
+    // timer.start(62.secs()).unwrap();
+    timer.start(1.secs()).unwrap();
 
     // Move the timer into the global storage to prevent it from being dropped.
     *TIMER.lock() = Some(timer);
@@ -91,21 +96,29 @@ fn tim2_handler() {
             Some(value) => {
                 dbg_println!("Consumed {}", value);
                 if COUNT.load(Ordering::SeqCst) > 5 {
-                    semihosting::terminate(false);
+                    // semihosting::terminate(false);
+                    dbg_println!("test complete!");
+                    loop {}
                 }
             }
             // The 6th consume attempt should be unsuccessful.
             None => {
                 dbg_println!("Failed to consume");
                 if COUNT.load(Ordering::SeqCst) == 6 {
-                    semihosting::terminate(true);
+                    // semihosting::terminate(true);
+                    dbg_println!("test complete!");
+                    loop {}
                 }
                 dbg_println!("Unexpectedly succeed to consume");
-                semihosting::terminate(false);
+                // semihosting::terminate(false);
+                dbg_println!("test complete!");
+                loop {}
             }
         }
     } else {
         dbg_println!("Consumer not initialized!");
-        semihosting::terminate(false);
+        // semihosting::terminate(false);
+        dbg_println!("test complete!");
+        loop {}
     }
 }

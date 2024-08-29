@@ -65,5 +65,7 @@ fn main(_: cortex_m::Peripherals) {
     // When running with QEMU, this will cause the QEMU process to terminate.
     // Do not include this line when running with OpenOCD, because it will
     // clobber its internal states.
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    semihosting::dbg_println!("test complete!");
+    loop {}
 }

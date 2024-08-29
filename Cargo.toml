@@ -6,6 +6,18 @@ edition = "2021"
 [features]
 default = ["unwind"]
 unwind = ["dep:gimli", "dep:fallible-iterator"]
+stm32f401 = ["hopter_proc_macro/stm32f401"]
+stm32f405 = ["hopter_proc_macro/stm32f405"]
+stm32f407 = ["hopter_proc_macro/stm32f407"]
+stm32f410 = ["hopter_proc_macro/stm32f410"]
+stm32f411 = ["hopter_proc_macro/stm32f411"]
+stm32f412 = ["hopter_proc_macro/stm32f412"]
+stm32f413 = ["hopter_proc_macro/stm32f413"]
+stm32f427 = ["hopter_proc_macro/stm32f427"]
+stm32f429 = ["hopter_proc_macro/stm32f429"]
+stm32f446 = ["hopter_proc_macro/stm32f446"]
+stm32f469 = ["hopter_proc_macro/stm32f469"]
+
 
 [dependencies]
 static_assertions = "1.1"
@@ -17,8 +29,8 @@ concat-idents = "1.0"
 paste = "1.0"
 
 [dependencies.hopter_proc_macro]
-git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git"
-tag = "v0.1.5"
+git = "https://github.com/Ouhznehc/hopter-procedural-macro.git"
+branch = "port"
 
 [dependencies.hopter_conf_params]
 git = "https://github.com/ZhiyaoMa98/hopter-conf-params.git"

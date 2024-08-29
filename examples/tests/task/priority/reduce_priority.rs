@@ -18,7 +18,9 @@ fn main(_: cortex_m::Peripherals) {
     dbg_println!("one");
     task::change_current_priority(10).unwrap();
     dbg_println!("three");
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn task() {

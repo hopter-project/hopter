@@ -123,7 +123,9 @@ extern "C" fn success() {
 
 extern "C" fn error() {
     dbg_println!("Test Failed");
-    semihosting::terminate(false);
+    // semihosting::terminate(false);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 #[main]
@@ -133,5 +135,7 @@ fn main(_: cortex_m::Peripherals) {
         .spawn()
         .unwrap();
     task::change_current_priority(10).unwrap();
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }

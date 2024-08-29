@@ -31,10 +31,14 @@ fn main(_: cortex_m::Peripherals) {
 
     if *MUTEX.lock() == ITERATIONS * NUM_TASK {
         dbg_println!("Test Passed");
-        semihosting::terminate(true);
+        // semihosting::terminate(true);
+        dbg_println!("test complete!");
+        loop {}
     } else {
         dbg_println!("Test Failed");
-        semihosting::terminate(false);
+        // semihosting::terminate(false);
+        dbg_println!("test complete!");
+        loop {}
     }
 }
 
