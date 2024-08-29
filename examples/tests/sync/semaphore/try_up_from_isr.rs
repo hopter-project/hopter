@@ -42,11 +42,22 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
-    // let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
     #[cfg(feature = "stm32f411")]
-    let clocks = rcc.cfgr.sysclk(180.MHz()).pclk1(90.MHz()).freeze();
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(180.MHz())
+        .pclk1(45.MHz())
+        .pclk2(90.MHz())
+        .freeze();
     #[cfg(feature = "stm32f407")]
-    let clocks = rcc.cfgr.sysclk(168.MHz()).pclk1(84.MHz()).freeze();
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(168.MHz())
+        .pclk1(42.MHz())
+        .pclk2(84.MHz())
+        .freeze();
 
     let mut timer = dp.TIM2.counter(&clocks);
 
@@ -82,6 +93,8 @@ fn down_function() {
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
 extern "C" fn tim2_handler() {
+    TIMER.lock().as_mut().unwrap().wait();
+
     // Only run this handler for three times. If running more than three times,
     // the test task must have been stuck.
     static COUNT: AtomicUsize = AtomicUsize::new(0);
