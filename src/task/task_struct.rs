@@ -1,6 +1,6 @@
 use super::{
     priority::TaskPriority,
-    segmented_stack::{self, HotSplitAlleviationBlock},
+    segmented_stack::{self, StackCtrlBlock},
     trampoline, TaskBuildError,
 };
 use crate::{
@@ -13,6 +13,7 @@ use crate::{
 use alloc::{boxed::Box, sync::Arc};
 use core::{
     alloc::Layout,
+    num::NonZeroUsize,
     sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU8, Ordering},
 };
 use intrusive_collections::{intrusive_adapter, LinkedListAtomicLink};
@@ -113,6 +114,23 @@ pub(crate) struct TaskCtxt {
     fp_regs: CalleeSavedFPRegs,
 }
 
+/// Representing the configuration of a task's stack.
+#[derive(Clone)]
+pub(crate) enum StackConfig {
+    /// Allocate the whole stack as a single contiguous chunk ahead of time.
+    Static {
+        /// The size of the stack.
+        limit: NonZeroUsize,
+    },
+    /// Allocate the stack on demand in small chunks called stacklets.
+    Dynamic {
+        /// The size of the first stacklet.
+        initial: Option<NonZeroUsize>,
+        /// The maximum size of all stacklets, excluding stacklet overhead.
+        limit: Option<NonZeroUsize>,
+    },
+}
+
 /// The struct representing a task.
 pub(crate) struct Task {
     /// When dropped it will decrement the number of existing tasks by 1.
@@ -126,15 +144,15 @@ pub(crate) struct Task {
     ///
     /// Note that this field remains being locked when the task makes an SVC.
     /// The SVC handlers should instead use
-    /// [`TaskSVCCtxt`](crate::interrupt::TaskSVCCtxt)
+    /// [`TaskSVCCtxt`](crate::interrupt::svc_handler::TaskSVCCtxt)
     /// to read or modify the task's context.
     ctxt: Spin<TaskCtxt>,
     /// The initial stacklet of a task. Semantically, this pointer owns the
     /// piece of memory it points to. The drop handler must free the memory
     /// to avoid memory leak.
     initial_stklet: AtomicPtr<u8>,
-    /// Number of bytes in the initial stacklet. Can be zero.
-    init_stklet_size: usize,
+    /// Configuration for the function call stack.
+    stack_config: StackConfig,
     /// A numerical task ID that does not have functional purpose. It is
     /// only for diagnostic purpose.
     id: AtomicU8,
@@ -172,10 +190,10 @@ pub(crate) struct Task {
     #[cfg(feature = "unwind")]
     restart_entry_trampoline: Option<extern "C" fn(*const u8)>,
 
-    /*** Fields for segmented stack hot-split alleviation. ***/
-    /// The recorded information used to alleviate the hot-split problem of
-    /// segmented stacks.
-    hsab: Option<Box<Spin<HotSplitAlleviationBlock>>>,
+    /*** Fields for segmented stack control. ***/
+    /// The recorded information used to control segmented stack growth and
+    /// alleviate the hot-split problem.
+    scb: Option<Box<Spin<StackCtrlBlock>>>,
 
     /*** Fields for priority scheduling and sleeping. ***/
     /// See [`TaskPriority`].
@@ -207,32 +225,21 @@ impl Task {
     ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
-    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
-    ///   by allocating new stacklets.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     pub(crate) fn build<F>(
         quota: TaskQuota,
         id: u8,
         entry_closure: F,
-        init_stklet_size: usize,
-        is_dynamic_stack: bool,
+        stack_config: StackConfig,
         priority: u8,
     ) -> Result<Self, TaskBuildError>
     where
         F: FnOnce() + Send + 'static,
     {
         let mut task = Self::new(quota, false);
-        task.initialize(
-            id,
-            entry_closure,
-            init_stklet_size,
-            is_dynamic_stack,
-            priority,
-        )?;
+        task.initialize(id, entry_closure, stack_config, priority)?;
         Ok(task)
     }
 
@@ -246,11 +253,7 @@ impl Task {
     ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
-    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
-    ///   by allocating new stacklets.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
@@ -258,21 +261,14 @@ impl Task {
         quota: TaskQuota,
         id: u8,
         entry_closure: F,
-        reserve_stack_size: usize,
-        is_dynamic_stack: bool,
+        stack_config: StackConfig,
         priority: u8,
     ) -> Result<Self, TaskBuildError>
     where
         F: FnOnce() + Send + Sync + Clone + 'static,
     {
         let mut task = Self::new(quota, false);
-        task.initialize_restartable(
-            id,
-            entry_closure,
-            reserve_stack_size,
-            is_dynamic_stack,
-            priority,
-        )?;
+        task.initialize_restartable(id, entry_closure, stack_config, priority)?;
         Ok(task)
     }
 
@@ -296,6 +292,11 @@ impl Task {
 
         let mut idle_task = Self::new(quota, true);
 
+        let stack_config = StackConfig::Dynamic {
+            initial: None,
+            limit: None,
+        };
+
         // Create the idle task. The closure passed in `.initialize()` is
         // actually not used. The `idle()` function is invoked through the
         // assembly sequence when starting the scheduler.
@@ -303,8 +304,7 @@ impl Task {
             .initialize(
                 config::IDLE_TASK_ID,
                 || unrecoverable::die(),
-                config::IDLE_TASK_INITIAL_STACK_SIZE,
-                true,
+                stack_config,
                 config::IDLE_TASK_PRIORITY,
             )
             .unwrap_or_die();
@@ -338,8 +338,11 @@ impl Task {
             restart_entry_trampoline: None,
             #[cfg(feature = "unwind")]
             restarted_from: None,
-            init_stklet_size: 0,
-            hsab: None,
+            stack_config: StackConfig::Dynamic {
+                initial: None,
+                limit: None,
+            },
+            scb: None,
             priority: AtomicCell::new(TaskPriority::new_intrinsic(
                 config::TASK_PRIORITY_LEVELS - 1,
             )),
@@ -355,11 +358,7 @@ impl Task {
     /// - `entry_closure_ptr`: Raw pointer to the entry closure.
     /// - `entry_trampoline`: The address of the trampoline function of the new
     ///   task.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
-    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
-    ///   by allocating new stacklets.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     fn initialize_common(
@@ -367,8 +366,7 @@ impl Task {
         id: u8,
         entry_closure_ptr: usize,
         entry_trampoline: usize,
-        init_stklet_size: usize,
-        is_dynamic_stack: bool,
+        stack_config: StackConfig,
         priority: u8,
     ) -> Result<(), TaskBuildError> {
         // Check priority number validity.
@@ -376,10 +374,19 @@ impl Task {
             return Err(TaskBuildError::PriorityNotAllowed);
         }
 
-        // Allocate a hot-split alleviation block only if dynamic stack
-        // extension is enabled for the task.
-        if is_dynamic_stack {
-            self.hsab = Some(Box::new(Spin::new(HotSplitAlleviationBlock::default())));
+        let stack_alloc_size;
+
+        match stack_config {
+            // For static stack just allocate the whole stack ahead of time.
+            StackConfig::Static { limit } => {
+                stack_alloc_size = limit.get();
+            }
+            // For dynamic stack, just allocate the initial stacklet. Also
+            // create a stack control block.
+            StackConfig::Dynamic { initial, .. } => {
+                self.scb = Some(Box::new(Spin::new(StackCtrlBlock::default())));
+                stack_alloc_size = initial.map(|size| size.get()).unwrap_or(0);
+            }
         }
 
         // Allocate the initial stacklet. `stklet_begin` points to the
@@ -387,11 +394,13 @@ impl Task {
         // `alloc::alloc::dealloc()` to free the memory. `stklet_end` points to
         // the ending of the memory chunk. The allocated memory chunk is *not*
         // zero-initialized.
-        let (stklet_begin, stklet_end) = segmented_stack::alloc_initial_stacklet(init_stklet_size);
+        let (stklet_begin, stklet_end) = segmented_stack::alloc_initial_stacklet(stack_alloc_size);
 
         // Store stacklet to the task struct.
         self.initial_stklet.store(stklet_begin, Ordering::SeqCst);
-        self.init_stklet_size = init_stklet_size;
+
+        // Preserve the stack configuration to be used for task restart.
+        self.stack_config = stack_config;
 
         // Let the stack pointer points to the bottom of the initial stacklet.
         let mut sp = stklet_end;
@@ -468,19 +477,14 @@ impl Task {
     ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
-    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
-    ///   by allocating new stacklets.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     fn initialize<F>(
         &mut self,
         id: u8,
         entry_closure: F,
-        init_stklet_size: usize,
-        is_dynamic_stack: bool,
+        stack_config: StackConfig,
         priority: u8,
     ) -> Result<(), TaskBuildError>
     where
@@ -496,14 +500,7 @@ impl Task {
         let entry_trampoline = trampoline::task_entry::<F> as usize;
 
         // Perform other common initialization.
-        self.initialize_common(
-            id,
-            closure_ptr,
-            entry_trampoline,
-            init_stklet_size,
-            is_dynamic_stack,
-            priority,
-        )
+        self.initialize_common(id, closure_ptr, entry_trampoline, stack_config, priority)
     }
 
     /// Initialize the task struct for a restartable task.
@@ -512,11 +509,7 @@ impl Task {
     ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
-    /// - `is_dynamic_stack`: Whether the task is allowed to extend the stack
-    ///   by allocating new stacklets.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
@@ -524,8 +517,7 @@ impl Task {
         &mut self,
         id: u8,
         entry_closure: F,
-        init_stklet_size: usize,
-        is_dynamic_stack: bool,
+        stack_config: StackConfig,
         priority: u8,
     ) -> Result<(), TaskBuildError>
     where
@@ -559,8 +551,7 @@ impl Task {
             id,
             closure_ptr,
             entry_trampoline as usize,
-            init_stklet_size,
-            is_dynamic_stack,
+            stack_config,
             priority,
         )
     }
@@ -605,8 +596,7 @@ impl Task {
             id,
             closure_ptr,
             entry_trampoline,
-            prev_task.init_stklet_size,
-            prev_task.hsab.is_some(),
+            prev_task.stack_config.clone(),
             priority,
         )
         .unwrap_or_die()
@@ -692,17 +682,24 @@ impl Task {
         self.ctxt.force_unlock()
     }
 
-    /// Run the provided closure with [`HotSplitAlleviationBlock`] if the task
+    /// Run the provided closure with [`StackCtrlBlock`] if the task
     /// has it and wrap the return value with `Some(_)`. Otherwise if the task
-    /// has no [`HotSplitAlleviationBlock`], return `None`.
-    pub(crate) fn with_hsab<F, R>(&self, op: F) -> Option<R>
+    /// has no [`StackCtrlBlock`], return `None`.
+    pub(crate) fn with_stack_ctrl_block<F, R>(&self, op: F) -> Option<R>
     where
-        F: FnOnce(&mut HotSplitAlleviationBlock) -> R,
+        F: FnOnce(&mut StackCtrlBlock) -> R,
     {
-        self.hsab
+        self.scb
             .as_ref()
-            .map(|hsab| hsab.lock_now_or_die())
-            .map(|mut hsab| op(&mut *hsab))
+            .map(|scb| scb.lock_now_or_die())
+            .map(|mut scb| op(&mut *scb))
+    }
+
+    pub(super) fn get_stack_limit(&self) -> Option<usize> {
+        match self.stack_config {
+            StackConfig::Static { limit } => Some(limit.get()),
+            StackConfig::Dynamic { limit, .. } => limit.map(|size| size.get()),
+        }
     }
 }
 

@@ -28,7 +28,7 @@ pub(super) extern "C" fn system_start() -> ! {
     task::build()
         .set_id(config::MAIN_TASK_ID)
         .set_entry(move || main_task(cp))
-        .set_stack_size(config::MAIN_TASK_INITIAL_STACK_SIZE)
+        .set_stack_init_size(config::MAIN_TASK_INITIAL_STACK_SIZE)
         .set_priority(config::MAIN_TASK_PRIORITY)
         .spawn()
         .unwrap_or_die();

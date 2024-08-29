@@ -25,7 +25,7 @@ fn main(_: cortex_m::Peripherals) {
     task::build()
         .set_entry(|| verify_registers())
         .set_priority(config::DEFAULT_TASK_PRIORITY)
-        .set_stack_size(1024)
+        .set_stack_init_size(1024)
         .spawn()
         .unwrap();
     task::build()

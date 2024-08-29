@@ -713,6 +713,11 @@ impl<'a> UnwindState<'a> {
             // Update the stacklet boundary to that of the previous stacklet.
             self.stklet_boundary = stklet_meta.prev_stklet_bound as u32;
 
+            // Update the stack usage.
+            current::with_current_task(|cur_task| {
+                cur_task.with_stack_ctrl_block(|scb| scb.cumulated_size -= stklet_meta.count_size)
+            });
+
             // Free the stacklet we have finished unwinding.
             // Layout is not used in the current dealloc implementation.
             // Safety: The function leads to a panic, so it did not return,

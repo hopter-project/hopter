@@ -21,7 +21,7 @@ fn main(_: cortex_m::Peripherals) {
     task::build()
         .set_entry(test_task)
         .disable_dynamic_stack()
-        .set_stack_size(512)
+        .set_stack_limit(512)
         .spawn_restartable()
         .unwrap();
 }

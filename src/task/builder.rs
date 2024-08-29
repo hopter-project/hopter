@@ -1,11 +1,12 @@
-use super::Task;
-use crate::{config, schedule::scheduler::Scheduler};
+use super::{StackConfig, Task};
+use crate::{config, schedule::scheduler::Scheduler, unrecoverable::Lethal};
 use alloc::sync::Arc;
+use core::num::NonZeroUsize;
 
 /// Enumeration of errors during task creation.
 #[derive(Debug, PartialEq)]
 pub enum TaskBuildError {
-    /// Dynamic stack extension is disabled but stack size is not configured.
+    /// Dynamic stack extension is disabled but stack limit is not configured.
     NoStack,
     /// Has reached the maximum task number
     /// [MAX_TASK_NUMBER](config::MAX_TASK_NUMBER).
@@ -22,10 +23,11 @@ where
     F: FnOnce() + Send + 'static,
 {
     entry_closure: Option<F>,
-    init_stklet_size: usize,
+    stack_limit: Option<usize>,
+    stack_init_size: Option<usize>,
+    stack_is_dynamic: bool,
     priority: Option<u8>,
     id: Option<u8>,
-    is_dynamic_stack: bool,
 }
 
 /// Build a new task with the task builder.
@@ -53,10 +55,11 @@ where
     const fn new() -> Self {
         Self {
             entry_closure: None,
-            init_stklet_size: 0,
+            stack_limit: None,
+            stack_init_size: None,
+            stack_is_dynamic: true,
             priority: None,
             id: None,
-            is_dynamic_stack: true,
         }
     }
 
@@ -77,28 +80,34 @@ where
         self
     }
 
-    /// Set the stack size of the task. If dynamic stack extension is enabled
-    /// (default), then the configured size becomes the size of the initial
-    /// stacklet. The default is 0.
-    ///
-    /// Must set a stack size when dynamic stack extension is disabled.
-    ///
-    /// When dynamic stack extension is enabled, an upcoming stacklet overflow
-    /// will be resolved by dynamically allocating a new stacklet. When dynamic
-    /// extension is disabled, a stack overflow will cause a forceful unwinding
-    /// to the task.
-    pub fn set_stack_size(mut self, size: usize) -> Self {
-        self.init_stklet_size = size;
+    /// Set the size limit of the stack in bytes. If the task exceeds the
+    /// limit, it will be terminated with its stack forcefully unwound to
+    /// reclaim resources. The task will be restarted if restartable.
+    pub fn set_stack_limit(mut self, limit: usize) -> Self {
+        self.stack_limit = Some(limit);
         self
     }
 
-    /// Disable dynamic stack extension for the task. A stack overflow will
-    /// cause a forceful unwinding to the task.
+    /// Set the size of the first stacklet in bytes. Only meaningful when
+    /// dynamic stack extension is enabled. The setting is ignored when dynamic
+    /// stack extension is disabled.
+    pub fn set_stack_init_size(mut self, size: usize) -> Self {
+        self.stack_init_size = Some(size);
+        self
+    }
+
+    /// Disable dynamic stack extension for the task.
     ///
-    /// When dynamic stack extension is disabled, must set a stack size through
-    /// [`set_stack_size`](Self::set_stack_size).
+    /// When dynamic stack extension is disabled, must set a stack size limit
+    /// through [`set_stack_limit`](Self::set_stack_limit). The stack will be
+    /// allocated as a contiguous memory chunk when the task is spawned.
+    ///
+    /// By default dynamic stack extension is enabled, in which case the stack
+    /// is allocated on demand in small memory chunks not contiguous with each
+    /// other, called stacklet. The stacklets will be freed when function call
+    /// returns.
     pub fn disable_dynamic_stack(mut self) -> Self {
-        self.is_dynamic_stack = false;
+        self.stack_is_dynamic = false;
         self
     }
 
@@ -112,29 +121,43 @@ where
     /// Start the task. A spawned task is always detached. If a panic occurs
     /// while running the task, the task's stack will be unwound.
     pub fn spawn(self) -> Result<(), TaskBuildError> {
+        let stack_config = self.parse_stack_config()?;
+
         let entry_closure = self.entry_closure.ok_or(TaskBuildError::NoEntry)?;
         let id = self.id.unwrap_or(config::DEFAULT_TASK_ID);
         let prio = self.priority.unwrap_or(config::DEFAULT_TASK_PRIORITY);
-
-        if self.init_stklet_size == 0 && !self.is_dynamic_stack {
-            return Err(TaskBuildError::NoStack);
-        }
 
         // Get a quota from the scheduler to ensure that the maximum number of
         // tasks has not been reached yet.
         let quota = Scheduler::request_task_quota().map_err(|_| TaskBuildError::NoMoreTask)?;
 
-        let new_task = Task::build(
-            quota,
-            id,
-            entry_closure,
-            self.init_stklet_size,
-            self.is_dynamic_stack,
-            prio,
-        )?;
+        let new_task = Task::build(quota, id, entry_closure, stack_config, prio)?;
         Scheduler::accept_task(Arc::new(new_task));
 
         Ok(())
+    }
+
+    /// Check the configuration of the stack and generate a [`StackConfig`]
+    /// instance representing a valid configuration.
+    fn parse_stack_config(&self) -> Result<StackConfig, TaskBuildError> {
+        if self.stack_is_dynamic {
+            let initial = match self.stack_init_size {
+                Some(initial) => NonZeroUsize::new(initial),
+                None => None,
+            };
+            let limit = match self.stack_limit {
+                Some(limit) => NonZeroUsize::new(limit),
+                None => None,
+            };
+            Ok(StackConfig::Dynamic { initial, limit })
+        } else {
+            let limit = match self.stack_limit {
+                Some(0) => return Err(TaskBuildError::NoStack),
+                Some(limit) => NonZeroUsize::new(limit).unwrap_or_die(),
+                None => return Err(TaskBuildError::NoStack),
+            };
+            Ok(StackConfig::Static { limit })
+        }
     }
 }
 
@@ -147,26 +170,17 @@ where
     /// instance will be automatically created.
     #[cfg(feature = "unwind")]
     pub fn spawn_restartable(self) -> Result<(), TaskBuildError> {
+        let stack_config = self.parse_stack_config()?;
+
         let entry_closure = self.entry_closure.ok_or(TaskBuildError::NoEntry)?;
         let id = self.id.unwrap_or(config::DEFAULT_TASK_ID);
         let prio = self.priority.unwrap_or(config::DEFAULT_TASK_PRIORITY);
-
-        if self.init_stklet_size == 0 && !self.is_dynamic_stack {
-            return Err(TaskBuildError::NoStack);
-        }
 
         // Get a quota from the scheduler to ensure that the maximum number of
         // tasks has not been reached yet.
         let quota = Scheduler::request_task_quota().map_err(|_| TaskBuildError::NoMoreTask)?;
 
-        let new_task = Task::build_restartable(
-            quota,
-            id,
-            entry_closure,
-            self.init_stklet_size,
-            self.is_dynamic_stack,
-            prio,
-        )?;
+        let new_task = Task::build_restartable(quota, id, entry_closure, stack_config, prio)?;
         Scheduler::accept_task(Arc::new(new_task));
 
         Ok(())
