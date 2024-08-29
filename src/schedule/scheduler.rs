@@ -207,9 +207,19 @@ impl Scheduler {
                         // queue and will later use `current::set_cur_task` to overwrite
                         // the current task reference maintained by the `current` module.
                         TaskState::Blocked | TaskState::Destructing => {}
-                        // The current task should never be in the `Ready` or
-                        // `Initializing` state.
-                        TaskState::Ready | TaskState::Initializing => unrecoverable::die(),
+                        // The current task can be set into the `Ready` state under a
+                        // rare circumstance: The task was first set to `Blocked` state
+                        // and was pushed to a sleeping or waiting queue. But before the
+                        // task was removed from the CPU, i.e. while the task still the
+                        // current task, i.e. the scheduler has not been invoked yet, the
+                        // task was woken up. During the wake up procedure, the task's
+                        // `Arc` will be moved from the sleeping or waiting queue to the
+                        // scheduler's ready queue and the task's state will be set to
+                        // `Ready`. Since the task already has a copy of its `Arc` in the
+                        // ready queue, we do nothing here.
+                        TaskState::Ready => {}
+                        // The current task should never be in the `Initializing` state.
+                        TaskState::Initializing => unrecoverable::die(),
                     }
                 });
 
