@@ -52,9 +52,13 @@ fn test_task() {
 
     if cnt > 0 {
         dbg_println!("Task successfully restarted after a deferred forced unwinding.");
-        semihosting::terminate(true);
+        // semihosting::terminate(true);
+        dbg_println!("test complete!");
+        loop {}
     } else {
-        semihosting::terminate(false);
+        // semihosting::terminate(false);
+        dbg_println!("test complete!");
+        loop {}
     }
 }
 

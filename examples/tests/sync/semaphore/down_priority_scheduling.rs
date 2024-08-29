@@ -40,7 +40,9 @@ fn main(_: cortex_m::Peripherals) {
         SEMAPHORE.up();
     }
 
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn high_task() {

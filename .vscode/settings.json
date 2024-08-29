@@ -4,7 +4,7 @@
     "cSpell.words": [
         "Kalman",
         "presults",
-        "setpoint"
+        "setpoint",
     ],
     "rust-analyzer.linkedProjects": [
         "./Cargo.toml"

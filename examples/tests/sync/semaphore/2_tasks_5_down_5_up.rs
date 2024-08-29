@@ -16,7 +16,9 @@ fn main(_: cortex_m::Peripherals) {
 
     task::change_current_priority(10).unwrap();
 
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 static SEMAPHORE: Semaphore = Semaphore::new(3, 3);

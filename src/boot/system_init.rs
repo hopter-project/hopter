@@ -57,7 +57,18 @@ fn enable_systick(cp: &mut cortex_m::Peripherals) {
 
     // Assume that the clock is 168 MHz. Trigger an interrupt for every 1
     // millisecond.
-    cp.SYST.set_reload(168_000);
+    // STM32F401 clock 84 MHz, so the reload value is 84_000.
+    // STM32F405 clock 168 MHz, so the reload value is 168_000.
+    // STM32F407 clock 168 MHz, so the reload value is 168_000.
+    // STM32F410 clock 100 MHz, so the reload value is 100_000.
+    // STM32F411 clock 100 MHz, so the reload value is 100_000.
+    // STM32F412 clock 100 MHz, so the reload value is 100_000.
+    // STM32F413 clock 100 MHz, so the reload value is 100_000.
+    // STM32F427 clock 180 MHz, so the reload value is 180_000.
+    // STM32F429 clock 180 MHz, so the reload value is 180_000.
+    // STM32F446 clock 180 MHz, so the reload value is 180_000.
+    // STM32F469 clock 180 MHz, so the reload value is 180_000.
+    cp.SYST.set_reload(100_000);
     cp.SYST.clear_current();
     cp.SYST.enable_counter();
 

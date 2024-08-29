@@ -72,10 +72,14 @@ fn main(_: cortex_m::Peripherals) {
     // Check if the produced results match the expected sequence
     if results != compare_vec {
         dbg_println!("Test Failed");
-        semihosting::terminate(false);
+        // semihosting::terminate(false);
+        dbg_println!("test complete!");
+        loop {}
     }
     dbg_println!("Test Passed");
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn fill_channel(producer: &mut Producer<usize, 16>, task_num: usize) {

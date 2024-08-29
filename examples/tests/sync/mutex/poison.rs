@@ -20,10 +20,14 @@ fn main(_: cortex_m::Peripherals) {
     task::change_current_priority(config::UNWIND_PRIORITY + 1).unwrap();
     if MTX.is_poisoned() {
         dbg_println!("Test Passed");
-        semihosting::terminate(true);
+        // semihosting::terminate(true);
+        dbg_println!("test complete!");
+        loop {}
     } else {
         dbg_println!("Test Failed");
-        semihosting::terminate(false);
+        // semihosting::terminate(false);
+        dbg_println!("test complete!");
+        loop {}
     }
 }
 

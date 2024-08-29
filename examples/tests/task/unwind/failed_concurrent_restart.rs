@@ -41,7 +41,9 @@ fn main(_: cortex_m::Peripherals) {
     // Let the test task run.
     task::change_current_priority(config::UNWIND_PRIORITY + 1).unwrap();
 
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn will_panic() {

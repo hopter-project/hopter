@@ -3,3 +3,6 @@
 .DS_Store
 
 /hopter-conf-params
+
+openocd.cfg
+openocd.gdb

@@ -196,10 +196,14 @@ extern "C" fn compare_fp_regs() {
 
 extern "C" fn error() -> ! {
     dbg_println!("Test Failed");
-    semihosting::terminate(false);
+    // semihosting::terminate(false);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 extern "C" fn success() -> ! {
     dbg_println!("Test Succeeded");
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
