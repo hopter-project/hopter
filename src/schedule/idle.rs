@@ -32,6 +32,6 @@ pub(super) unsafe extern "C" fn idle_task() -> ! {
 
     // If nothing to do, enter low power state.
     loop {
-        cortex_m::asm::wfe();
+        // cortex_m::asm::wfe();
     }
 }
