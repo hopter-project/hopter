@@ -9,7 +9,7 @@ pub fn yield_current() {
 /// Change the priority of the currently running task. Return `Ok(())` if the
 /// priority is successfully changed. Return `Err(())` if the given new
 /// priority is not allowed by the configuration settings.
-/// 
+///
 /// If successful, the new priority will have taken effect when the function
 /// returns. If the priority is reduced, any ready task that becomes having a
 /// higher priority than the current task will have preempted the current task.

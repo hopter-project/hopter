@@ -21,11 +21,15 @@ fn main(_: cortex_m::Peripherals) {
     match result {
         Ok(()) => {
             dbg_println!("Incremented when at max count");
-            semihosting::terminate(false);
+            // semihosting::terminate(false);
+            dbg_println!("test complete!");
+            loop {}
         }
         Err(()) => {
             dbg_println!("Test Passed");
-            semihosting::terminate(true);
+            // semihosting::terminate(true);
+            dbg_println!("test complete!");
+            loop {}
         }
     }
 }

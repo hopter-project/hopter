@@ -21,7 +21,9 @@ fn acquire() {
     dbg_println!("attempting to acquire semaphore..");
     SEMAPHORE.down();
     dbg_println!("semaphore acquired");
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn release() {

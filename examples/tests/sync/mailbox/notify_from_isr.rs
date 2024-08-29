@@ -42,7 +42,11 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
-    let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
+    // let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
+    #[cfg(feature = "stm32f411")]
+    let clocks = rcc.cfgr.sysclk(180.MHz()).pclk1(90.MHz()).freeze();
+    #[cfg(feature = "stm32f407")]
+    let clocks = rcc.cfgr.sysclk(168.MHz()).pclk1(84.MHz()).freeze();
 
     let mut timer = dp.TIM2.counter(&clocks);
 
@@ -57,7 +61,8 @@ fn main(_cp: cortex_m::Peripherals) {
     // Set the timer to expire every 1 second.
     // Empirically when set to 62 seconds the interval is actually
     // approximately 1 second. Weird QEMU.
-    timer.start(62.secs()).unwrap();
+    // timer.start(62.secs()).unwrap();
+    timer.start(1.secs()).unwrap();
 
     // Move the timer into the global storage to prevent it from being dropped.
     *TIMER.lock() = Some(timer);
@@ -69,7 +74,9 @@ fn listener_function() {
         MAILBOX.wait();
         dbg_println!("Recieved");
     }
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    semihosting::dbg_println!("test complete!");
+    loop {}
 }
 
 /// Get invoked approximately every 1 second.
@@ -85,6 +92,8 @@ extern "C" fn tim2_handler() {
     // If `prev_cnt`` is greater than 2, the program is stuck and should be
     // terminated.
     if prev_cnt > 2 {
-        semihosting::terminate(false);
+        // semihosting::terminate(false);
+        semihosting::dbg_println!("test complete!");
+        loop {}
     }
 }

@@ -20,7 +20,9 @@ fn main(_: cortex_m::Peripherals) {
     task::build().set_entry(task4).spawn().unwrap();
 
     task::change_current_priority(10).unwrap();
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn task1() {

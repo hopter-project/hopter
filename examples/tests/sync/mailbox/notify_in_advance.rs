@@ -24,5 +24,7 @@ fn main(_: cortex_m::Peripherals) {
         dbg_println!("received");
     }
 
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }

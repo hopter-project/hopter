@@ -54,7 +54,9 @@ fn low_task() {
 
     dbg_println!("Low priority task finished last");
 
-    semihosting::terminate(true);
+    // semihosting::terminate(true);
+    dbg_println!("test complete!");
+    loop {}
 }
 
 fn high_task() {
