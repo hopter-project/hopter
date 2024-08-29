@@ -114,6 +114,7 @@ fn tim2_handler() {
             Some(value) => {
                 dbg_println!("Consumed {}", value);
                 if COUNT.load(Ordering::SeqCst) > 5 {
+<<<<<<< HEAD
                     #[cfg(feature = "qemu")]
                     semihosting::terminate(true);
                     #[cfg(not(feature = "qemu"))]
@@ -121,12 +122,18 @@ fn tim2_handler() {
                         dbg_println!("test complete!");
                         loop {}
                     }
+=======
+                    // semihosting::terminate(false);
+                    dbg_println!("test complete!");
+                    loop {}
+>>>>>>> c84a45e (squash commit)
                 }
             }
             // The 6th consume attempt should be unsuccessful.
             None => {
                 dbg_println!("Failed to consume");
                 if COUNT.load(Ordering::SeqCst) == 6 {
+<<<<<<< HEAD
                     #[cfg(feature = "qemu")]
                     semihosting::terminate(true);
                     #[cfg(not(feature = "qemu"))]
@@ -143,10 +150,21 @@ fn tim2_handler() {
                     dbg_println!("test complete!");
                     loop {}
                 }
+=======
+                    // semihosting::terminate(true);
+                    dbg_println!("test complete!");
+                    loop {}
+                }
+                dbg_println!("Unexpectedly succeed to consume");
+                // semihosting::terminate(false);
+                dbg_println!("test complete!");
+                loop {}
+>>>>>>> c84a45e (squash commit)
             }
         }
     } else {
         dbg_println!("Consumer not initialized!");
+<<<<<<< HEAD
         #[cfg(feature = "qemu")]
         semihosting::terminate(true);
         #[cfg(not(feature = "qemu"))]
@@ -154,5 +172,10 @@ fn tim2_handler() {
             dbg_println!("test complete!");
             loop {}
         }
+=======
+        // semihosting::terminate(false);
+        dbg_println!("test complete!");
+        loop {}
+>>>>>>> c84a45e (squash commit)
     }
 }

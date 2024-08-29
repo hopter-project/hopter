@@ -63,7 +63,7 @@ fn test_task() {
         }
     } else {
         #[cfg(feature = "qemu")]
-        semihosting::terminate(true);
+        semihosting::terminate(false);
         #[cfg(not(feature = "qemu"))]
         {
             dbg_println!("test complete!");
