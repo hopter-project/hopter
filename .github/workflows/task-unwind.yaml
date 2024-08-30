@@ -1,0 +1,81 @@
+name: Run Tests for Task Unwinding
+
+on:
+  workflow_call:
+    secrets:
+      cookie:
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  diverted:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test diverted
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: task
+          sub-category: unwind
+          test-name: diverted
+
+  deferred_direct_drop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test deferred_direct_drop
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: task
+          sub-category: unwind
+          test-name: deferred_direct_drop
+
+  deferred_indirect_drop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test deferred_indirect_drop
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: task
+          sub-category: unwind
+          test-name: deferred_indirect_drop
+
+  deferred_nested_drop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test deferred_nested_drop
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: task
+          sub-category: unwind
+          test-name: deferred_nested_drop
+
+  concurrent_restart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test concurrent_restart
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: task
+          sub-category: unwind
+          test-name: concurrent_restart

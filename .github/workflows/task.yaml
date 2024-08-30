@@ -1,0 +1,31 @@
+name: Run Tests for Task
+
+on:
+  workflow_call:
+    secrets:
+      cookie:
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  priority:
+    uses: ./.github/workflows/priority.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
+
+  unwind:
+    uses: ./.github/workflows/task-unwind.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
+
+  segmented_stack:
+    uses: ./.github/workflows/segmented_stack.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
+
+  context_switch:
+    uses: ./.github/workflows/context_switch.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}

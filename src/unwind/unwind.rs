@@ -37,17 +37,18 @@ use super::{
     },
 };
 use crate::{
-    // boot,
+
     config,
     interrupt::{
         svc,
+        svc_handler::SVCNum,
         trap_frame::{self, TrapFrame},
-        SVCNum,
     },
     schedule,
     task,
     // time::sleep_ms,
     uart::{G_UART_SESSION, TIMEOUT_MS},
+    schedule::current,
     unrecoverable::{self, Lethal},
 };
 use alloc::{boxed::Box, vec};
@@ -59,6 +60,7 @@ use core::{
     mem::MaybeUninit,
     ops::{Index, IndexMut},
     panic::PanicInfo,
+    slice,
     sync::atomic::{AtomicBool, Ordering},
 };
 use cortex_m_semihosting::hprintln;
@@ -330,7 +332,7 @@ impl ARMGPReg {
             13 => Self::SP,
             14 => Self::LR,
             15 => Self::PC,
-            _ => loop {},
+            _ => unrecoverable::die(),
         }
     }
 
@@ -391,7 +393,7 @@ impl ARMDPFPReg {
             13 => Self::D13,
             14 => Self::D14,
             15 => Self::D15,
-            _ => loop {},
+            _ => unrecoverable::die(),
         }
     }
 }
@@ -485,26 +487,24 @@ impl<'a> Debug for UnwindState<'a> {
 
 #[inline(never)]
 fn try_concurrent_restart() {
-    let res = schedule::with_current_task_arc(|cur_task| {
+    current::with_current_task_arc(|cur_task| {
         // We will limit the concurrent restart rate to at most one concurrent
         // instance. If this task is a restarted instance, and also if the original
         // instance has not finished unwinding, i.e. the task struct reference
         // count is positive, we will not do concurrent restart.
         if let Some(restarted_from) = cur_task.get_restart_origin_task() {
             if restarted_from.strong_count() != 0 {
-                return Ok(());
+                return;
             }
         }
 
-        // Otherwise, we concurrent restart the task.
-        schedule::restart_from_task(cur_task)
-    });
-
-    // Concurrent restart failed.
-    // FIXME: in this case, we should try normal restart instead of giving up.
-    if res.is_err() {
-        cortex_m::interrupt::free(|_| loop {});
-    }
+        // Otherwise, we try to concurrently restart the panicked task. It is
+        // fine if we are not able to start a new instance running concurrently,
+        // probably because the maximum number of tasks has been reached. In
+        // this case the restarted instance will reuse the current task struct
+        // and will run only after the unwinding finishes.
+        let _ = task::try_spawn_restarted(cur_task);
+    })
 }
 
 impl UnwindState<'static> {
@@ -513,7 +513,7 @@ impl UnwindState<'static> {
     /// must be manually initialized.
     fn allocate_uninit() -> *mut MaybeUninit<Self> {
         // If we panic inside an ISR, we should use the static storage.
-        if schedule::is_running_in_isr() {
+        if current::is_in_isr_context() {
             // Mark the reserved static storage as being in-use.
             let res = STATIC_UNWIND_STATE_IN_USE.compare_exchange(
                 false,
@@ -524,7 +524,7 @@ impl UnwindState<'static> {
 
             // If the reserved static storage is already in-use, we halt here.
             if res.is_err() {
-                loop {}
+                unrecoverable::die();
             }
 
             unsafe { &mut STATIC_UNWIND_STATE as *mut _ }
@@ -556,7 +556,7 @@ impl UnwindState<'static> {
     extern "C" fn create_unwind_state(init_ctxt: &UnwindInitContext) -> *mut Self {
         // If we have a double panic in the same task or ISR, halt.
         if is_unwinding() {
-            loop {}
+            unrecoverable::die();
         }
 
         // Mark that we are now unwinding.
@@ -598,9 +598,24 @@ impl UnwindState<'static> {
         let unw_state_ptr: *mut UnwindState = uninit_unw_state_ptr.cast();
         let unw_state = unsafe { &mut *unw_state_ptr };
 
-        // Try concurrent restart if we panic in a task but not in an ISR.
-        if !schedule::is_running_in_isr() {
-            try_concurrent_restart();
+        // If panic occured in an ISR context, then the panic has nothing to do
+        // with the current task. There was something wrong with the IRQ
+        // handler but do not touch the task.
+        if !current::is_in_isr_context() {
+            current::with_current_task(|cur_task| {
+                if cur_task.is_restartable() {
+                    try_concurrent_restart();
+                }
+
+                // Reduce the priority of the previously panicked task, so that
+                // the unwinding procedure of the panicked task uses only
+                // otherwise idle CPU time.
+                cur_task.change_intrinsic_priority(config::UNWIND_PRIORITY);
+            });
+
+            // Let the scheduler re-schedule so the above priority reduction
+            // will take effect.
+            svc::svc_yield_current_task();
         }
 
         // Continue to initialize register states to what they are just before the
@@ -636,6 +651,8 @@ impl UnwindState<'static> {
         // let extab = boot::get_extab();
         let exidx: &[u8; 8] = &[0; 8];
         let extab: &[u8] = &[0; 0];
+//         let exidx = get_exidx();
+//         let extab = get_extab();
         unw_state
             .unw_ability
             .get_for_pc(unw_state.gp_regs[ARMGPReg::PC] as u32, exidx, extab)
@@ -796,6 +813,11 @@ impl<'a> UnwindState<'a> {
             // Update the stacklet boundary to that of the previous stacklet.
             self.stklet_boundary = stklet_meta.prev_stklet_bound as u32;
 
+            // Update the stack usage.
+            current::with_current_task(|cur_task| {
+                cur_task.with_stack_ctrl_block(|scb| scb.cumulated_size -= stklet_meta.count_size)
+            });
+
             // Free the stacklet we have finished unwinding.
             // Layout is not used in the current dealloc implementation.
             // Safety: The function leads to a panic, so it did not return,
@@ -820,6 +842,8 @@ impl<'a> UnwindState<'a> {
         // let extab = boot::get_extab();
         let exidx: &[u8; 8] = &[0; 8];
         let extab: &[u8] = &[0; 0];
+//         let exidx = get_exidx();
+//         let extab = get_extab();
         self.unw_ability
             .get_for_pc(self.gp_regs[ARMGPReg::PC] as u32, exidx, extab)?;
 
@@ -926,7 +950,7 @@ pub extern "C" fn start_unwind_entry() {
             // after the following SVC.
             "mov    r0, lr",                // Copy `lr` to `r0`.
             "mov    r1, sp",                // Copy `sp` to `r1`.
-            "ldr    r2, ={stkbnd_mem_addr}",// Let `r2` hold the stacklet boundary of the
+            "ldr    r2, ={tls_mem_addr}",   // Let `r2` hold the stacklet boundary of the
             "ldr    r2, [r2]",              // task before the unwinder in invoked.
 
             // If we are in an ISR, skip the following SVC, because we need not a new
@@ -943,7 +967,7 @@ pub extern "C" fn start_unwind_entry() {
 
             // Prepare arguments in the stack.
             "0:",
-            "ldr    r3, ={stkbnd_mem_addr}",// The execution starts here after the
+            "ldr    r3, ={tls_mem_addr}",   // The execution starts here after the
             "ldr    r3, [r3]",              // system call is completed. We save the
                                             // boundary of the unwinder's stacklet
                                             // into `r3`.
@@ -994,7 +1018,7 @@ pub extern "C" fn start_unwind_entry() {
             "bx     r1",                    // Jump to the landing address.
             create_unwind_state = sym UnwindState::create_unwind_state,
             resume_unwind = sym resume_unwind,
-            stkbnd_mem_addr = const config::STACKLET_BOUNDARY_MEM_ADDR,
+            tls_mem_addr = const config::TLS_MEM_ADDR,
             task_unwind_prep = const(SVCNum::TaskUnwindPrepare as u8),
             task_unwind_land = const(SVCNum::TaskUnwindLand as u8),
             options(noreturn)
@@ -1026,15 +1050,15 @@ pub fn is_isr_unwinding() -> bool {
 }
 
 pub fn set_cur_task_unwinding(val: bool) {
-    schedule::with_current_task(|cur_task| cur_task.set_unwind_flag(val));
+    current::with_current_task(|cur_task| cur_task.set_unwind_flag(val));
 }
 
 pub fn is_cur_task_unwinding() -> bool {
-    schedule::with_current_task(|cur_task| cur_task.is_unwinding())
+    current::with_current_task(|cur_task| cur_task.is_unwinding())
 }
 
 pub fn is_unwinding() -> bool {
-    if schedule::is_running_in_isr() {
+    if current::is_in_isr_context() {
         is_isr_unwinding()
     } else {
         is_cur_task_unwinding()
@@ -1042,7 +1066,7 @@ pub fn is_unwinding() -> bool {
 }
 
 pub fn set_unwinding(val: bool) {
-    if schedule::is_running_in_isr() {
+    if current::is_in_isr_context() {
         set_isr_unwinding(val)
     } else {
         set_cur_task_unwinding(val)
@@ -1143,7 +1167,7 @@ unsafe extern "C" fn resume_unwind<'a>(
     // When preeption is enabled, the unwinder will not be chosen to run unless
     // no other priority task is ready.
     if !config::ALLOW_TASK_PREEMPTION {
-        if !schedule::is_running_in_isr() {
+        if !current::is_in_isr_context() {
             svc::svc_yield_current_task();
         }
     }
@@ -1229,7 +1253,61 @@ unsafe extern "C" fn _Unwind_Resume(unw_state_ptr: *mut UnwindState) -> ! {
 #[panic_handler]
 unsafe fn panic(_info: &PanicInfo) -> ! {
     start_unwind_entry();
-    loop {}
+
+    // Should not reach here.
+    unrecoverable::die()
+}
+
+/// Return the `.ARM.exidx` section as a static byte slice.
+fn get_exidx() -> &'static [u8] {
+    extern "C" {
+        // These symbols come from `link.ld`
+        static __sarm_exidx: u32;
+        static __earm_exidx: u32;
+    }
+
+    let start: *const u8;
+    let end: *const u8;
+
+    unsafe {
+        asm!(
+            "ldr {start}, ={sexidx}",
+            "ldr {end}, ={eexidx}",
+            start = out(reg) start,
+            end = out(reg) end,
+            sexidx = sym __sarm_exidx,
+            eexidx = sym __earm_exidx,
+        );
+
+        let len = end.byte_offset_from(start) as usize;
+        slice::from_raw_parts(start, len)
+    }
+}
+
+/// Return the `.ARM.extab` section as a static byte slice.
+fn get_extab() -> &'static [u8] {
+    extern "C" {
+        // These symbols come from `link.ld`
+        static __sarm_extab: u32;
+        static __earm_extab: u32;
+    }
+
+    let start: *const u8;
+    let end: *const u8;
+
+    unsafe {
+        asm!(
+            "ldr {start}, ={sextab}",
+            "ldr {end}, ={eextab}",
+            start = out(reg) start,
+            end = out(reg) end,
+            sextab = sym __sarm_extab,
+            eextab = sym __earm_extab,
+        );
+
+        let len = end.byte_offset_from(start) as usize;
+        slice::from_raw_parts(start, len)
+    }
 }
 
 /* Below are unused personality routines. They are marked unsafe because */

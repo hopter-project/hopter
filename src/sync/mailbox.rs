@@ -1,5 +1,10 @@
-use super::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin};
-use crate::{interrupt::svc, schedule, task::Task, time, unrecoverable};
+use super::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin};
+use crate::{
+    interrupt::svc,
+    schedule::current,
+    task::{Task, TaskState},
+    time, unrecoverable,
+};
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -23,7 +28,7 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 /// and returns immediately. A task blocks on [`wait`](Mailbox::wait) only when
 /// the notification counter is zero.
 pub struct Mailbox {
-    inner: RefCellSchedSafe<Interruptable<Inner>>,
+    inner: RefCellSchedSafe<SoftLock<Inner>>,
 }
 
 struct Inner {
@@ -120,7 +125,7 @@ impl Mailbox {
     /// zero.
     pub const fn new() -> Self {
         Self {
-            inner: RefCellSchedSafe::new(Interruptable::new(Inner::new())),
+            inner: RefCellSchedSafe::new(SoftLock::new(Inner::new())),
         }
     }
 
@@ -179,8 +184,8 @@ impl Mailbox {
             // Otherwise the task is going to be blocked. Reset the flag.
             full_access.task_notified.store(false, Ordering::SeqCst);
 
-            schedule::with_current_task_arc(|cur_task| {
-                schedule::set_task_state_block(&cur_task);
+            current::with_current_task_arc(|cur_task| {
+                cur_task.set_state(TaskState::Blocked);
 
                 // Record the waiting task on this mailbox.
                 *locked_wait_task = Some(Arc::clone(&cur_task));
@@ -194,7 +199,7 @@ impl Mailbox {
 
         if should_block {
             // If the task should block, request a context switch.
-            svc::svc_block_current_task();
+            svc::svc_yield_current_task();
 
             // We reach here if either the waiting task is notified or the
             // waiting time reaches timeout.

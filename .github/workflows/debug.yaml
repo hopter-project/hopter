@@ -1,0 +1,16 @@
+name: Run Tests for Debug
+
+on:
+  workflow_call:
+    secrets:
+      cookie:
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cpu_load:
+    uses: ./.github/workflows/cpu_load.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}

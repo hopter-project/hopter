@@ -14,3 +14,18 @@ jobs:
     uses: ./.github/workflows/sync.yaml
     secrets:
       cookie: ${{ secrets.cookie }}
+
+  task:
+    uses: ./.github/workflows/task.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
+
+  interrupt:
+    uses: ./.github/workflows/interrupt.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}
+
+  debug:
+    uses: ./.github/workflows/debug.yaml
+    secrets:
+      cookie: ${{ secrets.cookie }}

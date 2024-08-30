@@ -490,7 +490,7 @@ impl<'a> ExTabEntry {
         let raw_pers = extab[entry_offset + 3];
 
         // If the most significant bit is set, it is the compact model.
-        if (raw_pers & 0xf0) == 0xf0 {
+        if (raw_pers & 0x80) == 0x80 {
             // Personality selector. Currently only 0, 1, 2 are defined. Others
             // are reserved.
             let pers_sel = raw_pers & 0x0f;

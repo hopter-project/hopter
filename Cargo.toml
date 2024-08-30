@@ -1,6 +1,6 @@
 [package]
 name = "hopter"
-version = "0.1.8"
+version = "0.1.10"
 edition = "2021"
 crate-type = ["staticlib"]
 
@@ -20,15 +20,16 @@ crc32fast = { version = "1.4.2", default-features = false }
 hadusos = "0.2.1"
 serde = { version = "1.0.204", default-features = false, features = ["derive"] }
 postcard = "1.0.8"
+paste = "1.0"
 
 
 [dependencies.hopter_proc_macro]
 git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git"
-tag = "v0.1.3"
+tag = "v0.1.4"
 
 [dependencies.hopter_conf_params]
 git = "https://github.com/ZhiyaoMa98/hopter-conf-params.git"
-tag = "v0.1.2"
+tag = "v0.1.7"
 
 [dependencies.cortex-m]
 version = "0.7"
@@ -65,6 +66,8 @@ branch = "dependency"
 default-features = false
 features = ["stm32f405"]
 
+# *** Tests for sync - mailbox ***
+
 [[example]]
 name = "test-sync-mailbox-notify_by_task"
 path = "examples/tests/sync/mailbox/notify_by_task.rs"
@@ -85,5 +88,185 @@ path = "examples/tests/sync/mailbox/task_not_timeout.rs"
 name = "test-sync-mailbox-notify_in_advance_after_timeout"
 path = "examples/tests/sync/mailbox/notify_in_advance_after_timeout.rs"
 
-[profile.release]
-lto = "off"
+
+[[example]]
+name = "test-sync-mailbox-notify_from_isr"
+path = "examples/tests/sync/mailbox/notify_from_isr.rs"
+
+# *** Tests for sync - semaphore ***
+
+[[example]]
+name = "test-sync-semaphore-down_0_then_try_down"
+path = "examples/tests/sync/semaphore/down_0_then_try_down.rs"
+
+[[example]]
+name = "test-sync-semaphore-up_max_then_try_up"
+path = "examples/tests/sync/semaphore/up_max_then_try_up.rs"
+
+[[example]]
+name = "test-sync-semaphore-init_0_blocking_down"
+path = "examples/tests/sync/semaphore/init_0_blocking_down.rs"
+
+[[example]]
+name = "test-sync-semaphore-4_tasks_down_contend_init_3"
+path = "examples/tests/sync/semaphore/4_tasks_down_contend_init_3.rs"
+
+[[example]]
+name = "test-sync-semaphore-try_up_ok_then_err"
+path = "examples/tests/sync/semaphore/try_up_ok_then_err.rs"
+
+[[example]]
+name = "test-sync-semaphore-try_down_ok_then_err"
+path = "examples/tests/sync/semaphore/try_down_ok_then_err.rs"
+
+[[example]]
+name = "test-sync-semaphore-2_tasks_5_down_5_up"
+path = "examples/tests/sync/semaphore/2_tasks_5_down_5_up.rs"
+
+[[example]]
+name = "test-sync-semaphore-10_tasks_100_up_down"
+path = "examples/tests/sync/semaphore/10_tasks_100_up_down.rs"
+
+[[example]]
+name = "test-sync-semaphore-initialization"
+path = "examples/tests/sync/semaphore/initialization.rs"
+
+[[example]]
+name = "test-sync-semaphore-down_priority_scheduling"
+path = "examples/tests/sync/semaphore/down_priority_scheduling.rs"
+
+[[example]]
+name = "test-sync-semaphore-up_priority_scheduling"
+path = "examples/tests/sync/semaphore/up_priority_scheduling.rs"
+
+[[example]]
+name = "test-sync-semaphore-try_up_from_isr"
+path = "examples/tests/sync/semaphore/try_up_from_isr.rs"
+
+[[example]]
+name = "test-sync-semaphore-try_down_from_isr"
+path = "examples/tests/sync/semaphore/try_down_from_isr.rs"
+
+# *** Tests for sync - mutex ***
+
+[[example]]
+name = "test-sync-mutex-basic"
+path = "examples/tests/sync/mutex/basic.rs"
+
+[[example]]
+name = "test-sync-mutex-stress"
+path = "examples/tests/sync/mutex/stress.rs"
+
+[[example]]
+name = "test-sync-mutex-priority"
+path = "examples/tests/sync/mutex/priority.rs"
+
+[[example]]
+name = "test-sync-mutex-poison"
+path = "examples/tests/sync/mutex/poison.rs"
+
+[[example]]
+name = "test-sync-mutex-priority_inversion"
+path = "examples/tests/sync/mutex/priority_inversion.rs"
+
+# *** Tests for sync - channel ***
+
+[[example]]
+name = "test-sync-channel-try_produce_from_task"
+path = "examples/tests/sync/channel/try_produce_from_task.rs"
+
+[[example]]
+name = "test-sync-channel-try_consume_from_task"
+path = "examples/tests/sync/channel/try_consume_from_task.rs"
+
+[[example]]
+name = "test-sync-channel-multiple_producers"
+path = "examples/tests/sync/channel/multiple_producers.rs"
+
+[[example]]
+name = "test-sync-channel-concurrency_and_stress"
+path = "examples/tests/sync/channel/concurrency_and_stress.rs"
+
+[[example]]
+name = "test-sync-channel-multiple_consumers"
+path = "examples/tests/sync/channel/multiple_consumers.rs"
+
+[[example]]
+name = "test-sync-channel-produce_consume_single_task"
+path = "examples/tests/sync/channel/produce_consume_single_task.rs"
+
+[[example]]
+name = "test-sync-channel-try_consume_from_isr"
+path = "examples/tests/sync/channel/try_consume_from_isr.rs"
+
+[[example]]
+name = "test-sync-channel-try_produce_from_isr"
+path = "examples/tests/sync/channel/try_produce_from_isr.rs"
+
+# *** Tests for task - priority ***
+
+[[example]]
+name = "test-task-priority-reduce_priority"
+path = "examples/tests/task/priority/reduce_priority.rs"
+
+[[example]]
+name = "test-task-priority-unwind_priority"
+path = "examples/tests/task/priority/unwind_priority.rs"
+
+# *** Tests for task - unwind ***
+
+[[example]]
+name = "test-task-unwind-diverted"
+path = "examples/tests/task/unwind/diverted.rs"
+
+[[example]]
+name = "test-task-unwind-deferred_direct_drop"
+path = "examples/tests/task/unwind/deferred_direct_drop.rs"
+
+[[example]]
+name = "test-task-unwind-deferred_indirect_drop"
+path = "examples/tests/task/unwind/deferred_indirect_drop.rs"
+
+[[example]]
+name = "test-task-unwind-deferred_nested_drop"
+path = "examples/tests/task/unwind/deferred_nested_drop.rs"
+
+[[example]]
+name = "test-task-unwind-concurrent_restart"
+path = "examples/tests/task/unwind/concurrent_restart.rs"
+
+[[example]]
+name = "test-task-unwind-failed_concurrent_restart"
+path = "examples/tests/task/unwind/failed_concurrent_restart.rs"
+
+# *** Tests for task - segmented stack ***
+
+[[example]]
+name = "test-task-segmented_stack-function_arguments"
+path = "examples/tests/task/segmented_stack/function_arguments.rs"
+
+[[example]]
+name = "test-task-segmented_stack-return_values"
+path = "examples/tests/task/segmented_stack/return_values.rs"
+
+# *** Tests for task - context switch ***
+
+[[example]]
+name = "test-task-context_switch-gp_registers"
+path = "examples/tests/task/context_switch/gp_registers.rs"
+
+[[example]]
+name = "test-task-context_switch-fp_registers"
+path = "examples/tests/task/context_switch/fp_registers.rs"
+
+# *** Tests for interrupt - unwind ***
+
+[[example]]
+name = "test-interrupt-unwind-simple"
+path = "examples/tests/interrupt/unwind/simple.rs"
+
+# *** Tests for debug - cpu load ***
+
+[[example]]
+name = "test-debug-cpu_load-load_40_percent"
+path = "examples/tests/debug/cpu_load/load_40_percent.rs"

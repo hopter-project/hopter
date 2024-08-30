@@ -5,7 +5,11 @@
 #![no_main]
 
 extern crate alloc;
-use hopter::{boot::main, debug::semihosting, hprintln, sync::Mailbox};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Mailbox,
+    task::main,
+};
 
 static MAILBOX: Mailbox = Mailbox::new();
 
@@ -17,7 +21,7 @@ fn main(_: cortex_m::Peripherals) {
 
     for _ in 0..5 {
         MAILBOX.wait();
-        hprintln!("received");
+        dbg_println!("received");
     }
 
     semihosting::terminate(true);

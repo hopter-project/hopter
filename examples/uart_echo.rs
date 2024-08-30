@@ -5,7 +5,8 @@ extern crate alloc;
 use core::fmt::Write;
 
 use alloc::string::String;
-use hopter::{boot::main, debug::semihosting, hprintln};
+// use hopter::{boot::main, debug::semihosting, hprintln};
+use hopter::{debug::semihosting, task::main};
 use nb::block;
 use stm32f4xx_hal::{gpio::GpioExt, prelude::*, rcc::RccExt, serial::Serial, uart::Config};
 

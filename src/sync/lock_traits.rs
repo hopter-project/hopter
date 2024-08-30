@@ -18,7 +18,7 @@ pub trait Lockable {
 }
 
 /// A holdable condition. It may be masking an interrupt or suspending the scheduler.
-pub trait Holdable {
+pub(crate) trait Holdable {
     type GuardType;
 
     /// Hold a condition and return a guard. While the guard is active, the condition
@@ -55,4 +55,14 @@ where
         H1::force_unhold();
         H0::force_unhold();
     }
+}
+
+/// Used when no additional condition needs to be held.
+impl Holdable for () {
+    type GuardType = ();
+
+    fn hold() -> () {
+        ()
+    }
+    unsafe fn force_unhold() {}
 }

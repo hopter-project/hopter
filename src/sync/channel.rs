@@ -1,4 +1,5 @@
 use super::Semaphore;
+use crate::unrecoverable::Lethal;
 use alloc::sync::Arc;
 use heapless::mpmc::MpMcQueue;
 
@@ -40,7 +41,7 @@ impl<T, const N: usize> Channel<T, N> {
     /// Important: *must not* call this method in ISR context.
     fn push(&self, data: T) {
         self.sem_empty.down();
-        self.buffer.enqueue(data).ok().unwrap();
+        self.buffer.enqueue(data).ok().unwrap_or_die();
         self.sem_occupied.up();
     }
 
@@ -50,39 +51,41 @@ impl<T, const N: usize> Channel<T, N> {
     /// Important: *must not* call this method in ISR context.
     fn pop(&self) -> T {
         self.sem_occupied.down();
-        let data = self.buffer.dequeue().unwrap();
+        let data = self.buffer.dequeue().unwrap_or_die();
         self.sem_empty.up();
         data
     }
 
     /// Try to pop an element from the buffer. If there is no element, return
-    /// `None`. Otherwise, return the element in `Some`. Calling this method in
-    /// ISR context is allowed.
+    /// `None`. Otherwise, return the element in `Some`.
+    ///
+    /// Calling this method in ISR context is allowed.
     fn try_pop_allow_isr(&self) -> Option<T> {
         if self.sem_occupied.try_down_allow_isr().is_err() {
             return None;
         }
 
-        let data = self.buffer.dequeue().unwrap();
-        self.sem_empty.up();
+        let data = self.buffer.dequeue().unwrap_or_die();
+        self.sem_empty.try_up_allow_isr().unwrap_or_die();
 
         Some(data)
     }
 
     /// Push an element into the buffer. If the buffer is already full,
-    /// remove the front element, i.e., the oldest one, and return it
-    /// in `Some`. Otherwise, return `None`. Calling this method in ISR
-    /// context is allowed.
-    fn push_with_overflow_allow_isr(&self, data: T) -> Option<T> {
+    /// return the element with `Err`. Otherwise, push in the element and
+    /// return `Ok`.
+    ///
+    /// Calling this method in ISR context is allowed.
+    fn try_push_allow_isr(&self, data: T) -> Result<(), T> {
         // If there is empty space in the buffer, simply push it.
         if self.sem_empty.try_down_allow_isr().is_ok() {
-            self.buffer.enqueue(data).ok().unwrap();
-            let _ = self.sem_occupied.try_up_allow_isr();
-            return None;
+            self.buffer.enqueue(data).ok().unwrap_or_die();
+            self.sem_occupied.try_up_allow_isr().unwrap_or_die();
+            return Ok(());
         }
 
         // Otherwise, there is no empty space left in the buffer.
-        return Some(data);
+        return Err(data);
     }
 }
 
@@ -100,12 +103,13 @@ impl<T, const N: usize> Producer<T, N> {
         self.channel.push(data)
     }
 
-    /// Push an element into the corresponding channel. Return the oldest
-    /// element in the channel if the buffer is already full in `Some`.
-    /// Otherwise, return `None`. Calling this method in ISR context is
-    /// allowed.
-    pub fn produce_with_overflow_allow_isr(&self, data: T) -> Option<T> {
-        self.channel.push_with_overflow_allow_isr(data)
+    /// Push an element into the corresponding channel. If the channel is
+    /// already full, return the element with `Err`. Otherwise, push in the
+    /// element and return `Ok`.
+    ///
+    /// Calling this method in ISR context is allowed.
+    pub fn try_produce_allow_isr(&self, data: T) -> Result<(), T> {
+        self.channel.try_push_allow_isr(data)
     }
 }
 
@@ -125,6 +129,7 @@ impl<T, const N: usize> Consumer<T, N> {
 
     /// Try to pop an element from the corresponding channel. If the channel
     /// is empty, return `None`. Otherwise, return the element with `Some`.
+    ///
     /// Calling this method in ISR context is allowed.
     pub fn try_consume_allow_isr(&self) -> Option<T> {
         self.channel.try_pop_allow_isr()

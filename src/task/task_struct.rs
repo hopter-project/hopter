@@ -1,17 +1,19 @@
 use super::{
     priority::TaskPriority,
-    segmented_stack::{self, HotSplitAlleviationBlock},
-    trampoline::{self, EntryClosureArg},
+    segmented_stack::{self, StackCtrlBlock},
+    trampoline, TaskBuildError,
 };
 use crate::{
     config,
     interrupt::{svc, trap_frame::TrapFrame},
-    sync::{AtomicCell, Spin, SpinGuard},
+    schedule::scheduler::TaskQuota,
+    sync::{AtomicCell, Spin},
     unrecoverable::{self, Lethal},
 };
 use alloc::{boxed::Box, sync::Arc};
 use core::{
     alloc::Layout,
+    num::NonZeroUsize,
     sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU8, Ordering},
 };
 use intrusive_collections::{intrusive_adapter, LinkedListAtomicLink};
@@ -35,6 +37,8 @@ pub(crate) enum TaskState {
     Ready,
     /// The task is running on the CPU.
     Running,
+    /// The task is under destruction.
+    Destructing,
 }
 
 #[repr(C)]
@@ -73,14 +77,35 @@ struct CalleeSavedFPRegs {
     s31: u32,
 }
 
+/// The task local storage to support the segmented stack and deferred panic.
+#[repr(C)]
+#[derive(Default)]
+pub(crate) struct TaskLocalStorage {
+    /// The boundary address of the top stacklet.
+    pub(crate) stklet_bound: u32,
+    /// The number of drop functions that are currently present in the function
+    /// call stack. The modified compiler toolchain generates a prologue for
+    /// each drop function that increments the counter as well as an epilogue
+    /// that decrements it. Note that drop functions may nest so the value can
+    /// be greater than 1.
+    pub(crate) nested_drop_cnt: u32,
+    /// A boolean flag indicating if a panic call is pending. We cannot inject
+    /// a panic to a task if the task is running a drop handler function, in
+    /// which case we just set the panic pending flag. The modified compiler
+    /// toolchain generates an epilogue that checks this flag if the
+    /// [`nested_drop_cnt`](Self::nested_drop_cnt) is zero and diverts to panic
+    /// if the flag is set to true. See [`crate::unwind::forced`] for details.
+    pub(crate) unwind_pending: u32,
+}
+
 #[repr(C)]
 #[derive(Default)]
 /// The context of a task managed by the kernel. The struct does not store
 /// caller-saved registers because these registers are pushed to the user stack
 /// before context switch.
 pub(crate) struct TaskCtxt {
-    /// The boundary address of the top stacklet.
-    stklet_bound: u32,
+    /// Preserved task local storage fields.
+    tls: TaskLocalStorage,
     /// The stack pointer value.
     sp: u32,
     /// Preserved callee-saved general purpose registers.
@@ -89,29 +114,50 @@ pub(crate) struct TaskCtxt {
     fp_regs: CalleeSavedFPRegs,
 }
 
+/// Representing the configuration of a task's stack.
+#[derive(Clone)]
+pub(crate) enum StackConfig {
+    /// Allocate the whole stack as a single contiguous chunk ahead of time.
+    Static {
+        /// The size of the stack.
+        limit: NonZeroUsize,
+    },
+    /// Allocate the stack on demand in small chunks called stacklets.
+    Dynamic {
+        /// The size of the first stacklet.
+        initial: Option<NonZeroUsize>,
+        /// The maximum size of all stacklets, excluding stacklet overhead.
+        limit: Option<NonZeroUsize>,
+    },
+}
+
 /// The struct representing a task.
 pub(crate) struct Task {
+    /// When dropped it will decrement the number of existing tasks by 1.
+    _quota: TaskQuota,
     /// The task context preserved in the kernel. When a task is scheduled to
     /// run on the CPU, the spin lock will be acquired during the running
     /// period. Accidental attempt to modify the context of a running task
-    /// will resultg in a deadlock, which can help us track down the bug
+    /// will result in a deadlock, which can help us track down the bug
     /// faster. The spin lock will be released when the running task is
     /// switched out during context switch.
     ///
     /// Note that this field remains being locked when the task makes an SVC.
     /// The SVC handlers should instead use
-    /// [`TaskSVCCtxt`](crate::interrupt::TaskSVCCtxt)
+    /// [`TaskSVCCtxt`](crate::interrupt::svc_handler::TaskSVCCtxt)
     /// to read or modify the task's context.
     ctxt: Spin<TaskCtxt>,
     /// The initial stacklet of a task. Semantically, this pointer owns the
     /// piece of memory it points to. The drop handler must free the memory
     /// to avoid memory leak.
     initial_stklet: AtomicPtr<u8>,
-    /// Number of bytes in the initial stacklet. Can be zero.
-    init_stklet_size: usize,
-    /// The task ID. 0 is reserved for the idle task. Other tasks can take
-    /// from 1 to 255.
+    /// Configuration for the function call stack.
+    stack_config: StackConfig,
+    /// A numerical task ID that does not have functional purpose. It is
+    /// only for diagnostic purpose.
     id: AtomicU8,
+    /// Whether the task is the idle task.
+    is_idle: bool,
     /// See [`TaskState`].
     state: AtomicCell<TaskState>,
 
@@ -125,14 +171,13 @@ pub(crate) struct Task {
     has_restarted: AtomicBool,
 
     /*** Fields present only for restartable tasks. ***/
-    /// An `Arc` pointing to the bundled struct containing the tak entry
-    /// closure and arguments. The types of the closure and arguments are
-    /// erased using `Arc<dyn Any>`, so that all task structs will have an
-    /// identical type `Task`, rather than `Task<F, A>` with different `F` and
-    /// `A`.
+    /// An `Arc` pointing to the bundled struct containing the task entry
+    /// closure. The type of the closure are erased using `Arc<dyn Any>`, so
+    /// that all task structs will have an identical type `Task`, rather than
+    /// `Task<F>` with different `F`.
     #[cfg(feature = "unwind")]
-    entry_closure_arg: Option<Arc<dyn Any + Send + Sync + 'static>>,
-    /// A function that can cast the `entry_closure_arg` field from an
+    entry_closure: Option<Arc<dyn Any + Send + Sync + 'static>>,
+    /// A function that can cast the `entry_closure` field from an
     /// `Arc<dyn Any>` to `*const u8`. The resulting raw pointer is used in
     /// the task entry trampoline function.
     #[cfg(feature = "unwind")]
@@ -145,10 +190,10 @@ pub(crate) struct Task {
     #[cfg(feature = "unwind")]
     restart_entry_trampoline: Option<extern "C" fn(*const u8)>,
 
-    /*** Fields for segmented stack hot-split alleviation. ***/
-    /// The recorded information used to alleviate the hot-split problem of
-    /// segmented stacks.
-    hsab: Spin<HotSplitAlleviationBlock>,
+    /*** Fields for segmented stack control. ***/
+    /// The recorded information used to control segmented stack growth and
+    /// alleviate the hot-split problem.
+    scb: Option<Box<Spin<StackCtrlBlock>>>,
 
     /*** Fields for priority scheduling and sleeping. ***/
     /// See [`TaskPriority`].
@@ -176,99 +221,90 @@ impl Task {
     /// `Err(())`. When the built task panics during its execution, the task's
     /// stack will be unwound, and then the task will be *terminated*.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
-    pub(crate) fn build<F, A>(
+    pub(crate) fn build<F>(
+        quota: TaskQuota,
         id: u8,
         entry_closure: F,
-        entry_arg: A,
-        init_stklet_size: usize,
+        stack_config: StackConfig,
         priority: u8,
-    ) -> Result<Self, ()>
+    ) -> Result<Self, TaskBuildError>
     where
-        F: FnOnce(A) + Send + 'static,
-        A: Send + 'static,
+        F: FnOnce() + Send + 'static,
     {
-        let mut task = Self::new();
-        task.initialize(id, entry_closure, entry_arg, init_stklet_size, priority)?;
+        let mut task = Self::new(quota, false);
+        task.initialize(id, entry_closure, stack_config, priority)?;
         Ok(task)
     }
 
     /// Build a new restartable task struct. Return `Ok(())` if successful,
     /// otherwise `Err(())`. When the built task panics during its execution,
     /// the task's stack will be unwound, and then the task will be *restarted*.
-    /// The restarted task will start its execution again from the entry
-    /// closure using the same entry arguments.
+    /// The restarted task will start its execution again from the same entry
+    /// closure.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
-    pub(crate) fn build_restartable<F, A>(
+    pub(crate) fn build_restartable<F>(
+        quota: TaskQuota,
         id: u8,
         entry_closure: F,
-        entry_arg: A,
-        reserve_stack_size: usize,
+        stack_config: StackConfig,
         priority: u8,
-    ) -> Result<Self, ()>
+    ) -> Result<Self, TaskBuildError>
     where
-        F: FnOnce(A) + Send + Sync + Clone + 'static,
-        A: Send + Sync + Clone + 'static,
+        F: FnOnce() + Send + Sync + Clone + 'static,
     {
-        let mut task = Self::new();
-        task.initialize_restartable(id, entry_closure, entry_arg, reserve_stack_size, priority)?;
+        let mut task = Self::new(quota, false);
+        task.initialize_restartable(id, entry_closure, stack_config, priority)?;
         Ok(task)
     }
 
     /// Build a new task struct as the restarted instance of a previously
     /// panicked task. The new task will start its execution from the same
-    /// closure using the same arguments as the panicked task.
+    /// closure as the panicked task.
     #[cfg(feature = "unwind")]
-    pub(crate) fn build_restarted(prev_task: Arc<Task>) -> Result<Self, ()> {
-        let mut new_task = Self::new();
-        new_task.restart_from(prev_task.clone())?;
-
-        // Reduce the priority of the previously panicked task, so that the
-        // unwinding procedure of the panicked task uses only otherwise idle
-        // CPU time.
-        // FIXME: should we place this statement here or elsewhere?
-        prev_task.reduce_priority_for_unwind();
-
-        Ok(new_task)
+    pub(crate) fn build_restarted(quota: TaskQuota, prev_task: Arc<Task>) -> Self {
+        let mut new_task = Self::new(quota, false);
+        new_task.restart_from(prev_task.clone());
+        new_task
     }
 
     /// Build the task struct of the idle task.
-    pub(crate) fn build_idle() -> Self {
+    pub(crate) fn build_idle(quota: TaskQuota) -> Self {
         // Make sure the idle task is built only once. It is an unrecoverable
         // error if attempt to build it twice.
         static IDLE_CREATED: AtomicBool = AtomicBool::new(false);
         let created = IDLE_CREATED.swap(true, Ordering::SeqCst);
         unrecoverable::die_if(|| created);
 
-        let mut idle_task = Self::new();
+        let mut idle_task = Self::new(quota, true);
+
+        let stack_config = StackConfig::Dynamic {
+            initial: None,
+            limit: None,
+        };
 
         // Create the idle task. The closure passed in `.initialize()` is
         // actually not used. The `idle()` function is invoked through the
         // assembly sequence when starting the scheduler.
         idle_task
             .initialize(
-                0,
-                |_| unrecoverable::die(),
-                (),
-                config::IDLE_TASK_INITIAL_STACK_SIZE,
+                config::IDLE_TASK_ID,
+                || unrecoverable::die(),
+                stack_config,
                 config::IDLE_TASK_PRIORITY,
             )
             .unwrap_or_die();
@@ -282,10 +318,12 @@ impl Task {
 
     /// Create a new task struct, with all the fields set to their default
     /// values.
-    fn new() -> Self {
+    fn new(quota: TaskQuota, is_idle: bool) -> Self {
         Self {
+            _quota: quota,
             ctxt: Spin::new(TaskCtxt::default()),
             id: AtomicU8::new(0),
+            is_idle,
             state: AtomicCell::new(TaskState::Initializing),
             initial_stklet: AtomicPtr::new(core::ptr::null_mut()),
             #[cfg(feature = "unwind")]
@@ -293,15 +331,18 @@ impl Task {
             #[cfg(feature = "unwind")]
             has_restarted: AtomicBool::new(false),
             #[cfg(feature = "unwind")]
-            entry_closure_arg: None,
+            entry_closure: None,
             #[cfg(feature = "unwind")]
             downcast_func: None,
             #[cfg(feature = "unwind")]
             restart_entry_trampoline: None,
             #[cfg(feature = "unwind")]
             restarted_from: None,
-            init_stklet_size: 0,
-            hsab: Spin::new(HotSplitAlleviationBlock::default()),
+            stack_config: StackConfig::Dynamic {
+                initial: None,
+                limit: None,
+            },
+            scb: None,
             priority: AtomicCell::new(TaskPriority::new_intrinsic(
                 config::TASK_PRIORITY_LEVELS - 1,
             )),
@@ -312,27 +353,40 @@ impl Task {
 
     /// The common part of initializing a task struct.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
-    /// - `entry_closure_arg_ptr`: Raw pointer to the bundled entry closure and
-    ///   arguments.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
+    /// - `entry_closure_ptr`: Raw pointer to the entry closure.
     /// - `entry_trampoline`: The address of the trampoline function of the new
     ///   task.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     fn initialize_common(
         &mut self,
         id: u8,
-        entry_closure_arg_ptr: usize,
+        entry_closure_ptr: usize,
         entry_trampoline: usize,
-        init_stklet_size: usize,
+        stack_config: StackConfig,
         priority: u8,
-    ) -> Result<(), ()> {
+    ) -> Result<(), TaskBuildError> {
         // Check priority number validity.
         if priority >= config::TASK_PRIORITY_LEVELS {
-            return Err(());
+            return Err(TaskBuildError::PriorityNotAllowed);
+        }
+
+        let stack_alloc_size;
+
+        match stack_config {
+            // For static stack just allocate the whole stack ahead of time.
+            StackConfig::Static { limit } => {
+                stack_alloc_size = limit.get();
+            }
+            // For dynamic stack, just allocate the initial stacklet. Also
+            // create a stack control block.
+            StackConfig::Dynamic { initial, .. } => {
+                self.scb = Some(Box::new(Spin::new(StackCtrlBlock::default())));
+                stack_alloc_size = initial.map(|size| size.get()).unwrap_or(0);
+            }
         }
 
         // Allocate the initial stacklet. `stklet_begin` points to the
@@ -340,28 +394,30 @@ impl Task {
         // `alloc::alloc::dealloc()` to free the memory. `stklet_end` points to
         // the ending of the memory chunk. The allocated memory chunk is *not*
         // zero-initialized.
-        let (stklet_begin, stklet_end) = segmented_stack::alloc_initial_stacklet(init_stklet_size);
+        let (stklet_begin, stklet_end) = segmented_stack::alloc_initial_stacklet(stack_alloc_size);
 
         // Store stacklet to the task struct.
         self.initial_stklet.store(stklet_begin, Ordering::SeqCst);
-        self.init_stklet_size = init_stklet_size;
+
+        // Preserve the stack configuration to be used for task restart.
+        self.stack_config = stack_config;
 
         // Let the stack pointer points to the bottom of the initial stacklet.
         let mut sp = stklet_end;
 
-        // Normal tasks (id != 0) are started by an exception return. The
+        // Normal tasks (not idle) are started by an exception return. The
         // initial state is indicated by the trap frame stored on the task's
         // stack. In the following we will build the initial trap frame which
         // is placed at the bottom of the initial stacklet.
         //
-        // However, the idle task (id == 0) cannot be started by an exception
-        // return, because after boot and during initialization, the CPU runs
-        // in thread mode with MSP. It will trigger a HardFault if we try to
-        // perform an exception return in thread mode. Thus, we will manually
-        // switch the stack pointer to PSP and jump to the idle function with
-        // the assembly code in `start_scheduler()`. We need not put a trap
-        // frame in idle task's initial stacklet.
-        if id != 0 {
+        // However, the idle task cannot be started by an exception return,
+        // because after boot and during initialization, the CPU runs in thread
+        // mode with MSP. It will trigger a HardFault if we try to perform an
+        // exception return in thread mode. Thus, we will manually switch the
+        // stack pointer to PSP and jump to the idle function with the assembly
+        // code in `start_scheduler()`. We need not put a trap frame in idle
+        // task's initial stacklet.
+        if !self.is_idle {
             // Move the stack pointer to make space for the trap frame.
             // Safety: The size of the initial stacklet is guaranteed to be
             // larger than the size of a trap frame. Thus, the pointer offset
@@ -398,14 +454,14 @@ impl Task {
                 tf.gp_regs.lr = svc::svc_destroy_current_task as u32 | 1;
 
                 // Make set the trampoline function argument as the closure pointer.
-                tf.gp_regs.r0 = entry_closure_arg_ptr as u32;
+                tf.gp_regs.r0 = entry_closure_ptr as u32;
             }
         }
 
         // Set relevant infomation in the task context.
         let ctxt = self.ctxt.get_mut();
         ctxt.sp = sp as u32;
-        ctxt.stklet_bound = segmented_stack::stklet_ptr_to_bound(stklet_begin) as u32;
+        ctxt.tls.stklet_bound = segmented_stack::stklet_ptr_to_bound(stklet_begin) as u32;
 
         // Set other task information.
         self.id.store(id, Ordering::SeqCst);
@@ -417,86 +473,70 @@ impl Task {
 
     /// Initialize the task struct for a non-restartable task.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
-    fn initialize<F, A>(
+    fn initialize<F>(
         &mut self,
         id: u8,
         entry_closure: F,
-        entry_arg: A,
-        init_stklet_size: usize,
+        stack_config: StackConfig,
         priority: u8,
-    ) -> Result<(), ()>
+    ) -> Result<(), TaskBuildError>
     where
-        F: FnOnce(A) + Send + 'static,
-        A: Send + 'static,
+        F: FnOnce() + Send + 'static,
     {
-        // Bundle the entry closure and arguments, and put them onto the heap.
-        let boxed_closure_arg = Box::new(EntryClosureArg::new(entry_closure, entry_arg));
+        // Bundle the entry closure, and put it onto the heap.
+        let boxed_closure = Box::new(entry_closure);
 
         // Get the raw pointer to the bundle.
-        let closure_arg_ptr = Box::into_raw(boxed_closure_arg) as usize;
+        let closure_ptr = Box::into_raw(boxed_closure) as usize;
 
         // Get the function address of the entry trampoline.
-        let entry_trampoline = trampoline::task_entry::<F, A> as usize;
+        let entry_trampoline = trampoline::task_entry::<F> as usize;
 
         // Perform other common initialization.
-        self.initialize_common(
-            id,
-            closure_arg_ptr,
-            entry_trampoline,
-            init_stklet_size,
-            priority,
-        )
+        self.initialize_common(id, closure_ptr, entry_trampoline, stack_config, priority)
     }
 
     /// Initialize the task struct for a restartable task.
     ///
-    /// - `id`: The ID of the new task. Cannot be 0 unless it is the idle task.
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
     /// - `entry_closure`: The entry closure for the new task, i.e., the code
     ///   where the new task starts to execute.
-    /// - `entry_arg`: The arguments to the closure.
-    /// - `init_stklet_size`: The size in bytes of the initial stacklet of the
-    ///   new task. When it is set to 0, the entry closure will always request
-    ///   for a new stacklet before execution.
+    /// - `stack_config`: The configuration of the function call stack.
     /// - `priority`: The priority of the task. Smaller numerical values
     ///   represent higher priority.
     #[cfg(feature = "unwind")]
-    fn initialize_restartable<F, A>(
+    fn initialize_restartable<F>(
         &mut self,
         id: u8,
         entry_closure: F,
-        entry_arg: A,
-        init_stklet_size: usize,
+        stack_config: StackConfig,
         priority: u8,
-    ) -> Result<(), ()>
+    ) -> Result<(), TaskBuildError>
     where
-        F: FnOnce(A) + Send + Sync + Clone + 'static,
-        A: Send + Sync + Clone + 'static,
+        F: FnOnce() + Send + Sync + Clone + 'static,
     {
-        use super::trampoline::RestartableEntryFuncArg;
-
-        // Bundle the entry closure and arguments, and put them onto the heap.
-        let arc_closure_arg = Arc::new(RestartableEntryFuncArg::new(entry_closure, entry_arg));
+        // Bundle the entry closure, and put it onto the heap.
+        let arc_closure = Arc::new(entry_closure);
 
         // Store the bundle to the task struct, so that we can use it again
         // during task restart.
-        self.entry_closure_arg = Some(arc_closure_arg);
+        self.entry_closure = Some(arc_closure);
 
         // Use downcast function to get the raw pointer to the bundle.
-        let downcast_func = trampoline::downcast_to_ptr::<F, A>;
-        let closure_arg_ptr =
-            downcast_func(self.entry_closure_arg.as_ref().unwrap_or_die().as_ref()) as usize;
+        let downcast_func = trampoline::downcast_to_ptr::<F>;
+        let closure_ptr =
+            downcast_func(self.entry_closure.as_ref().unwrap_or_die().as_ref()) as usize;
 
         // Get the function address of the entry trampoline.
-        let entry_trampoline = trampoline::restartable_task_entry::<F, A>;
+        let entry_trampoline = trampoline::restartable_task_entry::<F>;
 
         // Store the downcast function to the task struct, so that we can call
         // it again during task restart.
@@ -509,9 +549,9 @@ impl Task {
         // Perform other common initialization.
         self.initialize_common(
             id,
-            closure_arg_ptr,
+            closure_ptr,
             entry_trampoline as usize,
-            init_stklet_size,
+            stack_config,
             priority,
         )
     }
@@ -521,21 +561,20 @@ impl Task {
     ///
     /// - `prev_task`: The panicked task.
     #[cfg(feature = "unwind")]
-    fn restart_from(&mut self, prev_task: Arc<Task>) -> Result<(), ()> {
+    fn restart_from(&mut self, prev_task: Arc<Task>) {
         // The task ID is kept the same as the panicked task.
         let id = prev_task.id.load(Ordering::SeqCst);
 
         // Clone restart relevant fields from the panicked task struct.
         self.downcast_func = prev_task.downcast_func.clone();
-        self.entry_closure_arg = prev_task.entry_closure_arg.clone();
+        self.entry_closure = prev_task.entry_closure.clone();
         self.restart_entry_trampoline = prev_task.restart_entry_trampoline.clone();
 
-        // Unwrap the downcast function and the bundled entry closure and
-        // arguments. Get the raw pointer to the bundle using the downcast
-        // function.
+        // Unwrap the downcast function and the entry closure and. Get the raw
+        // pointer to the closure using the downcast function.
         let downcast_func = self.downcast_func.unwrap_or_die();
-        let entry_closure_arg = self.entry_closure_arg.as_ref().unwrap_or_die();
-        let closure_arg_ptr = downcast_func(entry_closure_arg.as_ref()) as usize;
+        let entry_closure = self.entry_closure.as_ref().unwrap_or_die();
+        let closure_ptr = downcast_func(entry_closure.as_ref()) as usize;
 
         // Unwrap the entry trampoline function. Get its address.
         let entry_trampoline = self.restart_entry_trampoline.unwrap_or_die() as usize;
@@ -548,8 +587,6 @@ impl Task {
         // task.
         self.restarted_from = Some(Arc::downgrade(&prev_task));
 
-        // FIXME: what if this newly built task struct fail to be inserted into
-        // the ready queue?
         // Record that the panicked task has been restarted. This will prevent
         // other restart attempt.
         prev_task.has_restarted.store(true, Ordering::SeqCst);
@@ -557,11 +594,12 @@ impl Task {
         // Perform other common initialization.
         self.initialize_common(
             id,
-            closure_arg_ptr,
+            closure_ptr,
             entry_trampoline,
-            prev_task.init_stklet_size,
+            prev_task.stack_config.clone(),
             priority,
         )
+        .unwrap_or_die()
     }
 }
 
@@ -572,7 +610,7 @@ impl Task {
     }
 
     pub(crate) fn get_stk_bound(&mut self) -> u32 {
-        self.ctxt.get_mut().stklet_bound
+        self.ctxt.get_mut().tls.stklet_bound
     }
 
     pub(crate) fn get_state(&self) -> TaskState {
@@ -585,6 +623,10 @@ impl Task {
 
     pub(crate) fn get_id(&self) -> u8 {
         self.id.load(Ordering::SeqCst)
+    }
+
+    pub(crate) fn is_idle(&self) -> bool {
+        self.is_idle
     }
 
     #[cfg(feature = "unwind")]
@@ -615,9 +657,14 @@ impl Task {
         self.has_restarted.load(Ordering::SeqCst)
     }
 
+    pub(crate) fn is_restartable(&self) -> bool {
+        self.entry_closure.is_some()
+    }
+
     /// Lock the task context and return the mutable raw pointer to the
-    /// context. This is used when the scheduler picks a task to run.
-    /// See [`Task`] for the invariants of the context.
+    /// context. The pointer is used by the context switch assembly sequence
+    /// in [`context_switch`](crate::interrupt::context_switch).
+    /// See [`Task`] for the invariants of the context lock.
     pub(crate) fn lock_ctxt(&self) -> *mut TaskCtxt {
         let mut locked_ctxt = self.ctxt.lock_now_or_die();
         let ptr = &mut *locked_ctxt as *mut _;
@@ -625,16 +672,34 @@ impl Task {
         ptr
     }
 
-    /// Force unlock the task context. This is used when the previously
-    /// running task yields or is blocked. See [`Task`] for the invariants
-    /// of the context.
+    /// Force unlock the task context. This method should be called only when
+    /// context switching a task out of the CPU. See [`Task`] for the
+    /// invariants of the context lock and also [`lock_ctxt`](Self::lock_ctxt).
+    ///
+    /// Safety: When calling this method the context lock must have been
+    /// acquired when the task was being context switched on to the CPU.
     pub(crate) unsafe fn force_unlock_ctxt(&self) {
         self.ctxt.force_unlock()
     }
 
-    /// Return the lock guard for accessing the hot-split alleviation block.
-    pub(crate) fn lock_hsab(&self) -> SpinGuard<HotSplitAlleviationBlock> {
-        self.hsab.lock_now_or_die()
+    /// Run the provided closure with [`StackCtrlBlock`] if the task
+    /// has it and wrap the return value with `Some(_)`. Otherwise if the task
+    /// has no [`StackCtrlBlock`], return `None`.
+    pub(crate) fn with_stack_ctrl_block<F, R>(&self, op: F) -> Option<R>
+    where
+        F: FnOnce(&mut StackCtrlBlock) -> R,
+    {
+        self.scb
+            .as_ref()
+            .map(|scb| scb.lock_now_or_die())
+            .map(|mut scb| op(&mut *scb))
+    }
+
+    pub(super) fn get_stack_limit(&self) -> Option<usize> {
+        match self.stack_config {
+            StackConfig::Static { limit } => Some(limit.get()),
+            StackConfig::Dynamic { limit, .. } => limit.map(|size| size.get()),
+        }
     }
 }
 
@@ -643,6 +708,11 @@ impl Task {
     /// Get the priority of this task.
     pub(crate) fn get_priority(&self) -> TaskPriority {
         self.priority.load()
+    }
+
+    pub(crate) fn change_intrinsic_priority(&self, prio: u8) {
+        let new_prio = TaskPriority::change_intrinsic(&self.priority.load(), prio);
+        self.priority.store(new_prio);
     }
 
     /// If the other given task has higher priority, inherit it. Otherwise,
@@ -663,14 +733,6 @@ impl Task {
     pub(crate) fn restore_intrinsic_priority(&self) {
         let intrinsic_prio = TaskPriority::restore_intrinsic(&self.priority.load());
         self.priority.store(intrinsic_prio);
-    }
-
-    /// Reduce the task's priority during unwinding, so that the unwinder will
-    /// use the CPU idle time, unless any priority inversion occurs.
-    #[cfg(feature = "unwind")]
-    pub(crate) fn reduce_priority_for_unwind(&self) {
-        self.priority
-            .store(TaskPriority::new_intrinsic(config::UNWIND_PRIORITY))
     }
 
     /// Return true if and only if this task has higher priority than the other

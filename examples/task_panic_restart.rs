@@ -3,7 +3,11 @@
 
 extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use hopter::{boot::main, debug::semihosting, hprintln, schedule};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    schedule, task,
+    task::main,
+};
 
 // Attribute `#[main]` marks the function as the entry function for the main
 // task. The function name can be arbitrary. The main function should accept
@@ -14,8 +18,12 @@ fn main(_: cortex_m::Peripherals) {
     // The task is restartable. When the panic occurs, the task's stack will be
     // unwound, and the task will be restarted.
     // will_panic();
-    schedule::start_restartable_task(2, |_| will_panic2(), (), 0, 4).unwrap();
-    schedule::start_restartable_task(2, |_| will_panic(), (), 0, 4).unwrap();
+//     schedule::start_restartable_task(2, |_| will_panic2(), (), 0, 4).unwrap();
+//     schedule::start_restartable_task(2, |_| will_panic(), (), 0, 4).unwrap();
+    task::build()
+        .set_entry(will_panic)
+        .spawn_restartable()
+        .unwrap();
 }
 
 fn will_panic() {
@@ -25,7 +33,10 @@ fn will_panic() {
     // Every time the task runs we increment it by 1.
     let cnt = CNT.fetch_add(1, Ordering::SeqCst);
 
-    // hprintln!("Current count: {}", cnt);
+// <<<<<<< main
+    hprintln!("Current count: {}", cnt);
+//     dbg_println!("Current count: {}", cnt);
+
 
     // Panic and get restarted for 5 times.
     if cnt < 1 {

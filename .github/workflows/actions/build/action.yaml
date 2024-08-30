@@ -54,3 +54,301 @@ runs:
         category: sync
         sub-category: mailbox
         test-name: notify_in_advance_after_timeout
+
+    - name: Build test test-sync-semaphore-notify_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mailbox
+        test-name: notify_from_isr
+
+    # *** Tests for sync - semaphore ***
+
+    - name: Build test test-sync-semaphore-initialization
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: initialization
+
+    - name: Build test test-sync-semaphore-down_0_then_try_down
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: down_0_then_try_down
+
+    - name: Build test test-sync-semaphore-up_max_then_try_up
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: up_max_then_try_up
+
+    - name: Build test test-sync-semaphore-4_tasks_down_contend_init_3
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: 4_tasks_down_contend_init_3
+
+    - name: Build test test-sync-semaphore-init_0_blocking_down
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: init_0_blocking_down
+
+    - name: Build test test-sync-semaphore-try_up_ok_then_err
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_up_ok_then_err
+
+    - name: Build test test-sync-semaphore-try_down_ok_then_err
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_down_ok_then_err
+
+    - name: Build test test-sync-semaphore-2_tasks_5_down_5_up
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: 2_tasks_5_down_5_up
+
+    - name: Build test test-sync-semaphore-10_tasks_100_up_down
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: 10_tasks_100_up_down
+
+    - name: Build test test-sync-semaphore-down_priority_scheduling
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: down_priority_scheduling
+
+    - name: Build test test-sync-semaphore-up_priority_scheduling
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: up_priority_scheduling
+
+    - name: Build test test-sync-semaphore-try_down_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_down_from_isr
+
+    - name: Build test test-sync-semaphore-try_up_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: semaphore
+        test-name: try_up_from_isr
+
+    # *** Tests for sync - mutex ***
+
+    - name: Build test test-sync-mutex-basic
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: basic
+
+    - name: Build test test-sync-mutex-stress
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: stress
+
+    - name: Build test test-sync-mutex-priority
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: priority
+
+    - name: Build test test-sync-mutex-poison
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: poison
+
+    - name: Build test test-sync-mutex-priority_inversion
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: mutex
+        test-name: priority_inversion
+
+    # *** Tests for sync - channel ***
+
+    - name: Build test test-sync-channel-produce_consume_single_task
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: produce_consume_single_task
+
+    - name: Build test test-sync-channel-try_produce_from_task
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: try_produce_from_task
+
+    - name: Build test test-sync-channel-try_consume_from_task
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: try_consume_from_task
+
+    - name: Build test test-sync-channel-multiple_producers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: multiple_producers
+
+    - name: Build test test-sync-channel-multiple_consumers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: multiple_consumers
+
+    - name: Build test test-sync-channel-concurrency_and_stress
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: concurrency_and_stress
+
+    - name: Build test test-sync-channel-try_produce_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: try_produce_from_isr
+
+    - name: Build test test-sync-channel-try_consume_from_isr
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: sync
+        sub-category: channel
+        test-name: try_consume_from_isr
+
+    # *** Tests for task - priority ***
+
+    - name: Build test test-task-priority-reduce_priority
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: priority
+        test-name: reduce_priority
+
+    - name: Build test test-task-priority-unwind_priority
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: priority
+        test-name: unwind_priority
+
+    # *** Tests for task - unwind ***
+
+    - name: Build test test-task-unwind-diverted
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: diverted
+
+    - name: Build test test-task-unwind-deferred_direct_drop
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: deferred_direct_drop
+
+    - name: Build test test-task-unwind-deferred_indirect_drop
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: deferred_indirect_drop
+
+    - name: Build test test-task-unwind-deferred_nested_drop
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: deferred_nested_drop
+
+    - name: Build test test-task-unwind-concurrent_restart
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: concurrent_restart
+
+    # *** Tests for task - segmented stack ***
+
+    - name: Build test test-task-segmented_stack-function_arguments
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: segmented_stack
+        test-name: function_arguments
+
+    - name: Build test test-task-segmented_stack-return_values
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: segmented_stack
+        test-name: return_values
+
+    # *** Tests for task - context switch ***
+
+    - name: Build test test-task-context_switch-gp_registers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: context_switch
+        test-name: gp_registers
+
+    - name: Build test test-task-context_switch-fp_registers
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: context_switch
+        test-name: fp_registers
+
+    # *** Tests for interrupt - unwind ***
+
+    - name: Build test test-interrupt-unwind-simple
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: interrupt
+        sub-category: unwind
+        test-name: simple
+
+    # *** Tests for debug - cpu load ***
+
+    - name: Build test test-debug-cpu_load-load_40_percent
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: debug
+        sub-category: cpu_load
+        test-name: load_40_percent

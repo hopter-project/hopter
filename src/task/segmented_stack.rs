@@ -56,11 +56,12 @@ use crate::{
     config,
     interrupt::{
         svc,
+        svc_handler::TaskSVCCtxt,
         trap_frame::{TrapFrame, TRAP_FRAME_PAD_SIZE},
-        TaskSVCCtxt,
     },
-    schedule,
+    schedule::current,
     unrecoverable::{self, Lethal},
+    unwind,
 };
 use core::{
     alloc::Layout,
@@ -71,7 +72,9 @@ use core::{
 #[no_mangle]
 static STACK_EXTEND_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-#[allow(unused)]
+/// Return the number of times of dynamic task call stack extension since
+/// system boot. The counter will wrap around back to zero after reaching
+/// `usize::MAX`.
 pub fn get_stack_extend_count() -> usize {
     STACK_EXTEND_COUNT.load(Ordering::Relaxed)
 }
@@ -79,8 +82,16 @@ pub fn get_stack_extend_count() -> usize {
 #[no_mangle]
 static ACTIVE_STACKLET_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+/// Return the number of currently existing stacklets in the system.
 pub fn get_active_stacklet_count() -> usize {
     ACTIVE_STACKLET_COUNT.load(Ordering::Relaxed)
+}
+
+#[derive(PartialEq)]
+pub(crate) enum MoreStackReason {
+    Normal,
+    Drop,
+    Unwind,
 }
 
 /// The metadata kept in each stacklet that is used to chain several stacklets
@@ -96,6 +107,33 @@ pub(crate) struct StackletMeta {
     /// How many times a new stacklet was allocated when running with the
     /// current stacklet.
     pub(crate) extend_cnt: u32,
+    /// The size counting towards the stack usage, which will be used to
+    /// compare against the stack size limit.
+    pub(crate) count_size: u32,
+}
+
+/// FIXME: Change it to use config module.
+const HOT_SPLIT_PREVENTION_CACHE_SIZE: usize = 4;
+
+/// Information related to each task's stack. Only tasks with dynamic stack
+/// extension enabled need this struct.
+#[derive(Default)]
+pub(crate) struct StackCtrlBlock {
+    /// A hash value representing the chain of stacklet allocation sites.
+    call_chain_signature: u32,
+    /// The places where hot-split happended, represented by the call chain
+    /// signatures.
+    hot_split_cause_signatures: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],
+    /// Additional allocation at each hot-split site to prevent it from
+    /// happening again.
+    add_sizes: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],
+    /// The eviction policy of the hot-split prevention cache is round-robin,
+    /// using this index.
+    round_robin_idx: usize,
+    /// Cumulative size of all stacklets allocated for a task, which does not
+    /// count the overhead size in each stacklet but only application requested
+    /// size.
+    pub(crate) cumulated_size: u32,
 }
 
 /// Calculate the overhead size according to the stacklet layout. See the
@@ -171,7 +209,7 @@ pub(super) fn alloc_initial_stacklet(free_size: usize) -> (*mut u8, *mut u8) {
 
 /// Allocate a new stacklet for the currently running task. Let the task's current
 /// function continue with the new stacklet to execute its function body.
-pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
+pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: MoreStackReason) {
     if !config::ALLOW_DYNAMIC_STACK {
         unrecoverable::die();
     }
@@ -216,22 +254,81 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     let stk_arg_size = get_stack_arg_size(tf);
 
     // The current stacklet boundary.
-    let bound = ctxt.stklet_bound;
+    let bound = ctxt.tls.stklet_bound;
 
     // Retrieve the current stacklet metadata.
     let cur_meta_ptr = bound_to_stklet_meta(bound as usize);
     let cur_meta = unsafe { &mut *cur_meta_ptr };
 
-    // Alleviate the hot split problem.
-    schedule::with_current_task(|cur_task| {
-        let mut locked_hsab = cur_task.lock_hsab();
-        svc_more_stack_anti_hot_split(
-            tf,
-            &mut stk_frame_size,
-            &mut *locked_hsab,
-            &mut cur_meta.extend_cnt,
-        );
+    // Whether we should abort the new stacklet allocation.
+    let mut abort = false;
+
+    current::with_current_task(|cur_task| {
+        // Define a closure to be invoked when the stack size limit is
+        // exceeded.
+        let mut handle_limit_exceed = |tf: &mut TrapFrame| {
+            // If the task wants to start unwinding or is under unwinding,
+            // proceed to allocate a new stacklet even if the task does not
+            // enable dynamic stack extension.
+            if reason == MoreStackReason::Unwind || cur_task.is_unwinding() {
+            }
+            // If the overflowing function is a drop handler or if any
+            // active parent function is a drop handler, pend a panic. The
+            // pending panic will be invoked after all drop handlers have
+            // finished execution. This is done by the complier inserting
+            // an epilogue to all drop handlers. See the `unwind::forced`
+            // module for details. We proceed to allocate a new stacklet
+            // even if the task does not enabled dynamic stack extension,
+            // because we must not unwind from inside a drop handler.
+            else if reason == MoreStackReason::Drop || ctxt.tls.nested_drop_cnt > 0 {
+                ctxt.tls.unwind_pending = 1;
+            // If the overflowing function is not a drop handler and no
+            // drop handler is active, divert the function call to the
+            // stack unwinding entry to forcefully unwind the task.
+            } else if reason == MoreStackReason::Normal {
+                if !cur_task.is_unwinding() {
+                    tf.gp_regs.pc = unwind::forced::diverted_unwind as u32;
+
+                    // Do not allocate a new stacklet if the task is going
+                    // to be unwound.
+                    abort = true;
+                }
+            }
+        };
+
+        cur_task
+            // Alleviate the hot split problem if the task contains a hot-split
+            // alleviation block. All tasks with dynamic stack extension
+            // enabled have it.
+            .with_stack_ctrl_block(|scb: &mut StackCtrlBlock| {
+                // Increase allocation request size if hot-split happened in
+                // the past at this alloaction site.
+                svc_more_stack_anti_hot_split(
+                    tf,
+                    &mut stk_frame_size,
+                    scb,
+                    &mut cur_meta.extend_cnt,
+                );
+
+                // Count stack usage.
+                scb.cumulated_size += stk_frame_size;
+
+                // Check if stack limit is reached.
+                if let Some(limit) = cur_task.get_stack_limit() {
+                    if scb.cumulated_size > limit as u32 {
+                        handle_limit_exceed(tf);
+                    }
+                }
+            })
+            // Otherwise, the task does not enable dynamic stack extension. A
+            // stacklet allocation request entails that the stack size limit
+            // is exceeded.
+            .unwrap_or_else(|| handle_limit_exceed(tf));
     });
+
+    if abort {
+        return;
+    }
 
     // Total chunk size to request from malloc.
     // The overhead includes the trap frame, its padding, and the metadata block.
@@ -251,9 +348,10 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         // The metadata is placed at the lowest address inside the chunk.
         let meta_ptr = stacklet_ptr as *mut StackletMeta;
         meta_ptr.write(StackletMeta {
-            prev_stklet_bound: ctxt.stklet_bound,
+            prev_stklet_bound: ctxt.tls.stklet_bound,
             prev_sp: ctxt.sp,
             extend_cnt: 0,
+            count_size: stk_frame_size,
         });
 
         // Below shows the layout of the previous stacklet:
@@ -298,7 +396,7 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
         let new_bound = stacklet_ptr as usize + OVERHEAD_SIZE;
 
         // Update the stacklet boundary and stack pointer for the current task.
-        ctxt.stklet_bound = new_bound as u32;
+        ctxt.tls.stklet_bound = new_bound as u32;
         ctxt.sp = new_tf_ptr as u32;
 
         // We should resume execution from the function body. See the instruction
@@ -321,7 +419,7 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     }
 
     // The current stacklet boundary.
-    let bound = ctxt.stklet_bound;
+    let bound = ctxt.tls.stklet_bound;
 
     unsafe {
         // Retrieve the previous stacklet information.
@@ -341,13 +439,17 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
         prev_tf.gp_regs.pc = prev_tf.gp_regs.lr;
 
         // Restore the stacklet boundary and stack pointer to the previous stacklet.
-        ctxt.stklet_bound = meta.prev_stklet_bound;
+        ctxt.tls.stklet_bound = meta.prev_stklet_bound;
         ctxt.sp = meta.prev_sp;
 
-        // Update hot split alleviation information.
-        schedule::with_current_task(|cur_task| {
-            let mut locked_hsab = cur_task.lock_hsab();
-            svc_less_stack_anti_hot_split(prev_tf, &mut *locked_hsab);
+        current::with_current_task(|cur_task| {
+            cur_task.with_stack_ctrl_block(|scb| {
+                // Update hot split alleviation information.
+                svc_less_stack_anti_hot_split(prev_tf, scb);
+
+                // Update stack size usage.
+                scb.cumulated_size -= meta.count_size;
+            });
         });
 
         // The stacklet starts with the metadata.
@@ -371,7 +473,7 @@ pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     // code structure of the unwinder, this is the only stacklet that has not
     // been freed by the unwinder, because this is the initial stacklet when the
     // unwinder starts to run.
-    let unwinder_stklet_bound = ctxt.stklet_bound;
+    let unwinder_stklet_bound = ctxt.tls.stklet_bound;
 
     // Calculate the pointer pointing to the stacklet chunk.
     let unwinder_stklet_ptr = bound_to_stklet_ptr(unwinder_stklet_bound as usize);
@@ -411,7 +513,7 @@ pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     prev_tf.gp_regs.pc = land_addr;
 
     // Update the stacklet boundary when we exception return to the task.
-    ctxt.stklet_bound = unw_state.stklet_boundary;
+    ctxt.tls.stklet_bound = unw_state.stklet_boundary;
 
     // And let the task's stack pointer point to the trap frame we just built.
     ctxt.sp = prev_sp;
@@ -425,21 +527,11 @@ pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     }
 }
 
-const HOT_SPLIT_PREVENTION_CACHE_SIZE: usize = 4;
-
-#[derive(Default)]
-pub(crate) struct HotSplitAlleviationBlock {
-    call_chain_signature: u32,
-    hot_split_cause_signatures: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],
-    add_sizes: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],
-    round_robin_idx: usize,
-}
-
-fn svc_less_stack_anti_hot_split(tf: &TrapFrame, hsab: &mut HotSplitAlleviationBlock) {
+fn svc_less_stack_anti_hot_split(tf: &TrapFrame, scb: &mut StackCtrlBlock) {
     let cur_lr = tf.gp_regs.lr;
 
     // prev_signature = rotate_left(cur_signature ^ cur_lr)
-    hsab.call_chain_signature = (hsab.call_chain_signature ^ cur_lr).rotate_left(1);
+    scb.call_chain_signature = (scb.call_chain_signature ^ cur_lr).rotate_left(1);
 }
 
 /// Alleviate the hot-split problem. The basic idea is that when we need to
@@ -462,7 +554,7 @@ fn svc_less_stack_anti_hot_split(tf: &TrapFrame, hsab: &mut HotSplitAlleviationB
 fn svc_more_stack_anti_hot_split(
     tf: &mut TrapFrame,
     frame_size: &mut u32,
-    hsab: &mut HotSplitAlleviationBlock,
+    scb: &mut StackCtrlBlock,
     extend_cnt: &mut u32,
 ) {
     // Get the saved `lr` register from the task's trap frame. It identifies
@@ -470,17 +562,17 @@ fn svc_more_stack_anti_hot_split(
     let cur_lr = tf.gp_regs.lr;
 
     // new_signature = rotate_right(prev_signature) ^ cur_lr
-    let prev_signature = hsab.call_chain_signature;
-    hsab.call_chain_signature = prev_signature.rotate_right(1) ^ cur_lr;
+    let prev_signature = scb.call_chain_signature;
+    scb.call_chain_signature = prev_signature.rotate_right(1) ^ cur_lr;
 
     // If for the current signature we have decided to increase the allocation
     // size, adjust the `frame_size`.
-    for (cause_signature, add_size) in hsab
+    for (cause_signature, add_size) in scb
         .hot_split_cause_signatures
         .iter()
-        .zip(hsab.add_sizes.iter())
+        .zip(scb.add_sizes.iter())
     {
-        if hsab.call_chain_signature == *cause_signature {
+        if scb.call_chain_signature == *cause_signature {
             *frame_size *= *add_size;
             break;
         }
@@ -505,10 +597,10 @@ fn svc_more_stack_anti_hot_split(
     // If for the current signature we have decided to increase the allocation
     // size, but we still see another hot-split, we further increase the allocation
     // size.
-    for (cause_signature, add_size) in hsab
+    for (cause_signature, add_size) in scb
         .hot_split_cause_signatures
         .iter()
-        .zip(hsab.add_sizes.iter_mut())
+        .zip(scb.add_sizes.iter_mut())
     {
         if *cause_signature == prev_signature {
             *add_size += 1;
@@ -518,13 +610,13 @@ fn svc_more_stack_anti_hot_split(
 
     // Otherwise, evict one entry in the cause array and record the signature
     // to prevent future hot-split.
-    hsab.hot_split_cause_signatures[hsab.round_robin_idx] = prev_signature;
-    hsab.add_sizes[hsab.round_robin_idx] = 2;
+    scb.hot_split_cause_signatures[scb.round_robin_idx] = prev_signature;
+    scb.add_sizes[scb.round_robin_idx] = 2;
 
     // We evict the array entry using round-robin.
-    hsab.round_robin_idx += 1;
-    if hsab.round_robin_idx % HOT_SPLIT_PREVENTION_CACHE_SIZE == 0 {
-        hsab.round_robin_idx = 0;
+    scb.round_robin_idx += 1;
+    if scb.round_robin_idx % HOT_SPLIT_PREVENTION_CACHE_SIZE == 0 {
+        scb.round_robin_idx = 0;
     }
 }
 

@@ -1,7 +1,7 @@
 /// Trap frame that is pushed automatically by hardware upon interrupt.
 #[repr(C)]
 #[derive(Clone, Default)]
-pub struct TrapFrame {
+pub(crate) struct TrapFrame {
     pub gp_regs: TrapFrameGPRegs,
     pub fp_regs: TrapFrameFPRegs,
 }
@@ -9,12 +9,12 @@ pub struct TrapFrame {
 /// Sometimes the CPU adds a padding to ensure that the trap frame is 8-byte
 /// aligned. The padding is 4 bytes, placed after the trap frame. This padding
 /// is additional to the one in [`TrapFrameFPRegs`].
-pub const TRAP_FRAME_PAD_SIZE: usize = 4;
+pub(crate) const TRAP_FRAME_PAD_SIZE: usize = 4;
 
 /// The general purpose registers preserved in a trap frame.
 #[repr(C)]
 #[derive(Clone, Default)]
-pub struct TrapFrameGPRegs {
+pub(crate) struct TrapFrameGPRegs {
     pub r0: u32,
     pub r1: u32,
     pub r2: u32,
@@ -29,7 +29,7 @@ pub struct TrapFrameGPRegs {
 /// The `_padding` is to ensure the whole struct is a multiple of 8 bytes.
 #[repr(C)]
 #[derive(Clone, Default)]
-pub struct TrapFrameFPRegs {
+pub(crate) struct TrapFrameFPRegs {
     pub s0: u32,
     pub s1: u32,
     pub s2: u32,

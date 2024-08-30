@@ -15,24 +15,23 @@ use core::mem::ManuallyDrop;
 ///  
 /// This function behaves similarly to the libstd version,
 /// so please see its documentation here: <https://doc.rust-lang.org/std/panic/fn.catch_unwind.html>.
-pub fn catch_unwind_with_arg<F, A, R>(f: F, arg: A) -> Result<R, ()>
+pub fn catch_unwind<F, R>(f: F) -> Result<R, ()>
 where
-    F: FnOnce(A) -> R,
+    F: FnOnce() -> R,
 {
     // The `try()` intrinsic accepts only one "data" pointer as its only argument.
     let mut ti_arg = TryIntrinsicArg {
         func: ManuallyDrop::new(f),
-        arg: ManuallyDrop::new(arg),
         // The initial value of `ret` doesn't matter. It will get replaced in all code paths.
         ret: ManuallyDrop::new(Err(())),
     };
 
-    // Invoke the actual try() intrinsic, which will jump to `call_func_with_arg`
+    // Invoke the actual try() intrinsic, which will jump to `try_intrinsic_trampoline`
     let _try_val = unsafe {
         core::intrinsics::r#try(
-            try_intrinsic_trampoline::<F, A, R>,
+            try_intrinsic_trampoline::<F, R>,
             &mut ti_arg as *mut _ as *mut u8,
-            panic_callback::<F, A, R>,
+            panic_callback::<F, R>,
         )
     };
 
@@ -51,11 +50,11 @@ where
 /// * a pointer to the try arguments,
 /// * a pointer to the arbitrary object passed around during the unwinding process,
 ///   which is a pointer to the `UnwindState`.
-fn panic_callback<F, A, R>(ti_arg_ptr: *mut u8, unwind_state_ptr: *mut u8)
+fn panic_callback<F, R>(ti_arg_ptr: *mut u8, unwind_state_ptr: *mut u8)
 where
-    F: FnOnce(A) -> R,
+    F: FnOnce() -> R,
 {
-    let data = unsafe { &mut *(ti_arg_ptr as *mut TryIntrinsicArg<F, A, R>) };
+    let data = unsafe { &mut *(ti_arg_ptr as *mut TryIntrinsicArg<F, R>) };
     let _unwinding_context_boxed =
         unsafe { UnwindState::drop_from_ptr(unwind_state_ptr as *mut UnwindState) };
     super::unwind::set_unwinding(false);
@@ -65,14 +64,12 @@ where
 /// A struct to accommodate the weird signature of `core::intrinsics::try`,
 /// which accepts only a single pointer to this structure.
 /// We model this after Rust libstd's wrappers around gcc-based unwinding, but modify it to contain one argument.
-struct TryIntrinsicArg<F, A, R>
+struct TryIntrinsicArg<F, R>
 where
-    F: FnOnce(A) -> R,
+    F: FnOnce() -> R,
 {
     /// The function that will be invoked in the `try()` intrinsic.
     func: ManuallyDrop<F>,
-    /// The argument that will be passed into the above function.
-    arg: ManuallyDrop<A>,
     /// The return value of the above function, which is an output parameter.
     /// Note that this is only filled in by the `try()` intrinsic if the function returns successfully.
     ret: ManuallyDrop<Result<R, ()>>,
@@ -82,17 +79,16 @@ where
 /// Since that intrinsic requires a `fn` ptr, we can't just directly call a closure `F` here because it's a `FnOnce` trait.
 ///
 /// This function should not be called directly in our code.
-fn try_intrinsic_trampoline<F, A, R>(try_intrinsic_arg: *mut u8)
+fn try_intrinsic_trampoline<F, R>(try_intrinsic_arg: *mut u8)
 where
-    F: FnOnce(A) -> R,
+    F: FnOnce() -> R,
 {
     unsafe {
-        let data = try_intrinsic_arg as *mut TryIntrinsicArg<F, A, R>;
+        let data = try_intrinsic_arg as *mut TryIntrinsicArg<F, R>;
         let data = &mut *data;
         let f = ManuallyDrop::take(&mut data.func);
-        let a = ManuallyDrop::take(&mut data.arg);
         data.ret = ManuallyDrop::new(
-            Ok(f(a)), // actually invoke the function
+            Ok(f()), // actually invoke the function
         );
     }
 }

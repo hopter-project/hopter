@@ -1,4 +1,4 @@
-use static_assertions::const_assert;
+use static_assertions::{const_assert, const_assert_eq};
 
 #[macro_use]
 mod helper;
@@ -24,18 +24,6 @@ const_assert!(CONTIGUOUS_STACK_BOTTOM % 8 == 0);
 /// Whether dynamic extension of the stack is enabled.
 pub use hopter_conf_params::ALLOW_DYNAMIC_STACK;
 assert_value_type!(ALLOW_DYNAMIC_STACK, bool);
-
-/// The address in memory where the active stacklet boundary is stored.
-pub use hopter_conf_params::STACKLET_BOUNDARY_MEM_ADDR;
-assert_value_type!(STACKLET_BOUNDARY_MEM_ADDR, u32);
-
-// The boundary value is 4-byte so should be 4-byte aligned.
-const_assert!(STACKLET_BOUNDARY_MEM_ADDR % 4 == 0);
-// The memory address should be encodable as a thumb2 instruction constant,
-// so that we can use a `mov.w` instruction to load the address into a register.
-const_assert!(helper::is_thumb2_allowed_constant(
-    STACKLET_BOUNDARY_MEM_ADDR
-));
 
 /// The extra size added to a stacklet allocation request in addition to the
 /// allocation size requested by the function prologue.
@@ -186,6 +174,17 @@ const_assert!(PENDSV_PRIORITY < IRQ_ENABLE_BASEPRI_PRIORITY);
 /* ### Task Configurations ### */
 /* ########################### */
 
+/// The address in memory where the task local storage is placed. Currently
+/// this must be the fixed value `0x2000_0000` because the compiler toolchain
+/// assumes this value.
+pub use hopter_conf_params::TLS_MEM_ADDR;
+assert_value_type!(TLS_MEM_ADDR, u32);
+const_assert_eq!(TLS_MEM_ADDR, 0x2000_0000);
+
+// The memory address should be encodable as a thumb2 instruction constant,
+// so that we can use a `mov.w` instruction to load the address into a register.
+const_assert!(helper::is_thumb2_allowed_constant(TLS_MEM_ADDR));
+
 /// The maximum number of tasks. Must be a power of 2.
 pub use hopter_conf_params::MAX_TASK_NUMBER;
 assert_value_type!(MAX_TASK_NUMBER, usize);
@@ -219,8 +218,16 @@ const_assert!(IDLE_TASK_PRIORITY < TASK_PRIORITY_LEVELS);
 pub use hopter_conf_params::MAIN_TASK_PRIORITY;
 assert_value_type!(MAIN_TASK_PRIORITY, u8);
 
-// The idle task's priority should be one of the allowed priority levels.
+// The main task's priority should be one of the allowed priority levels.
 const_assert!(MAIN_TASK_PRIORITY < TASK_PRIORITY_LEVELS);
+
+/// The priority for a task when the priority is not explicitly set during
+/// task creation.
+pub use hopter_conf_params::DEFAULT_TASK_PRIORITY;
+assert_value_type!(DEFAULT_TASK_PRIORITY, u8);
+
+// The default priority should be one of the allowed priority levels.
+const_assert!(DEFAULT_TASK_PRIORITY < TASK_PRIORITY_LEVELS);
 
 /// A panicked task will get its priority reduced to the unwind priority,
 /// which is very low but still higher than idle priority.
@@ -229,3 +236,18 @@ assert_value_type!(UNWIND_PRIORITY, u8);
 
 // Unwind priority should be higher than idle priority.
 const_assert!(UNWIND_PRIORITY < IDLE_TASK_PRIORITY);
+
+/// The ID for the idle task. A task ID does not have functional purpose. It
+/// might be helpful for diagnosing bugs.
+pub use hopter_conf_params::IDLE_TASK_ID;
+assert_value_type!(IDLE_TASK_ID, u8);
+
+/// The ID for the idle task. A task ID does not have functional purpose. It
+/// might be helpful for diagnosing bugs.
+pub use hopter_conf_params::MAIN_TASK_ID;
+assert_value_type!(MAIN_TASK_ID, u8);
+
+/// The ID for a task when the ID is not explicitly set during task creation.
+/// Tasks can have the same ID.
+pub use hopter_conf_params::DEFAULT_TASK_ID;
+assert_value_type!(DEFAULT_TASK_ID, u8);

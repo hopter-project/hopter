@@ -1,9 +1,9 @@
 use crate::{
     config,
     interrupt::svc,
-    schedule,
-    sync::{Access, AllowPendOp, Interruptable, RefCellSchedSafe, RunPendedOp, Spin},
-    task::{Task, TaskListAdapter, TaskListInterfaces},
+    schedule::{current, scheduler::Scheduler},
+    sync::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin},
+    task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::Lethal,
 };
 use alloc::sync::Arc;
@@ -29,7 +29,7 @@ impl Inner {
     }
 }
 
-type SleepQueue = RefCellSchedSafe<Interruptable<Inner>>;
+type SleepQueue = RefCellSchedSafe<SoftLock<Inner>>;
 
 struct InnerFullAccessor<'a> {
     time_sorted_queue: &'a Spin<LinkedList<TaskListAdapter>>,
@@ -71,7 +71,7 @@ impl<'a> InnerFullAccessor<'a> {
         while let Some(task) = cursor_mut.get() {
             if task.get_wake_tick() <= cur_tick {
                 let task = cursor_mut.remove().unwrap_or_die();
-                schedule::make_task_ready_and_enqueue(task);
+                Scheduler::accept_task(task);
             } else {
                 break;
             }
@@ -79,7 +79,7 @@ impl<'a> InnerFullAccessor<'a> {
 
         while let Some(task) = self.delete_buffer.dequeue() {
             if let Some(task) = locked_queue.remove_task(&task) {
-                schedule::make_task_ready_and_enqueue(task);
+                Scheduler::accept_task(task);
             }
         }
     }
@@ -94,13 +94,13 @@ impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     }
 }
 
-static SLEEP_TASK_QUEUE: SleepQueue = RefCellSchedSafe::new(Interruptable::new(Inner::new()));
+static SLEEP_TASK_QUEUE: SleepQueue = RefCellSchedSafe::new(SoftLock::new(Inner::new()));
 
 /// The tick number of SysTick.
 static TICKS: AtomicU32 = AtomicU32::new(0);
 
 /// Advance the SysTick count by 1.
-pub fn advance_tick() {
+pub(crate) fn advance_tick() {
     TICKS.fetch_add(1, Ordering::SeqCst);
 }
 
@@ -109,7 +109,7 @@ pub fn get_tick() -> u32 {
 }
 
 /// Wake up those sleeping tasks that have their sleeping time expired.
-pub fn wake_sleeping_tasks() {
+pub(crate) fn wake_sleeping_tasks() {
     SLEEP_TASK_QUEUE.lock().with_access(|access| match access {
         Access::Full { full_access } => {
             full_access.wake_expired_tasks();
@@ -132,14 +132,14 @@ pub fn sleep_ms(ms: u32) {
 
         // Yield from the current task. Even if the current task has already
         // been woken up, yielding from it will not introduce deadlock.
-        svc::svc_block_current_task();
+        svc::svc_yield_current_task();
     }
 
     // Outline the logic to reduce the stack frame size of `sleep_ms`.
     #[inline(never)]
     fn add_cur_task_to_sleep_queue(wake_at_tick: u32) {
-        schedule::with_current_task_arc(|cur_task| {
-            schedule::set_task_state_block(&cur_task);
+        current::with_current_task_arc(|cur_task| {
+            cur_task.set_state(TaskState::Blocked);
             add_task_to_sleep_queue(cur_task, wake_at_tick);
         })
     }
@@ -160,7 +160,7 @@ pub(crate) fn remove_task_from_sleep_queue_allow_isr(task: Arc<Task>) {
         Access::Full { full_access } => {
             let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
             if let Some(task) = locked_queue.remove_task(&task) {
-                schedule::make_task_ready_and_enqueue(task);
+                Scheduler::accept_task(task);
             }
         }
         Access::PendOnly { pend_access } => {

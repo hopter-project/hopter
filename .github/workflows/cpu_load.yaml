@@ -1,0 +1,26 @@
+name: Run Tests for CPU Load Inspector
+
+on:
+  workflow_call:
+    secrets:
+      cookie:
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  load_40_percent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test load_40_percent
+        uses: ./.github/workflows/actions/run-test
+        with:
+          cookie: ${{ secrets.cookie }}
+          category: debug
+          sub-category: cpu_load
+          test-name: load_40_percent
+          timeout: 15s
