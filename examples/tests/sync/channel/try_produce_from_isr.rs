@@ -47,13 +47,14 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
+
     #[cfg(feature = "stm32f411")]
     let clocks = rcc
         .cfgr
         .use_hse(8.MHz())
-        .sysclk(180.MHz())
-        .pclk1(45.MHz())
-        .pclk2(90.MHz())
+        .sysclk(100.MHz())
+        .pclk1(25.MHz())
+        .pclk2(50.MHz())
         .freeze();
     #[cfg(feature = "stm32f407")]
     let clocks = rcc
@@ -77,7 +78,6 @@ fn main(_cp: cortex_m::Peripherals) {
     // Set the timer to expire every 1 second.
     // Empirically when set to 62 seconds the interval is actually
     // approximately 1 second. Weird QEMU.
-    // timer.start(62.secs()).unwrap();
     timer.start(1.secs()).unwrap();
 
     // Move the timer into the global storage to prevent it from being dropped.
