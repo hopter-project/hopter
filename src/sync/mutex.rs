@@ -1,5 +1,6 @@
 use super::{
-    GenericSpin, GenericSpinGuard, Holdable, Lockable, SpinSchedSafe, UnlockableGuard, WaitQueue,
+    CompoundHoldable, GenericSpin, GenericSpinGuard, Holdable, Lockable, SpinSchedSafe,
+    UnlockableGuard, WaitQueue,
 };
 use crate::{
     interrupt::mask::{HeldInterrupt, RecursivelyMaskable},
@@ -43,7 +44,11 @@ where
     /// spin lock will be downgraded to a weaker spin lock guard that no longer
     /// suspend the scheduler, but which keeps holding only the additional
     /// condition `H`.
-    spin_lock: GenericSpin<T, (Scheduler, H), (G, SchedSuspendGuard)>,
+    spin_lock: GenericSpin<
+        T,
+        CompoundHoldable<Scheduler, H, SchedSuspendGuard, G>,
+        (G, SchedSuspendGuard),
+    >,
 }
 
 /// Generic type of a mutex guard that can dereference into contained type.

@@ -5,10 +5,19 @@ use core::{
 };
 
 /// Representing recursively maskable interrupt(s). Recursive means one can
-/// `mask_recursive` an already masked interrupt, which will increase the
-/// mask count by one. `unmask_recursive` will decrease the mask count, and
-/// the interrupt will be unmasked only when the count reaches zero.
-/// MEMO: should suspend scheduler in these functions.
+/// [`mask_recursive`](RecursivelyMaskable::mask_recursive) an already masked
+/// interrupt, which will increase the mask count by one.
+/// [`unmask_recursive`](RecursivelyMaskable::unmask_recursive) will decrease
+/// the mask count, and the interrupt will be unmasked only when the count
+/// reaches zero.
+///
+/// If two types `T0` and `T1` are [`RecursivelyMaskable`], then the tuple
+/// `(T0, T1)` is also [`RecursivelyMaskable`]. The masking follows the same
+/// order as in the tuple definition, i.e., mask `T0` and then `T1`. The
+/// unmasking follows the reverse order, i.e., unmask `T1` and then `T0`.
+///
+/// [`RecursivelyMaskable`] trait implementation is provided for tuples of
+/// length up to 10.
 pub trait RecursivelyMaskable {
     /// Mask the interrupt and increase the mask count by 1.
     fn mask_recursive();
@@ -23,6 +32,7 @@ pub trait RecursivelyMaskable {
 static ALL_IRQ_MASK_CNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Representing all IRQs except SVC.
+/// FIXME: Should also suspend scheduler.
 pub struct AllIrqExceptSvc;
 
 impl RecursivelyMaskable for AllIrqExceptSvc {
@@ -111,4 +121,55 @@ where
     unsafe fn force_unhold() {
         I::unmask_recursive();
     }
+}
+
+/// If all types compounding a tuple are [`RecursivelyMaskable`], then the
+/// tuple type is also [`RecursivelyMaskable`]. Masking follows the ordering in
+/// the definition of the tuple, while unmasking follows the reverse order.
+macro_rules! impl_recursively_maskable_for_tuples {
+    (($($T:ident),+), ($($G:ident),+)) => {
+        impl<$($T),+> RecursivelyMaskable for ($($T,)+)
+        where
+            $($T: RecursivelyMaskable,)+
+        {
+            fn mask_recursive() {
+                $(
+                    $T::mask_recursive();
+                )+
+            }
+
+            unsafe fn unmask_recursive() {
+                $(
+                    $G::unmask_recursive();
+                )+
+            }
+        }
+    };
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1), (T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2), (T2, T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2, T3), (T3, T2, T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2, T3, T4), (T4, T3, T2, T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2, T3, T4, T5), (T5, T4, T3, T2, T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2, T3, T4, T5, T6), (T6, T5, T4, T3, T2, T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2, T3, T4, T5, T6, T7), (T7, T6, T5, T4, T3, T2, T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2, T3, T4, T5, T6, T7, T8), (T8, T7, T6, T5, T4, T3, T2, T1, T0)
+}
+impl_recursively_maskable_for_tuples! {
+    (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9), (T9, T8, T7, T6, T5, T4, T3, T2, T1, T0)
 }

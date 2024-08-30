@@ -1,4 +1,4 @@
-use super::Holdable;
+use super::{CompoundHoldable, Holdable};
 use crate::{
     interrupt::mask::{HeldInterrupt, RecursivelyMaskable},
     schedule::scheduler::{SchedSuspendGuard, Scheduler},
@@ -327,6 +327,10 @@ and subsequently the scheduler is resumed.",
     "The associated IRQ will be masked and the scheduler will be suspended \
 until the guard is dropped.",
     <T, I: RecursivelyMaskable>,
-    GenericSpin<T, (Scheduler, I), (HeldInterrupt<I>, SchedSuspendGuard)>,
+    GenericSpin<
+        T,
+        CompoundHoldable<Scheduler, I, SchedSuspendGuard, HeldInterrupt<I>>,
+        (HeldInterrupt<I>, SchedSuspendGuard)
+    >,
     GenericSpinGuard<'a, T, (HeldInterrupt<I>, SchedSuspendGuard)>
 );

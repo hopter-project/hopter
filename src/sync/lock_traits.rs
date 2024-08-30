@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 /// A lock guard trait that makes it unlockable and can get the reference
 /// to the lock instance.
 pub trait UnlockableGuard<'a> {
@@ -29,8 +31,19 @@ pub(crate) trait Holdable {
     unsafe fn force_unhold();
 }
 
+pub(crate) struct CompoundHoldable<H0, H1, G0, G1>
+where
+    H0: Holdable<GuardType = G0>,
+    H1: Holdable<GuardType = G1>,
+{
+    _phant_h0: PhantomData<H0>,
+    _phant_h1: PhantomData<H1>,
+    _phant_g0: PhantomData<G0>,
+    _phant_g1: PhantomData<G1>,
+}
+
 /// Implement `Holdable` for a tuple of `Holdable` types.
-impl<H0, H1, G0, G1> Holdable for (H0, H1)
+impl<H0, H1, G0, G1> Holdable for CompoundHoldable<H0, H1, G0, G1>
 where
     H0: Holdable<GuardType = G0>,
     H1: Holdable<GuardType = G1>,
