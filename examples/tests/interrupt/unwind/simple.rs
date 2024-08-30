@@ -29,8 +29,11 @@ fn main(_cp: cortex_m::Peripherals) {
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
 
+<<<<<<< HEAD
     #[cfg(feature = "qemu")]
     let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
+=======
+>>>>>>> 8a5aa34 (change STM32F411 clock)
     #[cfg(feature = "stm32f411")]
     let clocks = rcc
         .cfgr
