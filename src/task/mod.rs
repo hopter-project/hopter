@@ -1,3 +1,4 @@
+mod breathing;
 mod builder;
 mod current;
 mod priority;
