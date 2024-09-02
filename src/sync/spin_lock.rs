@@ -135,6 +135,20 @@ where
     }
 }
 
+unsafe impl<T, H, G> Send for GenericSpin<T, H, G>
+where
+    T: ?Sized,
+    H: Holdable<GuardType = G>,
+{
+}
+
+unsafe impl<T, H, G> Sync for GenericSpin<T, H, G>
+where
+    T: ?Sized,
+    H: Holdable<GuardType = G>,
+{
+}
+
 impl<'a, T, G> Deref for GenericSpinGuard<'a, T, G>
 where
     T: ?Sized,
