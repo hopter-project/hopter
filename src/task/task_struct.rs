@@ -384,7 +384,8 @@ impl Task {
             // For dynamic stack, just allocate the initial stacklet. Also
             // create a stack control block.
             StackConfig::Dynamic { initial, .. } => {
-                self.scb = Some(Box::new(Spin::new(StackCtrlBlock::default())));
+                self.scb
+                    .replace(Box::new(Spin::new(StackCtrlBlock::default())));
                 stack_alloc_size = initial.map(|size| size.get()).unwrap_or(0);
             }
         }
