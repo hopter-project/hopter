@@ -3,7 +3,7 @@ use core::arch::asm;
 
 /// Prepare r0 register to point to the trap frame, so that later we can
 /// examine it.
-#[export_name = "HardFaultTrampoline"]
+#[export_name = "HopterHardFaultTrampoline"]
 #[naked]
 pub(crate) unsafe extern "C" fn hardfault_trampoline() {
     asm!(
@@ -26,7 +26,7 @@ pub(crate) unsafe extern "C" fn hardfault_trampoline() {
 }
 
 /// Loop if we run into a hardfault.
-#[export_name = "HardFault"]
+#[export_name = "HopterHardFault"]
 #[naked]
 unsafe extern "C" fn hardfault_handler(_ef: &TrapFrame) -> ! {
     asm!("0:", "b 0b", options(noreturn))
@@ -34,7 +34,7 @@ unsafe extern "C" fn hardfault_handler(_ef: &TrapFrame) -> ! {
 
 /// Loop if default handler is invoked. This means we saw an IRQ but is not
 /// prepared to handle it.
-#[export_name = "DefaultHandler"]
+#[export_name = "HopterDefaultHandler"]
 #[naked]
 unsafe extern "C" fn default_handler(_ex_num: i16) {
     asm!("0:", "b 0b", options(noreturn))

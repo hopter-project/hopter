@@ -3,18 +3,18 @@
 use super::reset;
 use crate::interrupt::hardfault;
 
-#[link_section = ".vector_table.reset_vector"]
+#[link_section = ".hopter_vector_table.reset_vector"]
 #[no_mangle]
-static __RESET_VECTOR: unsafe extern "C" fn() -> ! = reset::entry;
+static __HOPTER_RESET_VECTOR: unsafe extern "C" fn() -> ! = reset::entry;
 
 pub union Vector {
     handler: unsafe extern "C" fn(),
     reserved: usize,
 }
 
-#[link_section = ".vector_table.exceptions"]
+#[link_section = ".hopter_vector_table.exceptions"]
 #[no_mangle]
-pub static __EXCEPTIONS: [Vector; 14] = [
+pub static __HOPTER_EXCEPTIONS: [Vector; 14] = [
     // Exception 2: Non Maskable Interrupt.
     Vector {
         handler: NonMaskableInt,
@@ -181,9 +181,9 @@ extern "C" {
     fn LTDC_ER();
 }
 
-#[link_section = ".vector_table.interrupts"]
+#[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 90] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {

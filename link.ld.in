@@ -1,3 +1,9 @@
+/* The linker script snippet is adapted from the `hopter` crate.
+Some symbol and section names are prefixed with "hopter" to avoid conflict.
+Original version:
+https://github.com/rust-embedded/cortex-m/blob/24380715ce37c5f658033195464ffa3ba22985f4/hopter/link.x.in
+*/
+
 /* # Developer notes
 
 - Symbols that start with a double underscore (__) are considered "private"
@@ -7,7 +13,7 @@
   static mut __sbss }`).
 
 - `EXTERN` forces the linker to keep a symbol in the final binary. We use this to make sure a
-  symbol if not dropped if it appears in or near the front of the linker arguments and "it's not
+  symbol is not dropped if it appears in or near the front of the linker arguments and "it's not
   needed" by any of the preceding objects (linker arguments)
 
 - `PROVIDE` is used to provide default values that can be overridden by a user linker script
@@ -23,159 +29,143 @@
 INCLUDE memory.x
 
 /* # Entry point = reset vector */
-ENTRY(Reset);
-EXTERN(__RESET_VECTOR); /* depends on the `Reset` symbol */
+ENTRY(HopterReset);
+EXTERN(__HOPTER_RESET_VECTOR); /* depends on the `HopterReset` symbol */
 
 /* # Exception vectors */
-/* This is effectively weak aliasing at the linker level */
-/* The user can override any of these aliases by defining the corresponding symbol themselves (cf.
-   the `exception!` macro) */
-EXTERN(__EXCEPTIONS); /* depends on all the these PROVIDED symbols */
+EXTERN(__HOPTER_EXCEPTIONS); /* depends on all the these PROVIDED symbols */
 
-EXTERN(DefaultHandler);
+EXTERN(HopterDefaultHandler);
+EXTERN(HopterHardFaultTrampoline);
 
-PROVIDE(NonMaskableInt = DefaultHandler);
-EXTERN(HardFaultTrampoline);
-PROVIDE(MemoryManagement = DefaultHandler);
-PROVIDE(BusFault = DefaultHandler);
-PROVIDE(UsageFault = DefaultHandler);
-PROVIDE(SecureFault = DefaultHandler);
-PROVIDE(SVCall = DefaultHandler);
-PROVIDE(DebugMonitor = DefaultHandler);
-PROVIDE(PendSV = DefaultHandler);
-PROVIDE(SysTick = DefaultHandler);
+PROVIDE(NonMaskableInt = HopterDefaultHandler);
+PROVIDE(MemoryManagement = HopterDefaultHandler);
+PROVIDE(BusFault = HopterDefaultHandler);
+PROVIDE(UsageFault = HopterDefaultHandler);
+PROVIDE(SecureFault = HopterDefaultHandler);
+PROVIDE(SVCall = HopterDefaultHandler);
+PROVIDE(DebugMonitor = HopterDefaultHandler);
+PROVIDE(PendSV = HopterDefaultHandler);
+PROVIDE(SysTick = HopterDefaultHandler);
 
-PROVIDE(DefaultHandler = DefaultHandler_);
-PROVIDE(HardFault = HardFault_);
-
-PROVIDE(WWDG = DefaultHandler);
-PROVIDE(PVD = DefaultHandler);
-PROVIDE(TAMP_STAMP = DefaultHandler);
-PROVIDE(RTC_WKUP = DefaultHandler);
-PROVIDE(RCC = DefaultHandler);
-PROVIDE(EXTI0 = DefaultHandler);
-PROVIDE(EXTI1 = DefaultHandler);
-PROVIDE(EXTI2 = DefaultHandler);
-PROVIDE(EXTI3 = DefaultHandler);
-PROVIDE(EXTI4 = DefaultHandler);
-PROVIDE(DMA1_STREAM0 = DefaultHandler);
-PROVIDE(DMA1_STREAM1 = DefaultHandler);
-PROVIDE(DMA1_STREAM2 = DefaultHandler);
-PROVIDE(DMA1_STREAM3 = DefaultHandler);
-PROVIDE(DMA1_STREAM4 = DefaultHandler);
-PROVIDE(DMA1_STREAM5 = DefaultHandler);
-PROVIDE(DMA1_STREAM6 = DefaultHandler);
-PROVIDE(ADC = DefaultHandler);
-PROVIDE(CAN1_TX = DefaultHandler);
-PROVIDE(CAN1_RX0 = DefaultHandler);
-PROVIDE(CAN1_RX1 = DefaultHandler);
-PROVIDE(CAN1_SCE = DefaultHandler);
-PROVIDE(EXTI9_5 = DefaultHandler);
-PROVIDE(TIM1_BRK_TIM9 = DefaultHandler);
-PROVIDE(TIM1_UP_TIM10 = DefaultHandler);
-PROVIDE(TIM1_TRG_COM_TIM11 = DefaultHandler);
-PROVIDE(TIM1_CC = DefaultHandler);
-PROVIDE(TIM2 = DefaultHandler);
-PROVIDE(TIM3 = DefaultHandler);
-PROVIDE(TIM4 = DefaultHandler);
-PROVIDE(I2C1_EV = DefaultHandler);
-PROVIDE(I2C1_ER = DefaultHandler);
-PROVIDE(I2C2_EV = DefaultHandler);
-PROVIDE(I2C2_ER = DefaultHandler);
-PROVIDE(SPI1 = DefaultHandler);
-PROVIDE(SPI2 = DefaultHandler);
-PROVIDE(USART1 = DefaultHandler);
-PROVIDE(USART2 = DefaultHandler);
-PROVIDE(USART3 = DefaultHandler);
-PROVIDE(EXTI15_10 = DefaultHandler);
-PROVIDE(RTC_ALARM = DefaultHandler);
-PROVIDE(OTG_FS_WKUP = DefaultHandler);
-PROVIDE(TIM8_BRK_TIM12 = DefaultHandler);
-PROVIDE(TIM8_UP_TIM13 = DefaultHandler);
-PROVIDE(TIM8_TRG_COM_TIM14 = DefaultHandler);
-PROVIDE(TIM8_CC = DefaultHandler);
-PROVIDE(DMA1_STREAM7 = DefaultHandler);
-PROVIDE(FSMC = DefaultHandler);
-PROVIDE(SDIO = DefaultHandler);
-PROVIDE(TIM5 = DefaultHandler);
-PROVIDE(SPI3 = DefaultHandler);
-PROVIDE(UART4 = DefaultHandler);
-PROVIDE(UART5 = DefaultHandler);
-PROVIDE(TIM6_DAC = DefaultHandler);
-PROVIDE(TIM7 = DefaultHandler);
-PROVIDE(DMA2_STREAM0 = DefaultHandler);
-PROVIDE(DMA2_STREAM1 = DefaultHandler);
-PROVIDE(DMA2_STREAM2 = DefaultHandler);
-PROVIDE(DMA2_STREAM3 = DefaultHandler);
-PROVIDE(DMA2_STREAM4 = DefaultHandler);
-PROVIDE(ETH = DefaultHandler);
-PROVIDE(ETH_WKUP = DefaultHandler);
-PROVIDE(CAN2_TX = DefaultHandler);
-PROVIDE(CAN2_RX0 = DefaultHandler);
-PROVIDE(CAN2_RX1 = DefaultHandler);
-PROVIDE(CAN2_SCE = DefaultHandler);
-PROVIDE(OTG_FS = DefaultHandler);
-PROVIDE(DMA2_STREAM5 = DefaultHandler);
-PROVIDE(DMA2_STREAM6 = DefaultHandler);
-PROVIDE(DMA2_STREAM7 = DefaultHandler);
-PROVIDE(USART6 = DefaultHandler);
-PROVIDE(I2C3_EV = DefaultHandler);
-PROVIDE(I2C3_ER = DefaultHandler);
-PROVIDE(OTG_HS_EP1_OUT = DefaultHandler);
-PROVIDE(OTG_HS_EP1_IN = DefaultHandler);
-PROVIDE(OTG_HS_WKUP = DefaultHandler);
-PROVIDE(OTG_HS = DefaultHandler);
-PROVIDE(DCMI = DefaultHandler);
-PROVIDE(CRYP = DefaultHandler);
-PROVIDE(HASH_RNG = DefaultHandler);
-PROVIDE(FPU = DefaultHandler);
-PROVIDE(LTDC = DefaultHandler);
-PROVIDE(LTDC_ER = DefaultHandler);
+PROVIDE(WWDG = HopterDefaultHandler);
+PROVIDE(PVD = HopterDefaultHandler);
+PROVIDE(TAMP_STAMP = HopterDefaultHandler);
+PROVIDE(RTC_WKUP = HopterDefaultHandler);
+PROVIDE(RCC = HopterDefaultHandler);
+PROVIDE(EXTI0 = HopterDefaultHandler);
+PROVIDE(EXTI1 = HopterDefaultHandler);
+PROVIDE(EXTI2 = HopterDefaultHandler);
+PROVIDE(EXTI3 = HopterDefaultHandler);
+PROVIDE(EXTI4 = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM0 = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM1 = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM2 = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM3 = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM4 = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM5 = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM6 = HopterDefaultHandler);
+PROVIDE(ADC = HopterDefaultHandler);
+PROVIDE(CAN1_TX = HopterDefaultHandler);
+PROVIDE(CAN1_RX0 = HopterDefaultHandler);
+PROVIDE(CAN1_RX1 = HopterDefaultHandler);
+PROVIDE(CAN1_SCE = HopterDefaultHandler);
+PROVIDE(EXTI9_5 = HopterDefaultHandler);
+PROVIDE(TIM1_BRK_TIM9 = HopterDefaultHandler);
+PROVIDE(TIM1_UP_TIM10 = HopterDefaultHandler);
+PROVIDE(TIM1_TRG_COM_TIM11 = HopterDefaultHandler);
+PROVIDE(TIM1_CC = HopterDefaultHandler);
+PROVIDE(TIM2 = HopterDefaultHandler);
+PROVIDE(TIM3 = HopterDefaultHandler);
+PROVIDE(TIM4 = HopterDefaultHandler);
+PROVIDE(I2C1_EV = HopterDefaultHandler);
+PROVIDE(I2C1_ER = HopterDefaultHandler);
+PROVIDE(I2C2_EV = HopterDefaultHandler);
+PROVIDE(I2C2_ER = HopterDefaultHandler);
+PROVIDE(SPI1 = HopterDefaultHandler);
+PROVIDE(SPI2 = HopterDefaultHandler);
+PROVIDE(USART1 = HopterDefaultHandler);
+PROVIDE(USART2 = HopterDefaultHandler);
+PROVIDE(USART3 = HopterDefaultHandler);
+PROVIDE(EXTI15_10 = HopterDefaultHandler);
+PROVIDE(RTC_ALARM = HopterDefaultHandler);
+PROVIDE(OTG_FS_WKUP = HopterDefaultHandler);
+PROVIDE(TIM8_BRK_TIM12 = HopterDefaultHandler);
+PROVIDE(TIM8_UP_TIM13 = HopterDefaultHandler);
+PROVIDE(TIM8_TRG_COM_TIM14 = HopterDefaultHandler);
+PROVIDE(TIM8_CC = HopterDefaultHandler);
+PROVIDE(DMA1_STREAM7 = HopterDefaultHandler);
+PROVIDE(FSMC = HopterDefaultHandler);
+PROVIDE(SDIO = HopterDefaultHandler);
+PROVIDE(TIM5 = HopterDefaultHandler);
+PROVIDE(SPI3 = HopterDefaultHandler);
+PROVIDE(UART4 = HopterDefaultHandler);
+PROVIDE(UART5 = HopterDefaultHandler);
+PROVIDE(TIM6_DAC = HopterDefaultHandler);
+PROVIDE(TIM7 = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM0 = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM1 = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM2 = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM3 = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM4 = HopterDefaultHandler);
+PROVIDE(ETH = HopterDefaultHandler);
+PROVIDE(ETH_WKUP = HopterDefaultHandler);
+PROVIDE(CAN2_TX = HopterDefaultHandler);
+PROVIDE(CAN2_RX0 = HopterDefaultHandler);
+PROVIDE(CAN2_RX1 = HopterDefaultHandler);
+PROVIDE(CAN2_SCE = HopterDefaultHandler);
+PROVIDE(OTG_FS = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM5 = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM6 = HopterDefaultHandler);
+PROVIDE(DMA2_STREAM7 = HopterDefaultHandler);
+PROVIDE(USART6 = HopterDefaultHandler);
+PROVIDE(I2C3_EV = HopterDefaultHandler);
+PROVIDE(I2C3_ER = HopterDefaultHandler);
+PROVIDE(OTG_HS_EP1_OUT = HopterDefaultHandler);
+PROVIDE(OTG_HS_EP1_IN = HopterDefaultHandler);
+PROVIDE(OTG_HS_WKUP = HopterDefaultHandler);
+PROVIDE(OTG_HS = HopterDefaultHandler);
+PROVIDE(DCMI = HopterDefaultHandler);
+PROVIDE(CRYP = HopterDefaultHandler);
+PROVIDE(HASH_RNG = HopterDefaultHandler);
+PROVIDE(FPU = HopterDefaultHandler);
+PROVIDE(LTDC = HopterDefaultHandler);
+PROVIDE(LTDC_ER = HopterDefaultHandler);
 
 /* # Interrupt vectors */
-EXTERN(__INTERRUPTS); /* `static` variable similar to `__EXCEPTIONS` */
-
-/* # Pre-initialization function */
-/* If the user overrides this using the `pre_init!` macro or by creating a `__pre_init` function,
-   then the function this points to will be called before the RAM is initialized. */
-PROVIDE(__pre_init = DefaultPreInit);
+EXTERN(__HOPTER_INTERRUPTS); /* `static` variable similar to `__HOPTER_EXCEPTIONS` */
 
 /* # Sections */
 SECTIONS
 {
-  PROVIDE(_stack_start = 0x20004000);
-
   /* ## Sections in FLASH */
   /* ### Vector table */
-  .vector_table ORIGIN(FLASH) :
+  .hopter_vector_table ORIGIN(FLASH) :
   {
     /* Initial Stack Pointer (SP) value */
-    LONG(_stack_start);
+    LONG(__contiguous_stack_start);
 
     /* Reset vector */
-    KEEP(*(.vector_table.reset_vector)); /* this is the `__RESET_VECTOR` symbol */
-    __reset_vector = .;
+    KEEP(*(.hopter_vector_table.reset_vector)); /* this is the `__RESET_VECTOR` symbol */
+    __hopter_reset_vector = .;
 
     /* Exceptions */
-    KEEP(*(.vector_table.exceptions)); /* this is the `__EXCEPTIONS` symbol */
+    KEEP(*(.hopter_vector_table.exceptions)); /* this is the `__EXCEPTIONS` symbol */
     __eexceptions = .;
 
     /* Device specific interrupts */
-    KEEP(*(.vector_table.interrupts)); /* this is the `__INTERRUPTS` symbol */
+    KEEP(*(.hopter_vector_table.interrupts)); /* this is the `__INTERRUPTS` symbol */
   } > FLASH
 
-  PROVIDE(_stext = ADDR(.vector_table) + SIZEOF(.vector_table));
+  PROVIDE(_stext = ADDR(.hopter_vector_table) + SIZEOF(.hopter_vector_table));
 
   /* ### .text */
   .text _stext :
   {
     /* place these 2 close to each other or the `b` instruction will fail to link */
-    *(.PreResetTrampoline);
-    *(.Reset);
+    *(.HopterReset);
 
     *(.text .text.*);
-    *(.HardFaultTrampoline);
-    *(.HardFault.*);
     . = ALIGN(16);
     __etext = .;
   } > FLASH
@@ -248,15 +238,7 @@ SECTIONS
     __ebss = .;
   } > RAM AT>FLASH
 
-  /* ### .uninit */
-  /* .uninit (NOLOAD) : ALIGN(4)
-  {
-    . = ALIGN(4);
-    *(.uninit .uninit.*);
-    . = ALIGN(4);
-  } > RAM */
-
-  /* Place the heap right after `.uninit` */
+  /* Place the heap right after `.bss` */
   . = ALIGN(4);
   __sheap = .;
 
@@ -271,68 +253,74 @@ SECTIONS
   /* ## Discarded sections */
   /DISCARD/ :
   {
-    /* Unused exception related info that only wastes space */
-    /* *(.ARM.exidx);
-    *(.ARM.exidx.*);
-    *(.ARM.extab.*); */
+    /* These are the special sections defined in `cortex-m-rt`. Many crates have the `cortex-m-rt`
+       crate as their dependency. However, these sections conflict with Hopter's definition. We
+       keep only Hopter's version, i.e., those with similar names but prefixed with "hopter", and
+       discard the `cortex-m-rt` version. */
+    *(.PreResetTrampoline);
+    *(.vector_table.reset_vector);
+    *(.vector_table.exceptions);
+    *(.vector_table.interrupts);
+    *(.HardFaultTrampoline);
+    *(.HardFault.*);
   }
 }
 
 /* Do not exceed this mark in the error messages below                                    | */
 /* # Alignment checks */
 ASSERT(ORIGIN(FLASH) % 4 == 0, "
-ERROR(cortex-m-rt): the start of the FLASH region must be 4-byte aligned");
+ERROR(hopter): the start of the FLASH region must be 4-byte aligned");
 
 ASSERT(ORIGIN(RAM) % 4 == 0, "
-ERROR(cortex-m-rt): the start of the RAM region must be 4-byte aligned");
+ERROR(hopter): the start of the RAM region must be 4-byte aligned");
 
 ASSERT(__sdata % 4 == 0 && __edata % 4 == 0, "
-BUG(cortex-m-rt): .data is not 4-byte aligned");
+BUG(hopter): .data is not 4-byte aligned");
 
 ASSERT(__sidata % 4 == 0, "
-BUG(cortex-m-rt): the LMA of .data is not 4-byte aligned");
+BUG(hopter): the LMA of .data is not 4-byte aligned");
 
 ASSERT(__sbss % 4 == 0 && __ebss % 4 == 0, "
-BUG(cortex-m-rt): .bss is not 4-byte aligned");
+BUG(hopter): .bss is not 4-byte aligned");
 
 ASSERT(__sheap % 4 == 0, "
-BUG(cortex-m-rt): start of .heap is not 4-byte aligned");
+BUG(hopter): start of .heap is not 4-byte aligned");
 
 /* # Position checks */
 
 /* ## .vector_table */
-ASSERT(__reset_vector == ADDR(.vector_table) + 0x8, "
-BUG(cortex-m-rt): the reset vector is missing");
+ASSERT(__hopter_reset_vector == ADDR(.hopter_vector_table) + 0x8, "
+BUG(hopter): the reset vector is missing");
 
-ASSERT(__eexceptions == ADDR(.vector_table) + 0x40, "
-BUG(cortex-m-rt): the exception vectors are missing");
+ASSERT(__eexceptions == ADDR(.hopter_vector_table) + 0x40, "
+BUG(hopter): the exception vectors are missing");
 
-ASSERT(SIZEOF(.vector_table) > 0x40, "
-ERROR(cortex-m-rt): The interrupt vectors are missing.
+ASSERT(SIZEOF(.hopter_vector_table) > 0x40, "
+ERROR(hopter): The interrupt vectors are missing.
 Possible solutions, from most likely to less likely:
 - Link to a svd2rust generated device crate
-- Disable the 'device' feature of cortex-m-rt to build a generic application (a dependency
+- Disable the 'device' feature of hopter to build a generic application (a dependency
 may be enabling it)
 - Supply the interrupt handlers yourself. Check the documentation for details.");
 
 /* ## .text */
-ASSERT(ADDR(.vector_table) + SIZEOF(.vector_table) <= _stext, "
-ERROR(cortex-m-rt): The .text section can't be placed inside the .vector_table section
-Set _stext to an address greater than the end of .vector_table (See output of `nm`)");
+ASSERT(ADDR(.hopter_vector_table) + SIZEOF(.hopter_vector_table) <= _stext, "
+ERROR(hopter): The .text section can't be placed inside the .hopter_vector_table section
+Set _stext to an address greater than the end of .hopter_vector_table (See output of `nm`)");
 
 ASSERT(_stext + SIZEOF(.text) < ORIGIN(FLASH) + LENGTH(FLASH), "
-ERROR(cortex-m-rt): The .text section must be placed inside the FLASH memory.
+ERROR(hopter): The .text section must be placed inside the FLASH memory.
 Set _stext to an address smaller than 'ORIGIN(FLASH) + LENGTH(FLASH)'");
 
 /* # Other checks */
 ASSERT(SIZEOF(.got) == 0, "
-ERROR(cortex-m-rt): .got section detected in the input object files
+ERROR(hopter): .got section detected in the input object files
 Dynamic relocations are not supported. If you are linking to C code compiled using
 the 'cc' crate then modify your build script to compile the C code _without_
 the -fPIC flag. See the documentation of the `cc::Build.pic` method for details.");
 /* Do not exceed this mark in the error messages above                                    | */
 
-ASSERT(SIZEOF(.vector_table) <= 0x400, "
+ASSERT(SIZEOF(.hopter_vector_table) <= 0x400, "
 There can't be more than 240 interrupt handlers. This may be a bug in
 your device crate, or you may have registered more than 240 interrupt
 handlers.");

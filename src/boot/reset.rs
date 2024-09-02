@@ -6,8 +6,8 @@ use super::system_init;
 use crate::{config, unwind};
 use core::arch::asm;
 
-#[link_section = ".Reset"]
-#[export_name = "Reset"]
+#[link_section = ".HopterReset"]
+#[export_name = "HopterReset"]
 #[naked]
 pub(super) unsafe extern "C" fn entry() -> ! {
     extern "C" {

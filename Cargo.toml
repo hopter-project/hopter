@@ -54,9 +54,7 @@ features = ["nightly"]
 nb = "1.1"
 
 [dev-dependencies.stm32f4xx-hal]
-git = "https://github.com/ZhiyaoMa98/stm32f4xx-hal.git"
-branch = "dependency"
-default-features = false
+version = "0.21.0"
 features = ["stm32f405"]
 
 # *** Tests for sync - mailbox ***
