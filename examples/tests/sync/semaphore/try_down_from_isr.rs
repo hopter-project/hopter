@@ -108,9 +108,13 @@ extern "C" fn tim2_handler() {
     // the test task must have been stuck.
     static COUNT: AtomicUsize = AtomicUsize::new(0);
     if COUNT.fetch_add(1, Ordering::SeqCst) >= 3 {
-        // semihosting::terminate(false);
-        dbg_println!("test failed!");
-        loop {}
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(false);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
 
     // Attempt to consume from the channel. Assuming that the task can keep up
@@ -123,9 +127,13 @@ extern "C" fn tim2_handler() {
         }
         Err(_) => {
             dbg_println!("Failed to down");
-            // semihosting::terminate(false);
-            dbg_println!("test failed!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(false);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 }

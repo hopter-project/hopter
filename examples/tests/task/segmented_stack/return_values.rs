@@ -97,9 +97,13 @@ extern "C" fn success() {
 
 extern "C" fn error() {
     dbg_println!("Test Failed");
-    // semihosting::terminate(false);
-    dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(false);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 #[main]
