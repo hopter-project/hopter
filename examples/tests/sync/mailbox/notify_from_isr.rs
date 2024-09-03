@@ -115,7 +115,7 @@ fn tim2_handler() {
     // terminated.
     if prev_cnt > 2 {
         #[cfg(feature = "qemu")]
-        semihosting::terminate(true);
+        semihosting::terminate(false);
         #[cfg(not(feature = "qemu"))]
         {
             dbg_println!("test complete!");

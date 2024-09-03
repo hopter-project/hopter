@@ -148,7 +148,7 @@ extern "C" fn tim2_handler() {
     static COUNT: AtomicUsize = AtomicUsize::new(0);
     if COUNT.fetch_add(1, Ordering::SeqCst) >= 3 {
         #[cfg(feature = "qemu")]
-        semihosting::terminate(true);
+        semihosting::terminate(false);
         #[cfg(not(feature = "qemu"))]
         {
             dbg_println!("test complete!");
@@ -167,7 +167,7 @@ extern "C" fn tim2_handler() {
         Err(_) => {
             dbg_println!("Failed to up");
             #[cfg(feature = "qemu")]
-            semihosting::terminate(true);
+            semihosting::terminate(false);
             #[cfg(not(feature = "qemu"))]
             {
                 dbg_println!("test complete!");

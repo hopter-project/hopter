@@ -174,7 +174,7 @@ extern "C" fn clobber_all_gp_regs() -> ! {
 extern "C" fn error() -> ! {
     dbg_println!("Test Failed");
     #[cfg(feature = "qemu")]
-    semihosting::terminate(true);
+    semihosting::terminate(false);
     #[cfg(not(feature = "qemu"))]
     {
         dbg_println!("test complete!");

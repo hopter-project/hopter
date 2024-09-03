@@ -23,7 +23,7 @@ fn listener() {
     if notified {
         dbg_println!("Unexpected notification.");
         #[cfg(feature = "qemu")]
-        semihosting::terminate(true);
+        semihosting::terminate(false);
         #[cfg(not(feature = "qemu"))]
         {
             dbg_println!("test complete!");

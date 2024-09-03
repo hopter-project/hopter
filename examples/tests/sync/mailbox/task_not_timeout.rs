@@ -48,7 +48,7 @@ fn listener() {
     if !notified {
         dbg_println!("Unexpected timeout.");
         #[cfg(feature = "qemu")]
-        semihosting::terminate(true);
+        semihosting::terminate(false);
         #[cfg(not(feature = "qemu"))]
         {
             dbg_println!("test complete!");
@@ -57,7 +57,7 @@ fn listener() {
     }
 
     #[cfg(feature = "qemu")]
-    semihosting::terminate(true);
+    semihosting::terminate(false);
     #[cfg(not(feature = "qemu"))]
     {
         dbg_println!("test complete!");

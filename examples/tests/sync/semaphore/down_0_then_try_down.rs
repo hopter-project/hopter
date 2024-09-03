@@ -23,7 +23,7 @@ fn main(_: cortex_m::Peripherals) {
         Ok(()) => {
             dbg_println!("Decremented at 0");
             #[cfg(feature = "qemu")]
-            semihosting::terminate(true);
+            semihosting::terminate(false);
             #[cfg(not(feature = "qemu"))]
             {
                 dbg_println!("test complete!");

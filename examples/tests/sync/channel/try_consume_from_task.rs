@@ -21,7 +21,7 @@ fn main(_: cortex_m::Peripherals) {
     if result != None {
         dbg_println!("consumed from an empty channel");
         #[cfg(feature = "qemu")]
-        semihosting::terminate(true);
+        semihosting::terminate(false);
         #[cfg(not(feature = "qemu"))]
         {
             dbg_println!("test complete!");
@@ -41,7 +41,7 @@ fn main(_: cortex_m::Peripherals) {
         if result == None {
             dbg_println!("failed to consume from a non-empty channel");
             #[cfg(feature = "qemu")]
-            semihosting::terminate(true);
+            semihosting::terminate(false);
             #[cfg(not(feature = "qemu"))]
             {
                 dbg_println!("test complete!");
@@ -66,7 +66,7 @@ fn main(_: cortex_m::Peripherals) {
         Some(_t) => {
             dbg_println!("consumed from an empty channel");
             #[cfg(feature = "qemu")]
-            semihosting::terminate(true);
+            semihosting::terminate(false);
             #[cfg(not(feature = "qemu"))]
             {
                 dbg_println!("test complete!");

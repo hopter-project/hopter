@@ -116,7 +116,7 @@ fn tim2_handler() {
             Ok(_) => {
                 if COUNT.load(Ordering::SeqCst) > 5 {
                     #[cfg(feature = "qemu")]
-                    semihosting::terminate(true);
+                    semihosting::terminate(false);
                     #[cfg(not(feature = "qemu"))]
                     {
                         dbg_println!("test complete!");
@@ -138,7 +138,7 @@ fn tim2_handler() {
                 }
                 dbg_println!("Unexpectedly succeed to produce");
                 #[cfg(feature = "qemu")]
-                semihosting::terminate(true);
+                semihosting::terminate(false);
                 #[cfg(not(feature = "qemu"))]
                 {
                     dbg_println!("test complete!");
@@ -149,7 +149,7 @@ fn tim2_handler() {
     } else {
         dbg_println!("Producer not initialized!");
         #[cfg(feature = "qemu")]
-        semihosting::terminate(true);
+        semihosting::terminate(false);
         #[cfg(not(feature = "qemu"))]
         {
             dbg_println!("test complete!");

@@ -39,7 +39,7 @@ fn main(_: cortex_m::Peripherals) {
             } else {
                 dbg_println!("Second try lock success");
                 #[cfg(feature = "qemu")]
-                semihosting::terminate(true);
+                semihosting::terminate(false);
                 #[cfg(not(feature = "qemu"))]
                 {
                     dbg_println!("test complete!");
@@ -50,7 +50,7 @@ fn main(_: cortex_m::Peripherals) {
         None => {
             dbg_println!("First try lock failed");
             #[cfg(feature = "qemu")]
-            semihosting::terminate(true);
+            semihosting::terminate(false);
             #[cfg(not(feature = "qemu"))]
             {
                 dbg_println!("test complete!");
