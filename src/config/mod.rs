@@ -4,6 +4,20 @@ use static_assertions::{const_assert, const_assert_eq};
 mod helper;
 
 /* ############################ */
+/* ### Clock Configurations ### */
+/* ############################ */
+
+/// The frequency of the SysTick timer clock. Must be set correctly because
+/// Hopter relies on it to configure the SysTick counter to trigger the
+/// interrupt at 1 millisecond interval.
+pub use hopter_conf_params::SYSTICK_FREQUENCY_HZ;
+assert_value_type!(SYSTICK_FREQUENCY_HZ, u32);
+
+// Must be a multiple of 1000 so that Hopter can get an interrupt at
+// 1 millisecond interval.
+const_assert!(SYSTICK_FREQUENCY_HZ % 1000 == 0);
+
+/* ############################ */
 /* ### Stack Configurations ### */
 /* ############################ */
 

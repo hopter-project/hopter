@@ -55,9 +55,8 @@ fn enable_systick(cp: &mut cortex_m::Peripherals) {
         cp.SYST.csr.write(val);
     }
 
-    // Assume that the clock is 168 MHz. Trigger an interrupt for every 1
-    // millisecond.
-    cp.SYST.set_reload(168_000);
+    // Trigger an interrupt for every 1 millisecond.
+    cp.SYST.set_reload(config::SYSTICK_FREQUENCY_HZ / 1000);
     cp.SYST.clear_current();
     cp.SYST.enable_counter();
 
