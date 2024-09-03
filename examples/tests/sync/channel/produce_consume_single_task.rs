@@ -26,13 +26,21 @@ fn main(_: cortex_m::Peripherals) {
         let value = consumer.consume();
         if value != 23 + i {
             dbg_println!("Test Failed");
-            // semihosting::terminate(false);
-            dbg_println!("test complete!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
     dbg_println!("Test Passed");
-    // semihosting::terminate(true);
-    dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }

@@ -158,7 +158,7 @@ extern "C" {
 #[cfg(feature = "stm32f401")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 85] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 85] = [
     Vector { reserved: 0 },
     Vector { handler: PVD },
     Vector {
@@ -377,7 +377,7 @@ extern "C" {
 }
 
 #[cfg(feature = "stm32f405")]
-#[link_section = ".hopter.vector_table.interrupts"]
+#[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
 pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector { handler: WWDG },
@@ -617,7 +617,7 @@ extern "C" {
 #[cfg(feature = "stm32f407")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 90] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -826,7 +826,7 @@ extern "C" {
 #[cfg(feature = "stm32f410")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 98] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 98] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -1030,7 +1030,7 @@ extern "C" {
 #[cfg(feature = "stm32f411")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 86] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 86] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -1248,7 +1248,7 @@ extern "C" {
 #[cfg(feature = "stm32f412")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 97] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 97] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -1502,7 +1502,7 @@ extern "C" {
 #[cfg(feature = "stm32f413")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 102] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 102] = [
     Vector { reserved: 0 },
     Vector { handler: PVD },
     Vector {
@@ -1772,7 +1772,7 @@ extern "C" {
 #[cfg(feature = "stm32f427")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 90] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -2018,7 +2018,7 @@ extern "C" {
 #[cfg(feature = "stm32f429")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 91] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 91] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -2254,7 +2254,7 @@ extern "C" {
 #[cfg(feature = "stm32f446")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 90] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector { handler: WWDG },
     Vector { reserved: 0 },
     Vector {
@@ -2496,7 +2496,7 @@ extern "C" {
 #[cfg(feature = "stm32f469")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __INTERRUPTS: [Vector; 93] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 93] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {

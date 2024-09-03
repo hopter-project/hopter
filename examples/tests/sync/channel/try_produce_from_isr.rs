@@ -48,6 +48,8 @@ fn main(_cp: cortex_m::Peripherals) {
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
 
+    #[cfg(feature = "qemu")]
+    let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
     #[cfg(feature = "stm32f411")]
     let clocks = rcc
         .cfgr
@@ -78,6 +80,9 @@ fn main(_cp: cortex_m::Peripherals) {
     // Set the timer to expire every 1 second.
     // Empirically when set to 62 seconds the interval is actually
     // approximately 1 second. Weird QEMU.
+    #[cfg(feature = "qemu")]
+    timer.start(62.secs()).unwrap();
+    #[cfg(not(feature = "qemu"))]
     timer.start(1.secs()).unwrap();
 
     // Move the timer into the global storage to prevent it from being dropped.
@@ -110,29 +115,45 @@ fn tim2_handler() {
             // The first 5 produce attempt should be successful.
             Ok(_) => {
                 if COUNT.load(Ordering::SeqCst) > 5 {
-                    // semihosting::terminate(false);
-                    semihosting::dbg_println!("test complete!");
-                    loop {}
+                    #[cfg(feature = "qemu")]
+                    semihosting::terminate(true);
+                    #[cfg(not(feature = "qemu"))]
+                    {
+                        dbg_println!("test complete!");
+                        loop {}
+                    }
                 }
             }
             // The 6th produce attempt should be unsuccessful.
             Err(_) => {
                 dbg_println!("Failed to produce");
                 if COUNT.load(Ordering::SeqCst) == 6 {
-                    // semihosting::terminate(true);
-                    semihosting::dbg_println!("test complete!");
-                    loop {}
+                    #[cfg(feature = "qemu")]
+                    semihosting::terminate(true);
+                    #[cfg(not(feature = "qemu"))]
+                    {
+                        dbg_println!("test complete!");
+                        loop {}
+                    }
                 }
                 dbg_println!("Unexpectedly succeed to produce");
-                // semihosting::terminate(false);
-                semihosting::dbg_println!("test complete!");
-                loop {}
+                #[cfg(feature = "qemu")]
+                semihosting::terminate(true);
+                #[cfg(not(feature = "qemu"))]
+                {
+                    dbg_println!("test complete!");
+                    loop {}
+                }
             }
         }
     } else {
         dbg_println!("Producer not initialized!");
-        // semihosting::terminate(false);
-        semihosting::dbg_println!("test complete!");
-        loop {}
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(true);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
 }

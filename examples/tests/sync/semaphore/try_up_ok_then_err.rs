@@ -18,9 +18,13 @@ fn main(_: cortex_m::Peripherals) {
         Ok(()) => {}
         Err(()) => {
             dbg_println!("Did not increment");
-            // semihosting::terminate(false);
-            dbg_println!("test complete!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 
@@ -34,15 +38,23 @@ fn main(_: cortex_m::Peripherals) {
     match second_result {
         Ok(()) => {
             dbg_println!("incremented at max");
-            // semihosting::terminate(false);
-            dbg_println!("test complete!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
         Err(()) => {
             dbg_println!("Test Passed");
-            // semihosting::terminate(true);
-            dbg_println!("test complete!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 }

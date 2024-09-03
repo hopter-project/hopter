@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 default = ["unwind"]
 unwind = ["dep:gimli", "dep:fallible-iterator"]
+qemu = []
 stm32f401 = ["hopter_proc_macro/stm32f401", "stm32f4xx-hal/stm32f401"]
 stm32f405 = ["hopter_proc_macro/stm32f405", "stm32f4xx-hal/stm32f405"]
 stm32f407 = ["hopter_proc_macro/stm32f407", "stm32f4xx-hal/stm32f407"]

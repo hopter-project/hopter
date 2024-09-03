@@ -31,14 +31,22 @@ fn main(_: cortex_m::Peripherals) {
 
     if *MUTEX.lock() == ITERATIONS * NUM_TASK {
         dbg_println!("Test Passed");
-        // semihosting::terminate(true);
-        dbg_println!("test complete!");
-        loop {}
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(true);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     } else {
         dbg_println!("Test Failed");
-        // semihosting::terminate(false);
-        dbg_println!("test complete!");
-        loop {}
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(true);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
 }
 

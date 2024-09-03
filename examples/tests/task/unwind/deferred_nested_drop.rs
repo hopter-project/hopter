@@ -54,13 +54,21 @@ fn test_task() {
 
     if cnt > 0 {
         dbg_println!("Task successfully restarted after a deferred forced unwinding.");
-        // semihosting::terminate(true);
-        dbg_println!("test complete!");
-        loop {}
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(true);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     } else {
-        // semihosting::terminate(false);
-        dbg_println!("test complete!");
-        loop {}
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(true);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
 }
 

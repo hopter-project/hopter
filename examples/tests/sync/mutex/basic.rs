@@ -29,21 +29,33 @@ fn main(_: cortex_m::Peripherals) {
             let guard = mutex.try_lock();
             if guard.is_none() {
                 dbg_println!("Second try lock failed");
-                // semihosting::terminate(true);
-                dbg_println!("test complete!");
-                loop {}
+                #[cfg(feature = "qemu")]
+                semihosting::terminate(true);
+                #[cfg(not(feature = "qemu"))]
+                {
+                    dbg_println!("test complete!");
+                    loop {}
+                }
             } else {
                 dbg_println!("Second try lock success");
-                // semihosting::terminate(false);
-                dbg_println!("test complete!");
-                loop {}
+                #[cfg(feature = "qemu")]
+                semihosting::terminate(true);
+                #[cfg(not(feature = "qemu"))]
+                {
+                    dbg_println!("test complete!");
+                    loop {}
+                }
             }
         }
         None => {
             dbg_println!("First try lock failed");
-            // semihosting::terminate(false);
-            dbg_println!("test complete!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 }
