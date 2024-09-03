@@ -18,9 +18,13 @@ fn main(_: cortex_m::Peripherals) {
     dbg_println!("one");
     task::change_current_priority(10).unwrap();
     dbg_println!("three");
-    // semihosting::terminate(true);
-    dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn task() {

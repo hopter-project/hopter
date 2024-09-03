@@ -49,14 +49,22 @@ fn main(_: cortex_m::Peripherals) {
     // Verify the consumed values against the expected order
     if values != [1, 2, 3, 4] {
         dbg_println!("Test Failed");
-        // semihosting::terminate(false);
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(true);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
+    }
+    dbg_println!("Test Passed");
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
         dbg_println!("test complete!");
         loop {}
     }
-    dbg_println!("Test Passed");
-    // semihosting::terminate(true);
-    dbg_println!("test complete!");
-    loop {}
 }
 
 fn produce_thread(producer: &mut Producer<usize, 4>) {

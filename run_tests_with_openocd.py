@@ -151,7 +151,7 @@ def main():
             decision = subprocess.run(['python', answer], input=output.encode('utf-8'), capture_output=True).stdout
             if decision != 'Test Passed\n'.encode('utf-8'):
                 print(
-                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed.\nExpeted:\n{answer}\nGot:\n{output}',
+                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed.\nGot:\n{output}',
                     file=sys.stderr
                 )
                 # sys.exit(1)

@@ -48,6 +48,9 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
+
+    #[cfg(feature = "qemu")]
+    let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
     #[cfg(feature = "stm32f411")]
     let clocks = rcc
         .cfgr
@@ -78,6 +81,9 @@ fn main(_cp: cortex_m::Peripherals) {
     // Set the timer to expire every 1 second.
     // Empirically when set to 62 seconds the interval is actually
     // approximately 1 second. Weird QEMU.
+    #[cfg(feature = "qemu")]
+    timer.start(62.secs()).unwrap();
+    #[cfg(not(feature = "qemu"))]
     timer.start(1.secs()).unwrap();
 
     // Move the timer into the global storage to prevent it from being dropped.
@@ -108,29 +114,45 @@ extern "C" fn tim2_handler() {
             Some(value) => {
                 dbg_println!("Consumed {}", value);
                 if COUNT.load(Ordering::SeqCst) > 5 {
-                    // semihosting::terminate(false);
-                    dbg_println!("test complete!");
-                    loop {}
+                    #[cfg(feature = "qemu")]
+                    semihosting::terminate(true);
+                    #[cfg(not(feature = "qemu"))]
+                    {
+                        dbg_println!("test complete!");
+                        loop {}
+                    }
                 }
             }
             // The 6th consume attempt should be unsuccessful.
             None => {
                 dbg_println!("Failed to consume");
                 if COUNT.load(Ordering::SeqCst) == 6 {
-                    // semihosting::terminate(true);
+                    #[cfg(feature = "qemu")]
+                    semihosting::terminate(true);
+                    #[cfg(not(feature = "qemu"))]
+                    {
+                        dbg_println!("test complete!");
+                        loop {}
+                    }
+                }
+                dbg_println!("Unexpectedly succeed to consume");
+                #[cfg(feature = "qemu")]
+                semihosting::terminate(true);
+                #[cfg(not(feature = "qemu"))]
+                {
                     dbg_println!("test complete!");
                     loop {}
                 }
-                dbg_println!("Unexpectedly succeed to consume");
-                // semihosting::terminate(false);
-                dbg_println!("test complete!");
-                loop {}
             }
         }
     } else {
         dbg_println!("Consumer not initialized!");
-        // semihosting::terminate(false);
-        dbg_println!("test complete!");
-        loop {}
+        #[cfg(feature = "qemu")]
+        semihosting::terminate(true);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
 }

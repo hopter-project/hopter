@@ -47,6 +47,8 @@ fn main(_cp: cortex_m::Peripherals) {
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
 
+    #[cfg(feature = "qemu")]
+    let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
     #[cfg(feature = "stm32f411")]
     let clocks = rcc
         .cfgr
@@ -93,9 +95,13 @@ fn print_load() {
             dbg_println!("CPU load {}.{}%", x, y);
         }
     }
-    // semihosting::terminate(true);
-    semihosting::dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn occupy_cpu_40_percent() {

@@ -40,9 +40,13 @@ fn main(_: cortex_m::Peripherals) {
         SEMAPHORE.up();
     }
 
-    // semihosting::terminate(true);
-    dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn high_task() {

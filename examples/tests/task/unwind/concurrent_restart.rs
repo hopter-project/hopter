@@ -25,9 +25,13 @@ fn main(_: cortex_m::Peripherals) {
     // Let the test task and its unwinding complete first.
     task::change_current_priority(config::UNWIND_PRIORITY + 1).unwrap();
 
-    // semihosting::terminate(true);
-    dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn will_panic() {

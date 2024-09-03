@@ -54,6 +54,7 @@ def main():
         run_result = subprocess.run([
             'cargo', 'build', 
             '--features', 'stm32f405',
+            '--features', 'qemu',
             '--release',
             '--example', f'test-{category}-{subcategory}-{file_no_ext}'
         ], capture_output=True)
@@ -75,6 +76,7 @@ def main():
         run_result = subprocess.run([
             'cargo', 'run', '--release',
             '--features', 'stm32f405',
+            '--features', 'qemu',
             '--example', f'test-{category}-{subcategory}-{file_no_ext}'
         ], capture_output=True)
 
@@ -97,7 +99,7 @@ def main():
                 answer = f.read()
             if answer != run_result.stdout:
                 print(
-                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed to provide correct output.',
+                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed to provide correct output.\nExpeted:\n{answer}\nGot:\n{run_result.stdout}',
                     file=sys.stderr
                 )
                 sys.exit(1)
@@ -107,7 +109,7 @@ def main():
             decision = subprocess.run(['python', answer], input=run_result.stdout, capture_output=True).stdout
             if decision != 'Test Passed\n'.encode('utf-8'):
                 print(
-                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed.',
+                    f'Error: Test case {category}-{subcategory}-{file_no_ext} failed.\nGot:\n{run_result.stdout}',
                     file=sys.stderr
                 )
                 sys.exit(1)

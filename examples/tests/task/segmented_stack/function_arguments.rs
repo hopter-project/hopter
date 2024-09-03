@@ -123,9 +123,13 @@ extern "C" fn success() {
 
 extern "C" fn error() {
     dbg_println!("Test Failed");
-    // semihosting::terminate(false);
-    dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 #[main]
@@ -135,7 +139,11 @@ fn main(_: cortex_m::Peripherals) {
         .spawn()
         .unwrap();
     task::change_current_priority(10).unwrap();
-    // semihosting::terminate(true);
-    dbg_println!("test complete!");
-    loop {}
+    #[cfg(feature = "qemu")]
+    semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }

@@ -22,15 +22,23 @@ fn main(_: cortex_m::Peripherals) {
     match result {
         Ok(()) => {
             dbg_println!("Decremented at 0");
-            // semihosting::terminate(false);
-            dbg_println!("test complete!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
         Err(()) => {
             dbg_println!("Test Passed");
-            // semihosting::terminate(true);
-            dbg_println!("test complete!");
-            loop {}
+            #[cfg(feature = "qemu")]
+            semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 }
