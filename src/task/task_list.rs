@@ -1,6 +1,7 @@
-use super::task_struct::TaskListAdapter;
-use super::Task;
+use super::task_struct::{Task, TaskListAdapter};
+use crate::time;
 use alloc::sync::Arc;
+use core::cmp::Ordering;
 use intrusive_collections::LinkedList;
 
 /// Additional interfaces for task list.
@@ -12,7 +13,7 @@ pub(crate) trait TaskListInterfaces {
 
 impl TaskListInterfaces for LinkedList<TaskListAdapter> {
     /// Remove the given task from the linked list. If the task exists in the
-    /// list, returns `Some`, otherwise `None`.
+    /// list, return `Some`, otherwise `None`.
     fn remove_task(&mut self, task: &Task) -> Option<Arc<Task>> {
         let mut cursor_mut = self.front_mut();
 
@@ -34,7 +35,7 @@ impl TaskListInterfaces for LinkedList<TaskListAdapter> {
         // Move the cursor until we encounter a task with a higher wake up tick
         // number or we are at the end of the list.
         while let Some(task) = cursor_mut.get() {
-            if new_task.get_wake_tick() < task.get_wake_tick() {
+            if let Ordering::Less = time::tick_cmp(new_task.get_wake_tick(), task.get_wake_tick()) {
                 break;
             }
             cursor_mut.move_next();
