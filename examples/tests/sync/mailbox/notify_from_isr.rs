@@ -74,7 +74,7 @@ fn listener_function() {
 
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
-extern "C" fn tim2_handler() {
+fn tim2_handler() {
     static IRQ_CNT: AtomicUsize = AtomicUsize::new(0);
 
     MAILBOX.notify_allow_isr();

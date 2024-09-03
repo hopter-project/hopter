@@ -79,7 +79,7 @@ fn consume_function(consumer: Consumer<usize, 2>) {
 
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
-extern "C" fn tim2_handler() {
+fn tim2_handler() {
     static COUNT: AtomicUsize = AtomicUsize::new(0);
     let prev_cnt = COUNT.fetch_add(1, Ordering::SeqCst);
 

@@ -74,7 +74,7 @@ fn up_function() {
 
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
-extern "C" fn tim2_handler() {
+fn tim2_handler() {
     // Only run this handler for three times. If running more than three times,
     // the test task must have been stuck.
     static COUNT: AtomicUsize = AtomicUsize::new(0);
