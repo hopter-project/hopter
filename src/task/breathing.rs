@@ -1,10 +1,11 @@
-use crate::sync::Semaphore;
+use crate::{config, sync::Semaphore};
 
 /// The semaphore controlling the concurrency of all breathing tasks. Each
 /// breathing task acquires (`.down()`) the semaphore before proceeding to the
 /// `work` function, and will release (`.up()`) the semaphore after the work
 /// function finishes.
-static CONCUR_CTRL_SEM: Semaphore = Semaphore::new(3, 3);
+static CONCUR_CTRL_SEM: Semaphore =
+    Semaphore::new(config::BREATHING_CONCURRENCY, config::BREATHING_CONCURRENCY);
 
 /// To prevent a panicked task from not releasing the concurrency control
 /// semaphore, we create a guard after acquiring the semaphore. In this way
@@ -71,14 +72,6 @@ macro_rules! define_breathing_task_entry_constructor {
             }
 
             #[inline(never)]
-            fn call_wait<$gen_wait, State, Item>(state: &mut State, wait: &mut $gen_wait) -> Item
-            where
-                $gen_wait: $fn_trait_wait + $($bnd_wait)+,
-            {
-                wait(state)
-            }
-
-            #[inline(never)]
             fn call_work<$gen_work, State, Item>(state: &mut State, item: Item, work: &mut $gen_work)
             where
                 $gen_work: $fn_trait_work + $($bnd_work)+
@@ -89,7 +82,7 @@ macro_rules! define_breathing_task_entry_constructor {
             move || {
                 let mut state = call_init(init);
                 loop {
-                    let item = call_wait(&mut state, &mut wait);
+                    let item = wait(&mut state);
                     CONCUR_CTRL_SEM.down();
                     let _guard = SemGuard;
                     call_work(&mut state, item, &mut work);

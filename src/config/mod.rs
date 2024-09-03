@@ -277,3 +277,8 @@ assert_value_type!(MAIN_TASK_ID, u8);
 /// Tasks can have the same ID.
 pub use hopter_conf_params::DEFAULT_TASK_ID;
 assert_value_type!(DEFAULT_TASK_ID, u8);
+
+/// The number of breathing tasks that can run concurrently, i.e. not blocked
+/// on the `wait` function.
+pub use hopter_conf_params::BREATHING_CONCURRENCY;
+assert_value_type!(BREATHING_CONCURRENCY, usize);
