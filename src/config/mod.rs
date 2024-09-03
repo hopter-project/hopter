@@ -47,6 +47,18 @@ assert_value_type!(STACKLET_ADDITION_ALLOC_SIZE, usize);
 // The additional allocation size should be a multiple of 8
 const_assert!(STACKLET_ADDITION_ALLOC_SIZE % 8 == 0);
 
+/// The number of hot-split site that a task can address. The larger the number
+/// is, the unlikely that a task will suffer from hot-split, but the task
+/// struct also becomes larger.
+pub use hopter_conf_params::HOT_SPLIT_PREVENTION_CACHE_SIZE;
+assert_value_type!(HOT_SPLIT_PREVENTION_CACHE_SIZE, usize);
+
+/// During the existance of a stacklet, if [`HOT_SPLIT_DETECTION_THRESHOLD`] or
+/// more new stacklet allocation is requested while the task is running with the
+/// stacklet, it will be considered as a hot-split site.
+pub use hopter_conf_params::HOT_SPLIT_DETECTION_THRESHOLD;
+assert_value_type!(HOT_SPLIT_DETECTION_THRESHOLD, usize);
+
 /// The stack size of the idle task when it is just created. If
 /// [`ALLOW_DYNAMIC_STACK`] is set to true, this value can be kept to 0 so
 /// that the stack will be allocated completely dynamically.

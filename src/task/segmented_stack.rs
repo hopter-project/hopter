@@ -112,9 +112,6 @@ pub(crate) struct StackletMeta {
     pub(crate) count_size: u32,
 }
 
-/// FIXME: Change it to use config module.
-const HOT_SPLIT_PREVENTION_CACHE_SIZE: usize = 4;
-
 /// Information related to each task's stack. Only tasks with dynamic stack
 /// extension enabled need this struct.
 #[derive(Default)]
@@ -123,10 +120,10 @@ pub(crate) struct StackCtrlBlock {
     call_chain_signature: u32,
     /// The places where hot-split happended, represented by the call chain
     /// signatures.
-    hot_split_cause_signatures: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],
+    hot_split_cause_signatures: [u32; config::HOT_SPLIT_PREVENTION_CACHE_SIZE],
     /// Additional allocation at each hot-split site to prevent it from
     /// happening again.
-    add_sizes: [u32; HOT_SPLIT_PREVENTION_CACHE_SIZE],
+    add_sizes: [u32; config::HOT_SPLIT_PREVENTION_CACHE_SIZE],
     /// The eviction policy of the hot-split prevention cache is round-robin,
     /// using this index.
     round_robin_idx: usize,
@@ -588,9 +585,7 @@ fn svc_more_stack_anti_hot_split(
     // F is currently hot-splitting, we will increase the allocation size once for
     // G, but if we use `>=` and F hot-splits for example 10 times, we will then
     // inadvertently increase the allocation for G 7 times.
-    //
-    // FIXME: Use config file instead of hardcoded `10` below.
-    if *extend_cnt != 10 {
+    if *extend_cnt != config::HOT_SPLIT_DETECTION_THRESHOLD as u32 {
         return;
     }
 
@@ -615,7 +610,7 @@ fn svc_more_stack_anti_hot_split(
 
     // We evict the array entry using round-robin.
     scb.round_robin_idx += 1;
-    if scb.round_robin_idx % HOT_SPLIT_PREVENTION_CACHE_SIZE == 0 {
+    if scb.round_robin_idx % config::HOT_SPLIT_PREVENTION_CACHE_SIZE == 0 {
         scb.round_robin_idx = 0;
     }
 }
