@@ -42,15 +42,9 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 
     #[cfg(feature = "qemu")]
     let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
-=======
-
->>>>>>> 8a5aa34 (change STM32F411 clock)
     #[cfg(feature = "stm32f411")]
     let clocks = rcc
         .cfgr
@@ -67,31 +61,6 @@ fn main(_cp: cortex_m::Peripherals) {
         .pclk1(42.MHz())
         .pclk2(84.MHz())
         .freeze();
-=======
-    // let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
-=======
->>>>>>> ff4c3e8 (STM32F407 PASSED)
-    #[cfg(feature = "stm32f411")]
-    let clocks = rcc
-        .cfgr
-        .use_hse(8.MHz())
-        .sysclk(180.MHz())
-        .pclk1(45.MHz())
-        .pclk2(90.MHz())
-        .freeze();
-    #[cfg(feature = "stm32f407")]
-<<<<<<< HEAD
-    let clocks = rcc.cfgr.sysclk(168.MHz()).pclk1(84.MHz()).freeze();
->>>>>>> c84a45e (squash commit)
-=======
-    let clocks = rcc
-        .cfgr
-        .use_hse(8.MHz())
-        .sysclk(168.MHz())
-        .pclk1(42.MHz())
-        .pclk2(84.MHz())
-        .freeze();
->>>>>>> ff4c3e8 (STM32F407 PASSED)
 
     let mut timer = dp.TIM2.counter(&clocks);
 
@@ -106,13 +75,9 @@ fn main(_cp: cortex_m::Peripherals) {
     // Set the timer to expire every 1 second.
     // Empirically when set to 62 seconds the interval is actually
     // approximately 1 second. Weird QEMU.
-<<<<<<< HEAD
     #[cfg(feature = "qemu")]
     timer.start(62.secs()).unwrap();
     #[cfg(not(feature = "qemu"))]
-=======
-
->>>>>>> 8a5aa34 (change STM32F411 clock)
     timer.start(1.secs()).unwrap();
 
     // Move the timer into the global storage to prevent it from being dropped.
@@ -136,11 +101,7 @@ fn down_function() {
 
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
-<<<<<<< HEAD
 fn tim2_handler() {
-=======
-extern "C" fn tim2_handler() {
->>>>>>> ff4c3e8 (STM32F407 PASSED)
     TIMER.lock().as_mut().unwrap().wait();
 
     // Only run this handler for three times. If running more than three times,

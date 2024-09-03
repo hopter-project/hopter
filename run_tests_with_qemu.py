@@ -52,10 +52,9 @@ def main():
     for (category, subcategory, file_no_ext), answer in tqdm(tests):
         # Build the test case with `cargo build --example`
         run_result = subprocess.run([
-            'cargo', 'build', 
+            'cargo', 'build', '--release',
             '--features', 'stm32f405',
             '--features', 'qemu',
-            '--release',
             '--example', f'test-{category}-{subcategory}-{file_no_ext}'
         ], capture_output=True)
 
