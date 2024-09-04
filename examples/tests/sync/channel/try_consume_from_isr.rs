@@ -44,7 +44,7 @@ fn main(_cp: cortex_m::Peripherals) {
         .spawn()
         .unwrap();
 
-    let dp = Peripherals::take().unwrap();
+    let dp = unsafe { Peripherals::steal() };
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
@@ -99,7 +99,7 @@ fn produce_function(producer: Producer<usize, 2>) {
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
 fn tim2_handler() {
-    TIMER.lock().as_mut().unwrap().wait();
+    TIMER.lock().as_mut().unwrap().wait().unwrap();
 
     static COUNT: AtomicUsize = AtomicUsize::new(0);
     COUNT.fetch_add(1, Ordering::SeqCst);
