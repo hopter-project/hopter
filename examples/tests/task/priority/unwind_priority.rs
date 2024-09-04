@@ -45,7 +45,13 @@ fn main(_: cortex_m::Peripherals) {
         .unwrap();
 
     task::change_current_priority(config::UNWIND_PRIORITY + 1).unwrap();
+    #[cfg(feature = "qemu")]
     semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn high_task() {

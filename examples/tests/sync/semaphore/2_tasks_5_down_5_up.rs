@@ -16,7 +16,13 @@ fn main(_: cortex_m::Peripherals) {
 
     task::change_current_priority(10).unwrap();
 
+    #[cfg(feature = "qemu")]
     semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 static SEMAPHORE: Semaphore = Semaphore::new(3, 3);

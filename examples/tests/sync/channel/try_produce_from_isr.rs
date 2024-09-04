@@ -47,7 +47,25 @@ fn main(_cp: cortex_m::Peripherals) {
 
     // For unknown reason QEMU accepts only the following clock frequency.
     let rcc = dp.RCC.constrain();
+
+    #[cfg(feature = "qemu")]
     let clocks = rcc.cfgr.sysclk(16.MHz()).pclk1(8.MHz()).freeze();
+    #[cfg(feature = "stm32f411")]
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(100.MHz())
+        .pclk1(25.MHz())
+        .pclk2(50.MHz())
+        .freeze();
+    #[cfg(feature = "stm32f407")]
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.MHz())
+        .sysclk(168.MHz())
+        .pclk1(42.MHz())
+        .pclk2(84.MHz())
+        .freeze();
 
     let mut timer = dp.TIM2.counter(&clocks);
 
@@ -62,7 +80,10 @@ fn main(_cp: cortex_m::Peripherals) {
     // Set the timer to expire every 1 second.
     // Empirically when set to 62 seconds the interval is actually
     // approximately 1 second. Weird QEMU.
+    #[cfg(feature = "qemu")]
     timer.start(62.secs()).unwrap();
+    #[cfg(not(feature = "qemu"))]
+    timer.start(1.secs()).unwrap();
 
     // Move the timer into the global storage to prevent it from being dropped.
     *TIMER.lock() = Some(timer);
@@ -80,6 +101,8 @@ fn consume_function(consumer: Consumer<usize, 2>) {
 /// Get invoked approximately every 1 second.
 #[handler(TIM2)]
 fn tim2_handler() {
+    TIMER.lock().as_mut().unwrap().wait();
+
     static COUNT: AtomicUsize = AtomicUsize::new(0);
     let prev_cnt = COUNT.fetch_add(1, Ordering::SeqCst);
 
@@ -92,21 +115,45 @@ fn tim2_handler() {
             // The first 5 produce attempt should be successful.
             Ok(_) => {
                 if COUNT.load(Ordering::SeqCst) > 5 {
+                    #[cfg(feature = "qemu")]
                     semihosting::terminate(false);
+                    #[cfg(not(feature = "qemu"))]
+                    {
+                        dbg_println!("test complete!");
+                        loop {}
+                    }
                 }
             }
             // The 6th produce attempt should be unsuccessful.
             Err(_) => {
                 dbg_println!("Failed to produce");
                 if COUNT.load(Ordering::SeqCst) == 6 {
+                    #[cfg(feature = "qemu")]
                     semihosting::terminate(true);
+                    #[cfg(not(feature = "qemu"))]
+                    {
+                        dbg_println!("test complete!");
+                        loop {}
+                    }
                 }
                 dbg_println!("Unexpectedly succeed to produce");
+                #[cfg(feature = "qemu")]
                 semihosting::terminate(false);
+                #[cfg(not(feature = "qemu"))]
+                {
+                    dbg_println!("test complete!");
+                    loop {}
+                }
             }
         }
     } else {
         dbg_println!("Producer not initialized!");
+        #[cfg(feature = "qemu")]
         semihosting::terminate(false);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
 }

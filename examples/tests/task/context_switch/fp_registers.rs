@@ -196,10 +196,22 @@ extern "C" fn compare_fp_regs() {
 
 extern "C" fn error() -> ! {
     dbg_println!("Test Failed");
+    #[cfg(feature = "qemu")]
     semihosting::terminate(false);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 extern "C" fn success() -> ! {
     dbg_println!("Test Succeeded");
+    #[cfg(feature = "qemu")]
     semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }

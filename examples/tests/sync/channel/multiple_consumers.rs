@@ -48,10 +48,22 @@ fn main(_: cortex_m::Peripherals) {
     // Check if the channel is empty after both consumers have finished
     if consumer.try_consume_allow_isr() != None {
         dbg_println!("Channel not empty");
+        #[cfg(feature = "qemu")]
         semihosting::terminate(false);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
     dbg_println!("Test Passed");
+    #[cfg(feature = "qemu")]
     semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn consume_function(consumer: &mut Consumer<usize, 4>) {

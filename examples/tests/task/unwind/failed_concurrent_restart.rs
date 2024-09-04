@@ -41,7 +41,13 @@ fn main(_: cortex_m::Peripherals) {
     // Let the test task run.
     task::change_current_priority(config::UNWIND_PRIORITY + 1).unwrap();
 
+    #[cfg(feature = "qemu")]
     semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn will_panic() {

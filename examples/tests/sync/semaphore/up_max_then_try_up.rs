@@ -21,11 +21,23 @@ fn main(_: cortex_m::Peripherals) {
     match result {
         Ok(()) => {
             dbg_println!("Incremented when at max count");
+            #[cfg(feature = "qemu")]
             semihosting::terminate(false);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
         Err(()) => {
             dbg_println!("Test Passed");
+            #[cfg(feature = "qemu")]
             semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 }

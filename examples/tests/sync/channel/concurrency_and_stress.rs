@@ -72,10 +72,22 @@ fn main(_: cortex_m::Peripherals) {
     // Check if the produced results match the expected sequence
     if results != compare_vec {
         dbg_println!("Test Failed");
+        #[cfg(feature = "qemu")]
         semihosting::terminate(false);
+        #[cfg(not(feature = "qemu"))]
+        {
+            dbg_println!("test complete!");
+            loop {}
+        }
     }
     dbg_println!("Test Passed");
+    #[cfg(feature = "qemu")]
     semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn fill_channel(producer: &mut Producer<usize, 16>, task_num: usize) {

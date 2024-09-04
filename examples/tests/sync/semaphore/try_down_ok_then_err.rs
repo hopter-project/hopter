@@ -2,7 +2,11 @@
 #![no_std]
 
 extern crate alloc;
-use hopter::{debug::semihosting::{self, dbg_println}, sync::Semaphore, task::main};
+use hopter::{
+    debug::semihosting::{self, dbg_println},
+    sync::Semaphore,
+    task::main,
+};
 
 static SEMAPHORE: Semaphore = Semaphore::new(5, 3);
 
@@ -14,7 +18,13 @@ fn main(_: cortex_m::Peripherals) {
         Ok(()) => {}
         Err(()) => {
             dbg_println!("Did not decrement");
+            #[cfg(feature = "qemu")]
             semihosting::terminate(false);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 
@@ -28,11 +38,23 @@ fn main(_: cortex_m::Peripherals) {
     match second_result {
         Ok(()) => {
             dbg_println!("Decremented at 0");
+            #[cfg(feature = "qemu")]
             semihosting::terminate(false);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
         Err(()) => {
             dbg_println!("Test Passed");
+            #[cfg(feature = "qemu")]
             semihosting::terminate(true);
+            #[cfg(not(feature = "qemu"))]
+            {
+                dbg_println!("test complete!");
+                loop {}
+            }
         }
     }
 }

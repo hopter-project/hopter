@@ -21,7 +21,13 @@ fn acquire() {
     dbg_println!("attempting to acquire semaphore..");
     SEMAPHORE.down();
     dbg_println!("semaphore acquired");
+    #[cfg(feature = "qemu")]
     semihosting::terminate(true);
+    #[cfg(not(feature = "qemu"))]
+    {
+        dbg_println!("test complete!");
+        loop {}
+    }
 }
 
 fn release() {
