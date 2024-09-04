@@ -4,9 +4,9 @@ version = "0.1.10"
 edition = "2021"
 
 [features]
-default = ["unwind"]
+default = ["unwind", "qemu"]
 unwind = ["dep:gimli", "dep:fallible-iterator"]
-qemu = []
+
 stm32f401 = ["hopter_proc_macro/stm32f401", "stm32f4xx-hal/stm32f401"]
 stm32f405 = ["hopter_proc_macro/stm32f405", "stm32f4xx-hal/stm32f405"]
 stm32f407 = ["hopter_proc_macro/stm32f407", "stm32f4xx-hal/stm32f407"]
@@ -19,6 +19,9 @@ stm32f429 = ["hopter_proc_macro/stm32f429", "stm32f4xx-hal/stm32f429"]
 stm32f446 = ["hopter_proc_macro/stm32f446", "stm32f4xx-hal/stm32f446"]
 stm32f469 = ["hopter_proc_macro/stm32f469", "stm32f4xx-hal/stm32f469"]
 
+# Used for testing with GitHub workflow and locally with QEMU.
+qemu = ["stm32f405"]
+
 [dependencies]
 static_assertions = "1.1"
 heapless = "0.8"
@@ -30,7 +33,7 @@ paste = "1.0"
 
 [dependencies.hopter_proc_macro]
 git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git"
-tag = "v0.1.6"
+tag = "v0.1.7"
 
 [dependencies.hopter_conf_params]
 git = "https://github.com/ZhiyaoMa98/hopter-conf-params.git"
