@@ -17,7 +17,7 @@ runs:
   steps:
     - name: Build test test-${{ inputs.category }}-${{ inputs.sub-category }}-${{ inputs.test-name }}
       run: |
-        cargo +segstk-rust build --release \
+        cargo +segstk-rust build --release --features="qemu" \
           --example test-${{ inputs.category }}-${{ inputs.sub-category }}-${{ inputs.test-name }}
       shell: bash
 
