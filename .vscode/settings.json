@@ -1,6 +1,6 @@
 {
     "rust-analyzer.cargo.target": "thumbv7em-none-eabihf",
-    "rust-analyzer.cargo.features": ["stm32f405"],
+    "rust-analyzer.cargo.features": ["qemu"],
     "rust-analyzer.checkOnSave.allTargets": false,
     "cSpell.words": [
         "Kalman",
