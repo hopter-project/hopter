@@ -19,7 +19,6 @@ stm32f429 = ["hopter_proc_macro/stm32f429", "stm32f4xx-hal/stm32f429"]
 stm32f446 = ["hopter_proc_macro/stm32f446", "stm32f4xx-hal/stm32f446"]
 stm32f469 = ["hopter_proc_macro/stm32f469", "stm32f4xx-hal/stm32f469"]
 
-
 [dependencies]
 static_assertions = "1.1"
 heapless = "0.8"
@@ -30,8 +29,8 @@ concat-idents = "1.0"
 paste = "1.0"
 
 [dependencies.hopter_proc_macro]
-git = "https://github.com/Ouhznehc/hopter-procedural-macro.git"
-branch = "port"
+git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git"
+tag = "v0.1.6"
 
 [dependencies.hopter_conf_params]
 git = "https://github.com/ZhiyaoMa98/hopter-conf-params.git"
