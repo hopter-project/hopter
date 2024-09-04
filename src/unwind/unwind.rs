@@ -983,6 +983,8 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         unw_state.step().unwrap_or_die();
     }
 
+    // crate::debug::semihosting::dbg_println!("pc = {:#010x}", unw_state.gp_regs[ARMGPReg::PC]);
+
     #[cfg(feature = "debug_unwind")]
     {
         eprintln!("continue_unwind: current state:");
@@ -1071,6 +1073,8 @@ unsafe extern "C" fn resume_unwind<'a>(
     loop {
         match unwind_next_function(unw_state_ptr) {
             Some(land_addr) => {
+                // crate::debug::semihosting::dbg_println!("landing to {:#010x}", land_addr);
+
                 land_info.state_ptr = unw_state_ptr;
                 land_info.land_addr = land_addr;
                 land_info.gp_regs_ptr = unsafe { &mut (*unw_state_ptr).gp_regs };

@@ -21,7 +21,7 @@ fn main(_: cortex_m::Peripherals) {
     task::build()
         .set_entry(test_task)
         .disable_dynamic_stack()
-        .set_stack_limit(512)
+        .set_stack_limit(2048)
         .spawn_restartable()
         .unwrap();
 }
@@ -89,16 +89,16 @@ impl Drop for HasDrop {
 
 /// A padding that causes large stack frame.
 struct StackFramePadding {
-    _padding: [u8; 1024],
+    _padding: [u8; 4096],
 }
 
 impl StackFramePadding {
     /// Use volatile write to prevent the compiler from optimizing away the
     /// padding.
     fn new() -> Self {
-        let mut padding = MaybeUninit::<[u8; 1024]>::uninit();
+        let mut padding = MaybeUninit::<[u8; 4096]>::uninit();
         let mut ptr = unsafe { (*padding.as_mut_ptr()).as_mut_ptr() };
-        for _ in 0..1024 {
+        for _ in 0..4096 {
             unsafe {
                 ptr.write_volatile(0);
                 ptr = ptr.offset(1);
