@@ -8,8 +8,8 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-use owning_ref::StableAddress;
 use spin::{Mutex as RawSpin, MutexGuard as RawSpinGuard};
+use stable_deref_trait::StableDeref;
 
 /// Generic type of a spin lock. When the lock is being held, some extra
 /// condition can also be held. For example, the extra condition may be
@@ -169,7 +169,7 @@ where
     }
 }
 
-unsafe impl<'a, T, G> StableAddress for GenericSpinGuard<'a, T, G> where T: ?Sized {}
+unsafe impl<'a, T, G> StableDeref for GenericSpinGuard<'a, T, G> where T: ?Sized {}
 
 /// Generate the definition and methods and trait implementation of a spin
 /// lock. The generated lock wraps around [`GenericSpin`] and the generated
@@ -297,7 +297,7 @@ macro_rules! define_spin_lock {
             }
         }
 
-        unsafe impl<'a, $($gen $(: $bound)?),*> StableAddress for $guard_ty<'a, $($gen),*> {}
+        unsafe impl<'a, $($gen $(: $bound)?),*> StableDeref for $guard_ty<'a, $($gen),*> {}
     };
 }
 

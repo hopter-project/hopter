@@ -15,7 +15,7 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
 };
-use owning_ref::StableAddress;
+use stable_deref_trait::StableDeref;
 
 /// Generic type of a mutex. When the mutex is acquired, some extra conditions
 /// can also be held. For example, an extra condition may be that some IRQs are
@@ -239,7 +239,7 @@ where
     }
 }
 
-unsafe impl<'a, T, H, G> StableAddress for GenericMutexGuard<'a, T, H, G>
+unsafe impl<'a, T, H, G> StableDeref for GenericMutexGuard<'a, T, H, G>
 where
     T: ?Sized,
     H: Holdable<GuardType = G>,
@@ -373,7 +373,7 @@ macro_rules! define_mutex {
             }
         }
 
-        unsafe impl<'a, $($gen $(: $bound)?),*> StableAddress for $guard_ty<'a, $($gen),*> {}
+        unsafe impl<'a, $($gen $(: $bound)?),*> StableDeref for $guard_ty<'a, $($gen),*> {}
     };
 }
 
