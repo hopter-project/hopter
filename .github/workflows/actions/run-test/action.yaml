@@ -2,9 +2,6 @@ name: Run ELF Image for Testing
 description: "Run the given ELF image with QEMU and compare the output with ground truth."
 
 inputs:
-  cookie:
-    description: "Cookie for download authorization."
-    required: true
   category:
     description: "The name of the test category."
     required: true
@@ -24,8 +21,6 @@ runs:
   steps:
     - name: Prepare QEMU
       uses: ./.github/workflows/actions/prepare-qemu
-      with:
-        cookie: ${{ inputs.cookie }}
 
     - name: Download ELF image test-${{ inputs.category }}-${{ inputs.sub-category }}-${{ inputs.test-name }}
       uses: actions/download-artifact@v4

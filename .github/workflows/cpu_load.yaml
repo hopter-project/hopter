@@ -1,10 +1,6 @@
 name: Run Tests for CPU Load Inspector
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test load_40_percent
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: debug
           sub-category: cpu_load
           test-name: load_40_percent

@@ -1,10 +1,6 @@
 name: Run Tests for Mailbox and Semaphore
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,20 +8,12 @@ env:
 jobs:
   mailbox:
     uses: ./.github/workflows/mailbox.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}
 
   semaphore:
     uses: ./.github/workflows/semaphore.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}
 
   mutex:
     uses: ./.github/workflows/mutex.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}
 
   channel:
     uses: ./.github/workflows/channel.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}

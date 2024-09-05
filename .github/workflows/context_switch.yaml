@@ -1,10 +1,6 @@
 name: Run Tests for Task Context Switch
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test gp_registers
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: context_switch
           test-name: gp_registers
@@ -33,7 +28,6 @@ jobs:
       - name: Run test fp_registers
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: context_switch
           test-name: fp_registers

@@ -14,8 +14,6 @@ jobs:
 
       - name: Prepare Rust compiler toolchain
         uses: ./.github/workflows/actions/prepare-rust-toolchain
-        with:
-          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
 
       - name: Verify Rust compiler toolchain registration
         run: cargo +segstk-rust --version
@@ -29,8 +27,6 @@ jobs:
 
       - name: Prepare QEMU
         uses: ./.github/workflows/actions/prepare-qemu
-        with:
-          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
 
       - name: Verify QEMU
         run: qemu-system-arm --version
@@ -45,11 +41,7 @@ jobs:
 
       - name: Build Hopter and tests
         uses: ./.github/workflows/actions/build
-        with:
-          cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}
     
   test:
     needs: [build]
     uses: ./.github/workflows/tests.yaml
-    secrets:
-      cookie: ${{ secrets.HOPTER_DOWNLOAD_AUTHORIZATION_COOKIE }}

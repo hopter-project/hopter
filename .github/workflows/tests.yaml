@@ -1,10 +1,6 @@
 name: All Test Cases
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,20 +8,12 @@ env:
 jobs:
   sync:
     uses: ./.github/workflows/sync.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}
 
   task:
     uses: ./.github/workflows/task.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}
 
   interrupt:
     uses: ./.github/workflows/interrupt.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}
 
   debug:
     uses: ./.github/workflows/debug.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}

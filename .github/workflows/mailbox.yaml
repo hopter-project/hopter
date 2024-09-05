@@ -1,10 +1,6 @@
 name: Run Tests for Mailbox
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test notify_by_task
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mailbox
           test-name: notify_by_task
@@ -33,7 +28,6 @@ jobs:
       - name: Run test notify_in_advance
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mailbox
           test-name: notify_in_advance
@@ -47,7 +41,6 @@ jobs:
       - name: Run test task_not_timeout
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mailbox
           test-name: task_not_timeout
@@ -61,7 +54,6 @@ jobs:
       - name: Run test task_timeout
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mailbox
           test-name: task_timeout
@@ -75,7 +67,6 @@ jobs:
       - name: Run test notify_in_advance_after_timeout
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mailbox
           test-name: notify_in_advance_after_timeout
@@ -89,7 +80,6 @@ jobs:
       - name: Run test notify_allow_isr
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mailbox
           test-name: notify_from_isr

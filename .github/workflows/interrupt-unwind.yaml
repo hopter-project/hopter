@@ -1,10 +1,6 @@
 name: Run Tests for Interrupt Unwinding
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test simple
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: interrupt
           sub-category: unwind
           test-name: simple

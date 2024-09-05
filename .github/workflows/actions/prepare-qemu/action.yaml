@@ -1,11 +1,6 @@
 name: Prepare QEMU
 description: "Download QEMU and add it to PATH."
 
-inputs:
-  cookie:
-    description: "Cookie for download authorization."
-    required: true
-
 runs:
   using: "composite"
   steps:
@@ -20,9 +15,8 @@ runs:
       if: steps.qemu-cache.outputs.cache-hit != 'true'
       run: |
         curl --fail -L \
-             --cookie "authorized_cookie=${{ inputs.cookie }}" \
              -o qemu.tar.xz \
-             'https://file.zyma.me/qemu.tar.xz'
+             'https://github.com/ZhiyaoMa98/hopter-compiler-toolchain/releases/download/2024-09-04/qemu-x86_64-linux.tar.xz'
       shell: bash
 
     - name: Decompress QEMU

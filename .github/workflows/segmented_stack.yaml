@@ -1,10 +1,6 @@
 name: Run Tests for Segmented Stack
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test function_arguments
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: segmented_stack
           test-name: function_arguments
@@ -33,7 +28,6 @@ jobs:
       - name: Run test return_values
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: segmented_stack
           test-name: return_values

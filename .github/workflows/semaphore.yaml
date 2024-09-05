@@ -1,10 +1,6 @@
 name: Run Tests for Semaphore
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test initialization
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: initialization
@@ -33,7 +28,6 @@ jobs:
       - name: Run test down_0_then_try_down
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: down_0_then_try_down
@@ -47,7 +41,6 @@ jobs:
       - name: Run test up_max_then_try_up
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: up_max_then_try_up
@@ -61,7 +54,6 @@ jobs:
       - name: Run test 4_tasks_down_contend_init_3
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: 4_tasks_down_contend_init_3
@@ -75,7 +67,6 @@ jobs:
       - name: Run test init_0_blocking_down
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: init_0_blocking_down
@@ -89,7 +80,6 @@ jobs:
       - name: Run test try_up_ok_then_err
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: try_up_ok_then_err
@@ -103,7 +93,6 @@ jobs:
       - name: Run test try_down_ok_then_err
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: try_down_ok_then_err
@@ -117,7 +106,6 @@ jobs:
       - name: Run test 2_tasks_5_down_5_up
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: 2_tasks_5_down_5_up
@@ -131,7 +119,6 @@ jobs:
       - name: Run test 10_tasks_100_up_down
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: 10_tasks_100_up_down
@@ -145,7 +132,6 @@ jobs:
       - name: Run test down_priority_scheduling
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: down_priority_scheduling
@@ -159,7 +145,6 @@ jobs:
       - name: Run test up_priority_scheduling
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: up_priority_scheduling
@@ -173,7 +158,6 @@ jobs:
       - name: Run test try_down_from_isr
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: try_down_from_isr
@@ -188,7 +172,6 @@ jobs:
       - name: Run test try_up_from_isr
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: semaphore
           test-name: try_up_from_isr

@@ -1,10 +1,6 @@
 name: Run Tests for Task Priority
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test reduce_priority
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: priority
           test-name: reduce_priority
@@ -33,7 +28,6 @@ jobs:
       - name: Run test unwind_priority
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: priority
           test-name: unwind_priority

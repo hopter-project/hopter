@@ -1,10 +1,6 @@
 name: Run Tests for Mutex
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test basic
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
           test-name: basic
@@ -33,7 +28,6 @@ jobs:
       - name: Run test stress
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
           test-name: stress
@@ -47,7 +41,6 @@ jobs:
       - name: Run test priority
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
           test-name: priority
@@ -61,7 +54,6 @@ jobs:
       - name: Run test poison
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
           test-name: poison
@@ -75,7 +67,6 @@ jobs:
       - name: Run test priority_inversion
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: sync
           sub-category: mutex
           test-name: priority_inversion

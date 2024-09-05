@@ -1,18 +1,11 @@
 name: Build Hopter and Tests
 description: "Build Hopter and all tests."
 
-inputs:
-  cookie:
-    description: "Cookie for download authorization."
-    required: true
-
 runs:
   using: "composite"
   steps:
     - name: Prepare Rust compiler toolchain
       uses: ./.github/workflows/actions/prepare-rust-toolchain
-      with:
-        cookie: ${{ inputs.cookie }}
 
     - name: Build Hopter
       run: cargo +segstk-rust build --release

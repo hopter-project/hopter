@@ -1,11 +1,6 @@
 name: Prepare Rust toolchain
 description: "Download and register Rust compiler toolchain."
 
-inputs:
-  cookie:
-    description: "Cookie for download authorization."
-    required: true
-
 runs:
   using: "composite"
   steps:
@@ -20,9 +15,8 @@ runs:
       if: steps.rust-cache.outputs.cache-hit != 'true'
       run: |
         curl --fail -L \
-             --cookie "authorized_cookie=${{ inputs.cookie }}" \
              -o rust.tar.xz \
-             'https://file.zyma.me/rust-081124.tar.xz'
+             'https://github.com/ZhiyaoMa98/hopter-compiler-toolchain/releases/download/2024-09-04/240904-rust-x86_64-linux.tar.xz'
       shell: bash
 
     - name: Decompress Rust compiler toolchain
@@ -31,5 +25,5 @@ runs:
       shell: bash
 
     - name: Register Rust compiler toolchain
-      run: rustup toolchain link segstk-rust rust
+      run: rustup toolchain link segstk-rust segstk-rust
       shell: bash

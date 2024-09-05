@@ -1,10 +1,6 @@
 name: Run Tests for Task Unwinding
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -19,7 +15,6 @@ jobs:
       - name: Run test diverted
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: unwind
           test-name: diverted
@@ -33,7 +28,6 @@ jobs:
       - name: Run test deferred_direct_drop
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: unwind
           test-name: deferred_direct_drop
@@ -47,7 +41,6 @@ jobs:
       - name: Run test deferred_indirect_drop
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: unwind
           test-name: deferred_indirect_drop
@@ -61,7 +54,6 @@ jobs:
       - name: Run test deferred_nested_drop
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: unwind
           test-name: deferred_nested_drop
@@ -75,7 +67,6 @@ jobs:
       - name: Run test concurrent_restart
         uses: ./.github/workflows/actions/run-test
         with:
-          cookie: ${{ secrets.cookie }}
           category: task
           sub-category: unwind
           test-name: concurrent_restart

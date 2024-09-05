@@ -1,10 +1,6 @@
 name: Run Tests for Interrupt
 
-on:
-  workflow_call:
-    secrets:
-      cookie:
-        required: true
+on: [workflow_call]
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,5 +8,3 @@ env:
 jobs:
   unwind:
     uses: ./.github/workflows/interrupt-unwind.yaml
-    secrets:
-      cookie: ${{ secrets.cookie }}
