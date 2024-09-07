@@ -66,7 +66,7 @@ use crate::{
 use core::{
     alloc::Layout,
     arch::asm,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicU32, AtomicUsize, Ordering},
 };
 
 #[no_mangle]
@@ -117,20 +117,20 @@ pub(crate) struct StackletMeta {
 #[derive(Default)]
 pub(crate) struct StackCtrlBlock {
     /// A hash value representing the chain of stacklet allocation sites.
-    call_chain_signature: u32,
+    call_chain_signature: AtomicU32,
     /// The places where hot-split happended, represented by the call chain
     /// signatures.
-    hot_split_cause_signatures: [u32; config::HOT_SPLIT_PREVENTION_CACHE_SIZE],
+    hot_split_cause_signatures: [AtomicU32; config::HOT_SPLIT_PREVENTION_CACHE_SIZE],
     /// Additional allocation at each hot-split site to prevent it from
     /// happening again.
-    add_sizes: [u32; config::HOT_SPLIT_PREVENTION_CACHE_SIZE],
+    add_sizes: [AtomicU32; config::HOT_SPLIT_PREVENTION_CACHE_SIZE],
     /// The eviction policy of the hot-split prevention cache is round-robin,
     /// using this index.
-    round_robin_idx: usize,
+    round_robin_idx: AtomicUsize,
     /// Cumulative size of all stacklets allocated for a task, which does not
     /// count the overhead size in each stacklet but only application requested
     /// size.
-    pub(crate) cumulated_size: u32,
+    pub(crate) cumulated_size: AtomicU32,
 }
 
 /// Calculate the overhead size according to the stacklet layout. See the
@@ -297,7 +297,7 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
             // Alleviate the hot split problem if the task contains a hot-split
             // alleviation block. All tasks with dynamic stack extension
             // enabled have it.
-            .with_stack_ctrl_block(|scb: &mut StackCtrlBlock| {
+            .with_stack_ctrl_block(|scb: &StackCtrlBlock| {
                 // Increase allocation request size if hot-split happened in
                 // the past at this alloaction site.
                 svc_more_stack_anti_hot_split(
@@ -308,11 +308,14 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
                 );
 
                 // Count stack usage.
-                scb.cumulated_size += stk_frame_size;
+                let prev_size = scb
+                    .cumulated_size
+                    .fetch_add(stk_frame_size, Ordering::SeqCst);
+                let updated_size = prev_size + stk_frame_size;
 
                 // Check if stack limit is reached.
                 if let Some(limit) = cur_task.get_stack_limit() {
-                    if scb.cumulated_size > limit as u32 {
+                    if updated_size > limit as u32 {
                         handle_limit_exceed(tf);
                     }
                 }
@@ -445,7 +448,8 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
                 svc_less_stack_anti_hot_split(prev_tf, scb);
 
                 // Update stack size usage.
-                scb.cumulated_size -= meta.count_size;
+                scb.cumulated_size
+                    .fetch_sub(meta.count_size, Ordering::SeqCst);
             });
         });
 
@@ -524,11 +528,15 @@ pub fn unwind_land(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
     }
 }
 
-fn svc_less_stack_anti_hot_split(tf: &TrapFrame, scb: &mut StackCtrlBlock) {
+fn svc_less_stack_anti_hot_split(tf: &TrapFrame, scb: &StackCtrlBlock) {
     let cur_lr = tf.gp_regs.lr;
 
     // prev_signature = rotate_left(cur_signature ^ cur_lr)
-    scb.call_chain_signature = (scb.call_chain_signature ^ cur_lr).rotate_left(1);
+    scb.call_chain_signature
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |sig| {
+            Some((sig ^ cur_lr).rotate_left(1))
+        })
+        .unwrap_or_die();
 }
 
 /// Alleviate the hot-split problem. The basic idea is that when we need to
@@ -551,7 +559,7 @@ fn svc_less_stack_anti_hot_split(tf: &TrapFrame, scb: &mut StackCtrlBlock) {
 fn svc_more_stack_anti_hot_split(
     tf: &mut TrapFrame,
     frame_size: &mut u32,
-    scb: &mut StackCtrlBlock,
+    scb: &StackCtrlBlock,
     extend_cnt: &mut u32,
 ) {
     // Get the saved `lr` register from the task's trap frame. It identifies
@@ -559,8 +567,13 @@ fn svc_more_stack_anti_hot_split(
     let cur_lr = tf.gp_regs.lr;
 
     // new_signature = rotate_right(prev_signature) ^ cur_lr
-    let prev_signature = scb.call_chain_signature;
-    scb.call_chain_signature = prev_signature.rotate_right(1) ^ cur_lr;
+    let prev_signature = scb
+        .call_chain_signature
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |sig| {
+            Some(sig.rotate_right(1) ^ cur_lr)
+        })
+        .unwrap_or_die();
+    let new_signature = prev_signature.rotate_right(1) ^ cur_lr;
 
     // If for the current signature we have decided to increase the allocation
     // size, adjust the `frame_size`.
@@ -569,8 +582,8 @@ fn svc_more_stack_anti_hot_split(
         .iter()
         .zip(scb.add_sizes.iter())
     {
-        if scb.call_chain_signature == *cause_signature {
-            *frame_size *= *add_size;
+        if new_signature == cause_signature.load(Ordering::SeqCst) {
+            *frame_size *= add_size.load(Ordering::SeqCst);
             break;
         }
     }
@@ -595,24 +608,26 @@ fn svc_more_stack_anti_hot_split(
     for (cause_signature, add_size) in scb
         .hot_split_cause_signatures
         .iter()
-        .zip(scb.add_sizes.iter_mut())
+        .zip(scb.add_sizes.iter())
     {
-        if *cause_signature == prev_signature {
-            *add_size += 1;
+        if cause_signature.load(Ordering::SeqCst) == prev_signature {
+            add_size.fetch_add(1, Ordering::SeqCst);
             return;
         }
     }
 
     // Otherwise, evict one entry in the cause array and record the signature
     // to prevent future hot-split.
-    scb.hot_split_cause_signatures[scb.round_robin_idx] = prev_signature;
-    scb.add_sizes[scb.round_robin_idx] = 2;
+    let mut idx = scb.round_robin_idx.load(Ordering::SeqCst);
+    scb.hot_split_cause_signatures[idx].store(prev_signature, Ordering::SeqCst);
+    scb.add_sizes[idx].store(2, Ordering::SeqCst);
 
     // We evict the array entry using round-robin.
-    scb.round_robin_idx += 1;
-    if scb.round_robin_idx % config::HOT_SPLIT_PREVENTION_CACHE_SIZE == 0 {
-        scb.round_robin_idx = 0;
+    idx += 1;
+    if idx % config::HOT_SPLIT_PREVENTION_CACHE_SIZE == 0 {
+        idx = 0;
     }
+    scb.round_robin_idx.store(idx, Ordering::SeqCst);
 }
 
 /// Provide a function to satisfy the linker. This function should never be

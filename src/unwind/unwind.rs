@@ -715,7 +715,10 @@ impl<'a> UnwindState<'a> {
 
             // Update the stack usage.
             current::with_current_task(|cur_task| {
-                cur_task.with_stack_ctrl_block(|scb| scb.cumulated_size -= stklet_meta.count_size)
+                cur_task.with_stack_ctrl_block(|scb| {
+                    scb.cumulated_size
+                        .fetch_sub(stklet_meta.count_size, Ordering::SeqCst)
+                })
             });
 
             // Free the stacklet we have finished unwinding.

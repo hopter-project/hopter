@@ -192,8 +192,13 @@ pub(crate) struct Task {
 
     /*** Fields for segmented stack control. ***/
     /// The recorded information used to control segmented stack growth and
-    /// alleviate the hot-split problem.
-    scb: Option<Box<Spin<StackCtrlBlock>>>,
+    /// alleviate the hot-split problem. This field can be accessed
+    /// concurrently from both the task context during unwinding and SVC
+    /// context when allocating additional stacklet for the unwinder. Thus,
+    /// the field must not use a spin lock or it may deadlock. All fields
+    /// inside [`StackCtrlBlock`] are atomic integers that allow read/write
+    /// access through shared references.
+    scb: Option<Box<StackCtrlBlock>>,
 
     /*** Fields for priority scheduling and sleeping. ***/
     /// See [`TaskPriority`].
@@ -384,8 +389,7 @@ impl Task {
             // For dynamic stack, just allocate the initial stacklet. Also
             // create a stack control block.
             StackConfig::Dynamic { initial, .. } => {
-                self.scb
-                    .replace(Box::new(Spin::new(StackCtrlBlock::default())));
+                self.scb.replace(Box::new(StackCtrlBlock::default()));
                 stack_alloc_size = initial.map(|size| size.get()).unwrap_or(0);
             }
         }
@@ -688,12 +692,9 @@ impl Task {
     /// has no [`StackCtrlBlock`], return `None`.
     pub(crate) fn with_stack_ctrl_block<F, R>(&self, op: F) -> Option<R>
     where
-        F: FnOnce(&mut StackCtrlBlock) -> R,
+        F: FnOnce(&StackCtrlBlock) -> R,
     {
-        self.scb
-            .as_ref()
-            .map(|scb| scb.lock_now_or_die())
-            .map(|mut scb| op(&mut *scb))
+        self.scb.as_ref().map(|scb| op(&*scb))
     }
 
     pub(super) fn get_stack_limit(&self) -> Option<usize> {
