@@ -339,6 +339,11 @@ impl Scheduler {
         }
     }
 
+    /// Return if the scheduler is suspended.
+    pub(crate) fn is_suspended() -> bool {
+        SUSPEND_CNT.load(Ordering::SeqCst) > 0
+    }
+
     /// Drop the task struct of the currently running task and switch to
     /// another ready task.
     pub(crate) fn drop_current_task_from_svc() {

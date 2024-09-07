@@ -43,7 +43,7 @@ use crate::{
         svc_handler::SVCNum,
         trap_frame::{self, TrapFrame},
     },
-    schedule::current,
+    schedule::{current, scheduler::Scheduler},
     task,
     unrecoverable::{self, Lethal},
 };
@@ -520,7 +520,9 @@ impl UnwindState<'static> {
 
             // Let the scheduler re-schedule so the above priority reduction
             // will take effect.
-            svc::svc_yield_current_task();
+            if !Scheduler::is_suspended() {
+                svc::svc_yield_current_task();
+            }
         }
 
         // Continue to initialize register states to what they are just before the
@@ -1068,7 +1070,9 @@ unsafe extern "C" fn resume_unwind<'a>(
     // no other priority task is ready.
     if !config::ALLOW_TASK_PREEMPTION {
         if !current::is_in_isr_context() {
-            svc::svc_yield_current_task();
+            if !Scheduler::is_suspended() {
+                svc::svc_yield_current_task();
+            }
         }
     }
 
