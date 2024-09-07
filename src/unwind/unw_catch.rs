@@ -55,9 +55,7 @@ where
     F: FnOnce() -> R,
 {
     let data = unsafe { &mut *(ti_arg_ptr as *mut TryIntrinsicArg<F, R>) };
-    let _unwinding_context_boxed =
-        unsafe { UnwindState::drop_from_ptr(unwind_state_ptr as *mut UnwindState) };
-    super::unwind::set_unwinding(false);
+    unsafe { UnwindState::drop_from_ptr(unwind_state_ptr as *mut UnwindState) };
     data.ret = ManuallyDrop::new(Err(()));
 }
 

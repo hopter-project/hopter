@@ -70,8 +70,29 @@ where
         }
 
         // If we reach here, it means the task panicked but has not been
-        // restarted yet. Let the loop run over again so that the task can
-        // restart execution with the entry closure again.
+        // restarted yet. The unwinding has finished, so we clear the unwinding
+        // flag on the task struct.
+        //
+        // However, we must address a pathological case: Maybe the task
+        // panicked from a forced unwinding because of exceeding the stack space
+        // limit, but the stack space limit can be configured so small that
+        // it is not sufficient to run the code to clear the unwinding flag.
+        //
+        // With the unwinding flag set, the task was having a priviledge that
+        // the kernel will give unlimited stack allowance to the task being
+        // unwound. However, as soon as the flag is cleared, the task may be
+        // forced to unwind again.
+        //
+        // The following catch is to detect such pathological case. If it
+        // happens, give up restarting the task.
+        if let Err(_) = unw_catch::catch_unwind(|| {
+            current::with_current_task(|cur_task| cur_task.set_unwind_flag(false))
+        }) {
+            break;
+        }
+
+        // Let the loop run over again so that the task can restart execution
+        // with the entry closure again.
     }
 }
 
