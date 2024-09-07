@@ -8,7 +8,7 @@ runs:
       id: rust-cache
       uses: actions/cache@v4
       with:
-        path: rust
+        path: segstk-rust
         key: ${{ runner.os }}-rust
 
     - name: Download Rust compiler toolchain if not cached
