@@ -66,12 +66,12 @@
 //!      fields are the link pointer to adjacent free chunks in the
 //!      list. Real header addresses are subtracted with 0x20000000 and
 //!      shifted right by 2 bits to be saved in link pointer.
-//!
 
 use crate::{
-    config::{RAM_END_ADDR, __MEM_CHUNK_LINK_OFFSET},
+    config::__MEM_CHUNK_LINK_OFFSET,
     unrecoverable::{self, Lethal},
 };
+use core::arch::asm;
 use static_assertions::const_assert_eq;
 
 type Header = u32;
@@ -616,10 +616,12 @@ pub(crate) unsafe fn mcu_heap_init(mut data_end: u32) {
         data_end
     };
 
-    if RAM_END_ADDR < data_end {
+    let ram_end_addr = get_ram_end_addr();
+
+    if ram_end_addr < data_end {
         unrecoverable::die_with_arg("No memory for heap.");
     }
-    if RAM_END_ADDR - data_end < FREE_CHUNK_MIN_SIZE {
+    if ram_end_addr - data_end < FREE_CHUNK_MIN_SIZE {
         unrecoverable::die_with_arg("No memory for heap.");
     }
 
@@ -627,7 +629,7 @@ pub(crate) unsafe fn mcu_heap_init(mut data_end: u32) {
     HEAP_START = data_end as *mut u8;
 
     // Calculate free size for the entire heap.
-    let buffer_size = RAM_END_ADDR - data_end;
+    let buffer_size = ram_end_addr - data_end;
 
     // Initialize free lists. Mark all of them as empty.
     for idx in 0..=5 {
@@ -659,4 +661,21 @@ pub(crate) unsafe fn mcu_heap_init(mut data_end: u32) {
         &raw mut SENTINELS[chunk_size_to_list_index(init_size)].hdr,
         hdr,
     );
+}
+
+fn get_ram_end_addr() -> u32 {
+    extern "C" {
+        // The symbol comes from `link.ld`.
+        static __ram_end: u32;
+    }
+
+    let end: u32;
+    unsafe {
+        asm!(
+            "ldr {end}, ={ram_end}",
+            end = out(reg) end,
+            ram_end = sym __ram_end,
+        )
+    }
+    end
 }

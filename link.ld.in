@@ -185,11 +185,14 @@ PROVIDE(USART7 = HopterDefaultHandler);
 PROVIDE(USART8 = HopterDefaultHandler);
 PROVIDE(WWDG = HopterDefaultHandler);
 
-
-
-
 /* # Interrupt vectors */
 EXTERN(__HOPTER_INTERRUPTS); /* `static` variable similar to `__HOPTER_EXCEPTIONS` */
+
+/* This is where the contiguous call stack will be allocated. */
+/* The stack grows downward. */
+__contiguous_stack_bottom = ORIGIN(RAM) + _contiguous_stack_length;
+
+__ram_end = ORIGIN(RAM) + LENGTH(RAM);
 
 /* # Sections */
 SECTIONS
@@ -199,7 +202,7 @@ SECTIONS
   .hopter_vector_table ORIGIN(FLASH) :
   {
     /* Initial Stack Pointer (SP) value */
-    LONG(__contiguous_stack_start);
+    LONG(__contiguous_stack_bottom);
 
     /* Reset vector */
     KEEP(*(.hopter_vector_table.reset_vector)); /* this is the `__RESET_VECTOR` symbol */
@@ -271,6 +274,14 @@ SECTIONS
   } > FLASH
 
   /* ## Sections in RAM */
+  /* ### contiguous stack */
+  .cont_stack (NOLOAD) : ALIGN(4)
+  {
+    . = ORIGIN(RAM);
+    FILL(0);
+    . = __contiguous_stack_bottom;
+  } > RAM AT>FLASH
+
   /* ### .data */
   .data : ALIGN(4)
   {
