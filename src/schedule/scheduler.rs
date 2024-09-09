@@ -162,8 +162,8 @@ impl Scheduler {
                 // runs in the idle task's context. Jump to the idle task entry.
                 "b {idle_task}",
                 idle_task = sym idle::idle_task,
-                tls_mem_addr = const config::TLS_MEM_ADDR,
-                kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
+                tls_mem_addr = const config::__TLS_MEM_ADDR,
+                kern_stk_bottom = const config::_CONTIGUOUS_STACK_BOTTOM,
                 in("r0") stack_bottom,
                 in("r1") idle_stk_bound,
                 options(noreturn)

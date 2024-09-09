@@ -85,10 +85,10 @@ unsafe extern "C" fn pendsv_entry() {
         "bl     {die}",
         "udf    #254",
         cur_task = sym current::CUR_TASK_CTXT_PTR,
-        tls_mem_addr = const config::TLS_MEM_ADDR,
-        kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
+        tls_mem_addr = const config::__TLS_MEM_ADDR,
+        kern_stk_boundary = const config::__CONTIGUOUS_STACK_BOUNDARY,
         pendsv_handler = sym pendsv_handler,
-        kern_stk_bottom = const config::CONTIGUOUS_STACK_BOTTOM,
+        kern_stk_bottom = const config::_CONTIGUOUS_STACK_BOTTOM,
         ex_ret_to_psp_with_fp = const 0xffffffedu32,
         die = sym unrecoverable::die,
         options(noreturn)

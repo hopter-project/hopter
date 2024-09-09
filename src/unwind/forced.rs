@@ -77,7 +77,7 @@ pub(crate) extern "C" fn deferred_unwind() {
             "str r0, [r1, #8]",
             // Jump to the entry point to start unwinding.
             "b {start_unwind_entry}",
-            tls_mem_addr = const config::TLS_MEM_ADDR,
+            tls_mem_addr = const config::__TLS_MEM_ADDR,
             start_unwind_entry = sym unwind::start_unwind_entry,
             options(noreturn)
         )

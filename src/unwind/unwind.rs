@@ -918,7 +918,7 @@ pub extern "C" fn start_unwind_entry() {
             "bx     r1",                    // Jump to the landing address.
             create_unwind_state = sym UnwindState::create_unwind_state,
             resume_unwind = sym resume_unwind,
-            tls_mem_addr = const config::TLS_MEM_ADDR,
+            tls_mem_addr = const config::__TLS_MEM_ADDR,
             task_unwind_prep = const(SVCNum::TaskUnwindPrepare as u8),
             task_unwind_land = const(SVCNum::TaskUnwindLand as u8),
             options(noreturn)

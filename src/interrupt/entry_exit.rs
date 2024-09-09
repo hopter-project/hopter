@@ -49,8 +49,8 @@ pub unsafe extern "C" fn entry(handler_func_ptr: u32) {
         "ldr   lr, ={exit}",
         // Run the IRQ handler.
         "b     {handler_trampoline}",
-        tls_mem_addr = const config::TLS_MEM_ADDR,
-        kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
+        tls_mem_addr = const config::__TLS_MEM_ADDR,
+        kern_stk_boundary = const config::__CONTIGUOUS_STACK_BOUNDARY,
         exit = sym exit,
         handler_trampoline = sym handler_trampoline,
         options(noreturn)
@@ -69,7 +69,7 @@ unsafe extern "C" fn exit() {
         "stmia r12, {{r1-r3}}",
         // Exception return.
         "bx    lr",
-        tls_mem_addr = const config::TLS_MEM_ADDR,
+        tls_mem_addr = const config::__TLS_MEM_ADDR,
         options(noreturn)
     )
 }

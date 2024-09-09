@@ -42,7 +42,7 @@ tag = "v0.1.7"
 
 [dependencies.hopter_conf_params]
 git = "https://github.com/ZhiyaoMa98/hopter-conf-params.git"
-tag = "v0.1.11"
+tag = "v0.1.12"
 
 [dependencies.cortex-m]
 version = "0.7"

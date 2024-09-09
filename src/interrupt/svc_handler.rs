@@ -125,8 +125,8 @@ unsafe extern "C" fn svc_entry() {
         "stmia    r12, {{r1-r3}}",
         // Exception return.
         "bx       lr",
-        tls_mem_addr = const config::TLS_MEM_ADDR,
-        kern_stk_boundary = const config::CONTIGUOUS_STACK_BOUNDARY,
+        tls_mem_addr = const config::__TLS_MEM_ADDR,
+        kern_stk_boundary = const config::__CONTIGUOUS_STACK_BOUNDARY,
         svc_handler = sym svc_handler,
         die = sym unrecoverable::die,
         options(noreturn)

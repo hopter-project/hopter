@@ -3,15 +3,15 @@
 //!
 //! Below shows the SRAM region layout:
 //! ```plain
-//! +----------------------+ 0x20020000 (heap end)
+//! +----------------------+ 0x2002_0000 (RAM end, heap end)
 //! |         Heap         |
-//! +----------------------+ 0x20001010 + x (heap start)
+//! +----------------------+ 0x2000_1010 + x (heap start)
 //! |     .data + .bss     |
-//! +----------------------+ 0x20001010 (static data start)
-//! | Segmented Stack Info |
-//! +----------------------+ 0x20004000 (kernel stack start)
-//! |     Kernel Stack     |
-//! +----------------------+ 0x20000000 (kernel stack end)
+//! +----------------------+ 0x2000_1000 (contiguous stack bottom)
+//! |   Contiguous Stack   |
+//! +----------------------+ 0x2000_0020 (contiguous stack boundary)
+//! |  Task Local Storage  |
+//! +----------------------+ 0x2000_0000 (RAM begin)
 //! ```
 //!
 //! Free chunk layout:
@@ -69,7 +69,7 @@
 //!
 
 use crate::{
-    config::{HEAP_END, MEM_CHUNK_LINK_OFFSET},
+    config::{RAM_END_ADDR, __MEM_CHUNK_LINK_OFFSET},
     unrecoverable::{self, Lethal},
 };
 use static_assertions::const_assert_eq;
@@ -248,13 +248,13 @@ unsafe fn set_left_free(hdr: *mut Header) {
 /// Convert a `Link` to a pointer.
 #[inline(always)]
 fn link_to_ptr<T>(link: Link) -> *mut T {
-    (MEM_CHUNK_LINK_OFFSET + ((link as u32) << 2)) as *mut T
+    (__MEM_CHUNK_LINK_OFFSET + ((link as u32) << 2)) as *mut T
 }
 
 /// Convert a pointer to a `Link`.
 #[inline(always)]
 fn ptr_to_link<T>(ptr: *mut T) -> Link {
-    (((ptr as u32) - MEM_CHUNK_LINK_OFFSET) >> 2) as Link
+    (((ptr as u32) - __MEM_CHUNK_LINK_OFFSET) >> 2) as Link
 }
 
 /// Given a pointer to header, return the pointer to the `prev` field.
@@ -616,10 +616,10 @@ pub(crate) unsafe fn mcu_heap_init(mut data_end: u32) {
         data_end
     };
 
-    if HEAP_END < data_end {
+    if RAM_END_ADDR < data_end {
         unrecoverable::die_with_arg("No memory for heap.");
     }
-    if HEAP_END - data_end < FREE_CHUNK_MIN_SIZE {
+    if RAM_END_ADDR - data_end < FREE_CHUNK_MIN_SIZE {
         unrecoverable::die_with_arg("No memory for heap.");
     }
 
@@ -627,7 +627,7 @@ pub(crate) unsafe fn mcu_heap_init(mut data_end: u32) {
     HEAP_START = data_end as *mut u8;
 
     // Calculate free size for the entire heap.
-    let buffer_size = HEAP_END - data_end;
+    let buffer_size = RAM_END_ADDR - data_end;
 
     // Initialize free lists. Mark all of them as empty.
     for idx in 0..=5 {
