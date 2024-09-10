@@ -1,10 +1,10 @@
-Hopter is a Rust-based embedded operating system built to enable memory-safe, efficient, reliable, and responsive applications. It is co-designed with a [customized compiler](https://github.com/ZhiyaoMa98/hopter-compiler-toolchain) that guarantees additional invariants beyond what Rust can express. Also, Hopter does not rely on any hardware protection mechanisms, providing safety purely through software.
+Hopter is a Rust-based embedded operating system built to enable memory-safe, efficient, reliable, and responsive applications. It is co-designed with a [customized compiler](https://github.com/hopter-project/hopter-compiler-toolchain) that guarantees additional invariants beyond what Rust can express. Also, Hopter does not rely on any hardware protection mechanisms, providing safety purely through software.
 
 Currently, Hopter supports the STM32F4 microcontroller family with Arm Cortex-M4F cores. Contributions to port Hopter to other microcontrollers are highly welcome and appreciated.
 
 # Getting Started
 
-To get started with Hopter, check out our [quick start guide](https://github.com/ZhiyaoMa98/hopter-quick-start) that provides the instructions to set up the environment and an introduction to Hopter's API.
+To get started with Hopter, check out our [quick start guide](https://github.com/hopter-project/hopter-quick-start) that provides the instructions to set up the environment and an introduction to Hopter's API.
 
 # Feature Overview
 
