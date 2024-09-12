@@ -33,7 +33,7 @@ impl Prel31 {
 
     /// Get the address it points to.
     pub fn value(&self) -> u32 {
-        unsafe { self.self_addr.unchecked_add(self.offset_value() as u32) }
+        self.self_addr.wrapping_add(self.offset_value() as u32)
     }
 
     /// Get the offset value.
