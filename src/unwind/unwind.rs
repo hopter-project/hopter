@@ -162,15 +162,16 @@ impl<'a> UnwindAbility<'a> {
         let mut last = exidx.len() - 8;
 
         let first_pc =
-            Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[first..first + 4]).unwrap());
+            Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[first..first + 4]).unwrap_or_die());
         if pc < first_pc.value() {
             return Err("UnwindAbility::get_for_func: no matching entry.");
         }
 
-        let last_pc = Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[last..last + 4]).unwrap());
+        let last_pc =
+            Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[last..last + 4]).unwrap_or_die());
         if pc >= last_pc.value() {
             match Self::from_bytes(
-                <&'a [u8; 8]>::try_from(&exidx[last..last + 8]).unwrap(),
+                <&'a [u8; 8]>::try_from(&exidx[last..last + 8]).unwrap_or_die(),
                 extab,
             ) {
                 Ok(s) => {
@@ -184,7 +185,8 @@ impl<'a> UnwindAbility<'a> {
         // Perform binary search.
         while first < last - 8 {
             let mid = first + (((last - first) / 8 + 1) >> 1) * 8;
-            let mid_pc = Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[mid..mid + 4]).unwrap());
+            let mid_pc =
+                Prel31::from_bytes(<&'a [u8; 4]>::try_from(&exidx[mid..mid + 4]).unwrap_or_die());
             if pc < mid_pc.value() {
                 last = mid;
             } else {
@@ -193,7 +195,7 @@ impl<'a> UnwindAbility<'a> {
         }
 
         match Self::from_bytes(
-            <&'a [u8; 8]>::try_from(&exidx[first..first + 8]).unwrap(),
+            <&'a [u8; 8]>::try_from(&exidx[first..first + 8]).unwrap_or_die(),
             extab,
         ) {
             Ok(s) => {
