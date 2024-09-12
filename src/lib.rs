@@ -6,7 +6,6 @@
 #![feature(negative_impls)]
 #![allow(internal_features)]
 #![feature(new_uninit)]
-#![feature(unchecked_math)]
 #![feature(raw_ref_op)]
 #![feature(alloc_error_handler)]
 

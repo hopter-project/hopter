@@ -71,7 +71,10 @@ use crate::{
     config::__MEM_CHUNK_LINK_OFFSET,
     unrecoverable::{self, Lethal},
 };
-use core::arch::asm;
+use core::{
+    arch::asm,
+    sync::atomic::{AtomicPtr, Ordering},
+};
 use static_assertions::const_assert_eq;
 
 type Header = u32;
@@ -329,7 +332,7 @@ static mut SENTINELS: [Sentinel; 6] = [
 static mut HEAP_START: *mut u8 = core::ptr::null_mut();
 
 /// One cached chunk upon free().
-static mut CACHED: *mut Header = core::ptr::null_mut();
+static mut CACHED: AtomicPtr<Header> = AtomicPtr::new(core::ptr::null_mut());
 
 /// The right most position the heap has ever grown to.
 pub(crate) static mut HIGH_WATER_MARK: u32 = 0;
@@ -505,13 +508,13 @@ pub(crate) unsafe fn mcu_free(payload: *mut u8) {
     let mut hdr = payload_to_hdr(payload);
 
     // Cache the chunk if the cache is empty.
-    if CACHED.is_null() {
-        CACHED = hdr;
+    if CACHED.load(Ordering::SeqCst).is_null() {
+        CACHED.store(hdr, Ordering::SeqCst);
         return;
     // Otherwise, make this new chunk as the cache.
     // Free the old cached chunk.
     } else {
-        core::mem::swap(&mut hdr, &mut CACHED);
+        hdr = CACHED.swap(hdr, Ordering::SeqCst);
     }
 
     CUR_ALLOC_SIZE -= get_hdr_chunk_size(hdr);
@@ -559,12 +562,13 @@ pub(crate) unsafe fn mcu_malloc(mut size: u32) -> *mut u8 {
     size = (size + 7) & (!7);
 
     // If the cached chunk satisfies the request, use it.
-    if !CACHED.is_null()
-        && get_hdr_chunk_size(CACHED) >= size
-        && get_hdr_chunk_size(CACHED) - size <= 512
+    let cached = CACHED.load(Ordering::SeqCst);
+    if !cached.is_null()
+        && get_hdr_chunk_size(cached) >= size
+        && get_hdr_chunk_size(cached) - size <= 512
     {
-        let payload = hdr_to_payload(CACHED);
-        CACHED = core::ptr::null_mut();
+        let payload = hdr_to_payload(cached);
+        CACHED.store(core::ptr::null_mut(), Ordering::SeqCst);
         return payload;
     }
 

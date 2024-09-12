@@ -28,7 +28,7 @@ where
 
     // Invoke the actual try() intrinsic, which will jump to `try_intrinsic_trampoline`
     let _try_val = unsafe {
-        core::intrinsics::r#try(
+        core::intrinsics::catch_unwind(
             try_intrinsic_trampoline::<F, R>,
             &mut ti_arg as *mut _ as *mut u8,
             panic_callback::<F, R>,

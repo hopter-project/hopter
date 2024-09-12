@@ -4,6 +4,10 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(armv6m)");
+    println!("cargo:rustc-check-cfg=cfg(armv7m)");
+    println!("cargo:rustc-check-cfg=cfg(armv8m)");
+
     // Write the link script to the crate output directory.
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut f = File::create(out.join("link.ld")).unwrap();

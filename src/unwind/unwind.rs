@@ -56,13 +56,14 @@ use core::{
     mem::MaybeUninit,
     ops::{Index, IndexMut},
     panic::PanicInfo,
+    ptr::addr_of_mut,
     slice,
     sync::atomic::{AtomicBool, Ordering},
 };
 use gimli::{EndianSlice, LittleEndian};
 
 #[cfg(feature = "debug_unwind")]
-use crate::eprintln;
+use crate::debug::semihosting::dbg_println;
 
 /// If a stack frame can be unwound, its `UnwindInfo` describes how to unwind.
 #[allow(unused)]
@@ -432,7 +433,7 @@ impl UnwindState<'static> {
                 unrecoverable::die();
             }
 
-            unsafe { &mut STATIC_UNWIND_STATE as *mut _ }
+            unsafe { addr_of_mut!(STATIC_UNWIND_STATE) }
         // Otherwise, we panic inside a task. Use dynamic memory.
         } else {
             Box::into_raw(Box::<Self>::new_uninit())
@@ -441,7 +442,7 @@ impl UnwindState<'static> {
 
     /// Free the memory for the unwind state.
     pub unsafe fn drop_from_ptr(ptr: *mut Self) {
-        let static_storage_addr = unsafe { &mut STATIC_UNWIND_STATE as *mut _ as usize };
+        let static_storage_addr = unsafe { addr_of_mut!(STATIC_UNWIND_STATE) as usize };
         let this_addr = ptr as *mut _ as usize;
 
         // If this is not backed by the static storage, we free it back to the heap.
@@ -774,8 +775,8 @@ fn print_stack_trace(init_ctxt: &UnwindInitContext) {
     loop {
         // This is not the final stack frame.
         if !state.has_finished() {
-            eprintln!("print_stack_trace: current state:");
-            eprintln!("{:#?}", state);
+            dbg_println!("print_stack_trace: current state:");
+            dbg_println!("{:#?}", state);
 
             // Get unwind information.
             let unw_info = match &mut state.unw_ability {
@@ -793,21 +794,21 @@ fn print_stack_trace(init_ctxt: &UnwindInitContext) {
                     .map_err(|_| "print_stack_trace: can't get callsite iterator.")
                     .unwrap_or_die();
                 while let Ok(Some(entry)) = callsite_iter.next() {
-                    eprintln!("{:?}", entry);
+                    dbg_println!("{:?}", entry);
                 }
             }
-            eprintln!("");
-            eprintln!("");
+            dbg_println!("");
+            dbg_println!("");
 
             // Advance to the next stack frame.
             state.step().unwrap_or_die();
 
         // This is the final stack frame.
         } else {
-            eprintln!("print_stack_trace: final state:");
-            eprintln!("{:#?}", state);
-            eprintln!("");
-            eprintln!("");
+            dbg_println!("print_stack_trace: final state:");
+            dbg_println!("{:#?}", state);
+            dbg_println!("");
+            dbg_println!("");
             break;
         }
     }
@@ -988,12 +989,10 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         unw_state.step().unwrap_or_die();
     }
 
-    // crate::debug::semihosting::dbg_println!("pc = {:#010x}", unw_state.gp_regs[ARMGPReg::PC]);
-
     #[cfg(feature = "debug_unwind")]
     {
-        eprintln!("continue_unwind: current state:");
-        eprintln!("{:#?}", unw_state);
+        dbg_println!("continue_unwind: current state:");
+        dbg_println!("{:#?}", unw_state);
     }
 
     // Get unwind information.
@@ -1016,7 +1015,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
                 // the next stack frame.
                 Err(_) => {
                     #[cfg(feature = "debug_unwind")]
-                    eprintln!("continue_unwind: no matching call site table entry.");
+                    dbg_println!("continue_unwind: no matching call site table entry.");
 
                     return None;
                 }
@@ -1027,7 +1026,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         // so we continue to the next stack frame.
         None => {
             #[cfg(feature = "debug_unwind")]
-            eprintln!("continue_unwind: no LSDA.");
+            dbg_println!("continue_unwind: no LSDA.");
 
             return None;
         }
@@ -1042,7 +1041,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         // so we continue to the next stack frame.
         None => {
             #[cfg(feature = "debug_unwind")]
-            eprintln!("continue_unwind: no landing pad address.");
+            dbg_println!("continue_unwind: no landing pad address.");
 
             return None;
         }
@@ -1052,7 +1051,7 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
     unw_state.save_unw_state_ptr(unw_state_ptr);
 
     #[cfg(feature = "debug_unwind")]
-    eprintln!("continue_unwind: landing to {:010x}", land_addr);
+    dbg_println!("continue_unwind: landing to {:010x}", land_addr);
 
     return Some(land_addr);
 }
@@ -1080,8 +1079,6 @@ unsafe extern "C" fn resume_unwind<'a>(
     loop {
         match unwind_next_function(unw_state_ptr) {
             Some(land_addr) => {
-                // crate::debug::semihosting::dbg_println!("landing to {:#010x}", land_addr);
-
                 land_info.state_ptr = unw_state_ptr;
                 land_info.land_addr = land_addr;
                 land_info.gp_regs_ptr = unsafe { &mut (*unw_state_ptr).gp_regs };
