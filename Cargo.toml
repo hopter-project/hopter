@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 default = ["unwind"]
 unwind = ["dep:gimli", "dep:fallible-iterator"]
+debug_unwind = ["unwind"]
 
 stm32f401 = ["hopter_proc_macro/stm32f401", "stm32f4xx-hal/stm32f401"]
 stm32f405 = ["hopter_proc_macro/stm32f405", "stm32f4xx-hal/stm32f405"]
@@ -38,7 +39,7 @@ features = ["alloc"]
 
 [dependencies.hopter_proc_macro]
 git = "https://github.com/ZhiyaoMa98/hopter-procedural-macro.git"
-tag = "v0.1.7"
+tag = "v0.1.8"
 
 [dependencies.hopter_conf_params]
 git = "https://github.com/ZhiyaoMa98/hopter-conf-params.git"
@@ -72,7 +73,7 @@ nb = "1.1"
 
 [dev-dependencies.stm32f4xx-hal]
 version = "0.21.0"
-default_features = false
+default-features = false
 
 # *** Tests for sync - mailbox ***
 

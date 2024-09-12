@@ -13,8 +13,7 @@ extern "C" fn handler_trampoline(handler_func_ptr: u32) {
     // `transmute`, which can be problematic. Transmuting between raw pointers
     // and function pointers (i.e., two pointer types) is fine.
     let handler_func_ptr = handler_func_ptr as *const ();
-    let handler_func =
-        unsafe { core::mem::transmute::<*const (), extern "C" fn()>(handler_func_ptr) };
+    let handler_func = unsafe { core::mem::transmute::<*const (), fn()>(handler_func_ptr) };
 
     #[cfg(not(feature = "unwind"))]
     handler_func();
