@@ -5,8 +5,7 @@ extern crate alloc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use hopter::{
     debug::semihosting::{self, dbg_println},
-    schedule, task,
-    task::main,
+    task::{self, main},
 };
 
 // Attribute `#[main]` marks the function as the entry function for the main

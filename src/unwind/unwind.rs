@@ -1097,7 +1097,8 @@ unsafe extern "C" fn resume_unwind<'a>(
 /// should not be invoked by any programmer's code.
 #[no_mangle]
 #[naked]
-unsafe extern "C" fn _Unwind_Resume(unw_state_ptr: *mut UnwindState) -> ! {
+#[export_name = "_Unwind_Resume"]
+unsafe extern "C" fn unwind_resume_entry(unw_state_ptr: *mut UnwindState) -> ! {
     unsafe {
         asm!(
             // If we are in an ISR, skip the following SVC, because we need not a new

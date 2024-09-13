@@ -259,6 +259,42 @@ pub(crate) fn try_spawn_restarted(prev_task: Arc<Task>) -> Result<(), ()> {
     Ok(())
 }
 
+/// Build a new breathing task with the breathing task builder. Breathing tasks
+/// always run with dynamic stacks.
+///
+/// A breathing task requires three closures upon definition: `init`, `wait`,
+/// and `work`. The task will be constructed to look roughly like the
+/// following:
+///
+/// ```rust
+/// let mut state = init();
+/// loop {
+///     let item = wait(&mut state);
+///     work(&mut state, item);
+/// }
+/// ```
+///
+/// But more precisely, to smooth out stack memory usage among tasks and
+/// avoid high peaks, the concurrency among breathing tasks is constrained.
+/// Only a number of breathing tasks can run in the `work` function,
+/// controlled by the `hopter::config::BREATHING_CONCURRENCY` parameter.
+///
+/// # Example
+/// ```rust
+/// task::build_breathing()
+///     .set_init(init)
+///     .set_wait(wait)
+///     .set_work(work)
+///     .spawn()
+///     .unwrap();
+///
+/// struct Ctxt;
+/// struct Item;
+///
+/// fn init() -> Ctxt { Ctxt }
+/// fn wait(_ctxt: &mut Ctxt) -> Item { Item }
+/// fn work(_ctxt: &mut Ctxt, _item: Item) { /* ... */ }
+/// ```
 pub fn build_breathing<F, G, H, S, I>() -> BreathingTaskBuilder<F, G, H, S, I>
 where
     F: FnOnce() -> S + Send + Sync + 'static,
@@ -289,16 +325,22 @@ where
         }
     }
 
+    /// Set the `init` closure for the task. See [`build_breathing`] for
+    /// details.
     pub fn set_init(mut self, init: F) -> Self {
         self.init.replace(init);
         self
     }
 
+    /// Set the `wait` closure for the task. See [`build_breathing`] for
+    /// details.
     pub fn set_wait(mut self, wait: G) -> Self {
         self.wait.replace(wait);
         self
     }
 
+    /// Set the `work` closure for the task. See [`build_breathing`] for
+    /// details.
     pub fn set_work(mut self, work: H) -> Self {
         self.work.replace(work);
         self
