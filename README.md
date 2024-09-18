@@ -1,3 +1,5 @@
+<img src="./.github/assets/hopter-logo.png" alt="Hopter's Logo" width="400"/>
+
 Hopter is a Rust-based embedded operating system built to enable memory-safe, efficient, reliable, and responsive applications. It is co-designed with a [customized compiler](https://github.com/hopter-project/hopter-compiler-toolchain) that guarantees additional invariants beyond what Rust can express. However, the changes to the compiler are transparent to application programmers, and Rust's syntax remains unchanged.
 
 Hopter does not rely on any hardware protection mechanisms, providing safety purely through software. However, it does not anticipate malicious applications. The threat model is similar to that assumed by FreeRTOS.
