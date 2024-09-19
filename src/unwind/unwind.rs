@@ -62,7 +62,7 @@ use core::{
 };
 use gimli::{EndianSlice, LittleEndian};
 
-#[cfg(feature = "debug_unwind")]
+#[cfg(any(feature = "unwind_debug", feature = "unwind_print_trace"))]
 use crate::debug::semihosting::dbg_println;
 
 /// If a stack frame can be unwound, its `UnwindInfo` describes how to unwind.
@@ -768,54 +768,6 @@ impl<'a> UnwindState<'a> {
     }
 }
 
-/// Walk through the stack frames and print the state and the landing pads
-/// along the way.
-#[cfg(feature = "debug_unwind")]
-fn print_stack_trace(init_ctxt: &UnwindInitContext) {
-    let mut state = UnwindState::from_init_ctxt(init_ctxt).unwrap_or_die();
-
-    loop {
-        // This is not the final stack frame.
-        if !state.has_finished() {
-            dbg_println!("print_stack_trace: current state:");
-            dbg_println!("{:#?}", state);
-
-            // Get unwind information.
-            let unw_info = match &mut state.unw_ability {
-                UnwindAbility::CantUnwind => {
-                    unw_die::print_and_die("print_stack_trace: can't unwind.")
-                }
-                UnwindAbility::CanUnwind(unw_info) => unw_info,
-            };
-
-            // Print call site table entries.
-            use fallible_iterator::FallibleIterator;
-            if let Some(callsite_iter) = &mut unw_info.lsda {
-                let mut callsite_iter = callsite_iter
-                    .call_site_table_entries()
-                    .map_err(|_| "print_stack_trace: can't get callsite iterator.")
-                    .unwrap_or_die();
-                while let Ok(Some(entry)) = callsite_iter.next() {
-                    dbg_println!("{:?}", entry);
-                }
-            }
-            dbg_println!("");
-            dbg_println!("");
-
-            // Advance to the next stack frame.
-            state.step().unwrap_or_die();
-
-        // This is the final stack frame.
-        } else {
-            dbg_println!("print_stack_trace: final state:");
-            dbg_println!("{:#?}", state);
-            dbg_println!("");
-            dbg_println!("");
-            break;
-        }
-    }
-}
-
 /// The initial unwinding context. Only callee-saved registers,
 /// LR and SP are included.
 #[repr(C)]
@@ -991,15 +943,20 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         unw_state.step().unwrap_or_die();
     }
 
-    #[cfg(feature = "debug_unwind")]
+    #[cfg(feature = "unwind_print_trace")]
+    dbg_println!("unwinding at PC: {:#010x}", unw_state.gp_regs[ARMGPReg::PC]);
+
+    #[cfg(feature = "unwind_debug")]
     {
-        dbg_println!("continue_unwind: current state:");
+        dbg_println!("unwind_next_function: current state");
         dbg_println!("{:#?}", unw_state);
     }
 
     // Get unwind information.
     let unw_info = match &unw_state.unw_ability {
-        UnwindAbility::CantUnwind => unrecoverable::die_with_arg("continue_unwind: can't unwind."),
+        UnwindAbility::CantUnwind => {
+            unrecoverable::die_with_arg("unwind_next_function: can't unwind.")
+        }
         UnwindAbility::CanUnwind(unw_info) => unw_info,
     };
 
@@ -1016,8 +973,8 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
                 // We have no landing pad to call, so we continue to
                 // the next stack frame.
                 Err(_) => {
-                    #[cfg(feature = "debug_unwind")]
-                    dbg_println!("continue_unwind: no matching call site table entry.");
+                    #[cfg(feature = "unwind_debug")]
+                    dbg_println!("unwind_next_function: no matching call site table entry.");
 
                     return None;
                 }
@@ -1027,8 +984,8 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         // The current stack frame has no LSDA. We have no landing pad to call,
         // so we continue to the next stack frame.
         None => {
-            #[cfg(feature = "debug_unwind")]
-            dbg_println!("continue_unwind: no LSDA.");
+            #[cfg(feature = "unwind_debug")]
+            dbg_println!("unwind_next_function: no LSDA.");
 
             return None;
         }
@@ -1042,8 +999,8 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
         // We have no landing address, thus no landing pad to call,
         // so we continue to the next stack frame.
         None => {
-            #[cfg(feature = "debug_unwind")]
-            dbg_println!("continue_unwind: no landing pad address.");
+            #[cfg(feature = "unwind_debug")]
+            dbg_println!("unwind_next_function: no landing pad address.");
 
             return None;
         }
@@ -1052,8 +1009,8 @@ pub fn unwind_next_function(unw_state_ptr: *mut UnwindState) -> Option<u32> {
     // Preserve unwind state pointer.
     unw_state.save_unw_state_ptr(unw_state_ptr);
 
-    #[cfg(feature = "debug_unwind")]
-    dbg_println!("continue_unwind: landing to {:010x}", land_addr);
+    #[cfg(feature = "unwind_debug")]
+    dbg_println!("unwind_next_function: landing to {:010x}", land_addr);
 
     return Some(land_addr);
 }

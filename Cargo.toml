@@ -10,9 +10,14 @@ categories = ["embedded", "no-std"]
 
 [features]
 default = ["unwind"]
+# Enable unwinding to clean up panicked tasks.
 unwind = ["dep:gimli", "dep:fallible-iterator"]
-debug_unwind = ["unwind"]
+# Print the program counter (PC) of each function in the unwound stack.
+unwind_print_trace = ["unwind"]
+# Verbose stack unwinder execution log message.
+unwind_debug = ["unwind"]
 
+# Supported boards in STM32F4 family.
 stm32f401 = ["hopter_proc_macro/stm32f401", "stm32f4xx-hal/stm32f401"]
 stm32f405 = ["hopter_proc_macro/stm32f405", "stm32f4xx-hal/stm32f405"]
 stm32f407 = ["hopter_proc_macro/stm32f407", "stm32f4xx-hal/stm32f407"]
