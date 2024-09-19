@@ -108,6 +108,7 @@ define_breathing_task_entry_constructor!(
     FnOnce(), [Send + Sync + 'static],
 );
 
+#[cfg(feature = "unwind")]
 define_breathing_task_entry_constructor!(
     construct_restartable_breathing_task_entry,
     // `init` closure

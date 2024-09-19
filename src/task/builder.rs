@@ -239,11 +239,11 @@ where
     }
 }
 
+#[cfg(feature = "unwind")]
 impl<F> TaskBuilder<F>
 where
     F: FnOnce() + Send + Sync + Clone + 'static,
 {
-    #[cfg(feature = "unwind")]
     define_task_spawn!(spawn_restartable, build_restartable);
 }
 
@@ -347,13 +347,13 @@ where
     }
 }
 
+#[cfg(feature = "unwind")]
 impl<F, G, H, S, I> BreathingTaskBuilder<F, G, H, S, I>
 where
     F: FnOnce() -> S + Clone + Send + Sync + 'static,
     G: Fn(&mut S) -> I + Clone + Send + Sync + 'static,
     H: Fn(&mut S, I) + Clone + Send + Sync + 'static,
 {
-    #[cfg(feature = "unwind")]
     define_breathing_task_spawn!(
         spawn_restartable,
         construct_restartable_breathing_task_entry,

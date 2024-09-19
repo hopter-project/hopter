@@ -662,6 +662,7 @@ impl Task {
         self.has_restarted.load(Ordering::SeqCst)
     }
 
+    #[cfg(feature = "unwind")]
     pub(crate) fn is_restartable(&self) -> bool {
         self.entry_closure.is_some()
     }

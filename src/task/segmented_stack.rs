@@ -61,13 +61,15 @@ use crate::{
     },
     schedule::current,
     unrecoverable::{self, Lethal},
-    unwind,
 };
 use core::{
     alloc::Layout,
     arch::asm,
     sync::atomic::{AtomicU32, AtomicUsize, Ordering},
 };
+
+#[cfg(feature = "unwind")]
+use crate::unwind;
 
 #[no_mangle]
 static STACK_EXTEND_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -258,11 +260,15 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
     let cur_meta = unsafe { &mut *cur_meta_ptr };
 
     // Whether we should abort the new stacklet allocation.
+    #[cfg(feature = "unwind")]
     let mut abort = false;
+    #[cfg(not(feature = "unwind"))]
+    let abort = false;
 
     current::with_current_task(|cur_task| {
         // Define a closure to be invoked when the stack size limit is
         // exceeded.
+        #[cfg(feature = "unwind")]
         let mut handle_limit_exceed = |tf: &mut TrapFrame| {
             // If the task wants to start unwinding or is under unwinding,
             // proceed to allocate a new stacklet even if the task does not
@@ -291,6 +297,14 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
                     abort = true;
                 }
             }
+        };
+
+        #[cfg(not(feature = "unwind"))]
+        let handle_limit_exceed = |_: &mut TrapFrame| {
+            // Supress unused veriable warning. Whatever the reason is, when
+            // unwinding is not enabled, it is an unrecoverable error.
+            let _ = reason;
+            unrecoverable::die();
         };
 
         cur_task
