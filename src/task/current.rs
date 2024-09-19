@@ -1,9 +1,16 @@
-use crate::{config, interrupt::svc, schedule::current};
+use crate::{
+    config,
+    interrupt::svc,
+    schedule::{current, scheduler::Scheduler},
+};
 
 /// Switch the current task out of the CPU and let the scheduler pick the next
 /// task to run.
 pub fn yield_current() {
-    svc::svc_yield_current_task();
+    // Yield only if the scheduler is not suspended.
+    if !Scheduler::is_suspended() {
+        svc::svc_yield_current_task();
+    }
 }
 
 /// Change the priority of the currently running task. Return `Ok(())` if the
