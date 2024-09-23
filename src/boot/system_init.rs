@@ -10,7 +10,7 @@ use cortex_m::peripheral::scb::SystemHandler;
 pub(super) extern "C" fn system_start() -> ! {
     allocator::initialize();
 
-    let mut cp = cortex_m::Peripherals::take().unwrap();
+    let mut cp = unsafe { cortex_m::Peripherals::steal() };
 
     // Configure system call and context switch exception priority.
     unsafe {
@@ -70,12 +70,12 @@ fn enable_systick(cp: &mut cortex_m::Peripherals) {
 
 extern "C" {
     /// A glue function that calls to the user defined main function with
-    /// the [`#[main]`](super::main) attribute.
+    /// the [`#[main]`](crate::task::main) attribute.
     fn __main_trampoline(arg: AtomicPtr<u8>);
 }
 
 /// The first non-idle task run by the scheduler. It enables SysTick and then
-/// calls the user defined main function with the [`#[main]`](super::main)
+/// calls the user defined main function with the [`#[main]`](crate::task::main)
 /// attribute.
 fn main_task(mut cp: cortex_m::Peripherals) {
     enable_systick(&mut cp);
