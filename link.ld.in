@@ -280,7 +280,7 @@ SECTIONS
     . = ORIGIN(RAM);
     FILL(0);
     . = __contiguous_stack_bottom;
-  } > RAM AT>FLASH
+  } > RAM
 
   /* ### .data */
   .data : ALIGN(4)
