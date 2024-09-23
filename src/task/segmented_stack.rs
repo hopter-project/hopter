@@ -265,7 +265,7 @@ pub(crate) fn more_stack(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt, reason: Mor
     #[cfg(not(feature = "unwind"))]
     let abort = false;
 
-    current::with_current_task(|cur_task| {
+    current::with_cur_task(|cur_task| {
         // Define a closure to be invoked when the stack size limit is
         // exceeded.
         #[cfg(feature = "unwind")]
@@ -456,7 +456,7 @@ pub(crate) fn less_stack(tf: &TrapFrame, ctxt: &mut TaskSVCCtxt) {
         ctxt.tls.stklet_bound = meta.prev_stklet_bound;
         ctxt.sp = meta.prev_sp;
 
-        current::with_current_task(|cur_task| {
+        current::with_cur_task(|cur_task| {
             cur_task.with_stack_ctrl_block(|scb| {
                 // Update hot split alleviation information.
                 svc_less_stack_anti_hot_split(prev_tf, scb);

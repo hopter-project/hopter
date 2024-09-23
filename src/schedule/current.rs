@@ -1,4 +1,4 @@
-use super::scheduler::Scheduler;
+use super::scheduler::{SchedSuspendGuard, Scheduler};
 use crate::{
     sync::{RwSpin, RwSpinReadGuard, RwSpinWriteGuard},
     task::{Task, TaskCtxt},
@@ -65,20 +65,13 @@ pub(crate) static CUR_TASK_CTXT_PTR: AtomicPtr<TaskCtxt> = AtomicPtr::new(core::
 ///
 /// [`with_current_task_arc`] has slightly better performance than this
 /// function. Use that function if `&Task` suffices.
-pub(crate) fn with_current_task_arc<F, R>(closure: F) -> R
+pub(crate) fn with_cur_task_arc<F, R>(op: F) -> R
 where
     F: FnOnce(Arc<Task>) -> R,
 {
     // Suspend the scheduler and lock the current task `Arc` in reader mode.
-    let _sched_suspend_guard = Scheduler::suspend();
-    let read_guard = CUR_TASK.read();
-
-    // Run the closure.
-    if let Some(cur_task) = &*read_guard {
-        closure(cur_task.clone())
-    } else {
-        unrecoverable::die();
-    }
+    let guard = Scheduler::suspend();
+    with_cur_task_arc_and_suspended_sched(guard, op)
 }
 
 /// Do things with the current task struct. When the given closure is being
@@ -86,17 +79,34 @@ where
 /// context switch will happen during this period.
 ///
 /// This function has slightly better performance than [`with_current_task_arc`].
-pub(crate) fn with_current_task<F, R>(closure: F) -> R
+pub(crate) fn with_cur_task<F, R>(op: F) -> R
 where
     F: FnOnce(&Task) -> R,
 {
     // Suspend the scheduler and lock the current task `Arc` in reader mode.
-    let _sched_suspend_guard = Scheduler::suspend();
-    let read_guard: RwSpinReadGuard<_> = CUR_TASK.read();
+    let guard = Scheduler::suspend();
+    with_cur_task_and_suspended_sched(guard, op)
+}
 
-    // Run the closure.
+pub(crate) fn with_cur_task_arc_and_suspended_sched<F, R>(_guard: SchedSuspendGuard, op: F) -> R
+where
+    F: FnOnce(Arc<Task>) -> R,
+{
+    let read_guard: RwSpinReadGuard<_> = CUR_TASK.read();
     if let Some(cur_task) = &*read_guard {
-        closure(cur_task)
+        op(cur_task.clone())
+    } else {
+        unrecoverable::die();
+    }
+}
+
+pub(crate) fn with_cur_task_and_suspended_sched<F, R>(_guard: SchedSuspendGuard, op: F) -> R
+where
+    F: FnOnce(&Task) -> R,
+{
+    let read_guard: RwSpinReadGuard<_> = CUR_TASK.read();
+    if let Some(cur_task) = &*read_guard {
+        op(cur_task)
     } else {
         unrecoverable::die();
     }

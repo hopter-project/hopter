@@ -395,7 +395,7 @@ impl<'a> Debug for UnwindState<'a> {
 
 #[inline(never)]
 fn try_concurrent_restart() {
-    current::with_current_task_arc(|cur_task| {
+    current::with_cur_task_arc(|cur_task| {
         // We will limit the concurrent restart rate to at most one concurrent
         // instance. If this task is a restarted instance, and also if the original
         // instance has not finished unwinding, i.e. the task struct reference
@@ -510,7 +510,7 @@ impl UnwindState<'static> {
         // with the current task. There was something wrong with the IRQ
         // handler but do not touch the task.
         if !current::is_in_isr_context() {
-            current::with_current_task(|cur_task| {
+            current::with_cur_task(|cur_task| {
                 if cur_task.is_restartable() {
                     try_concurrent_restart();
                 }
@@ -719,7 +719,7 @@ impl<'a> UnwindState<'a> {
             self.stklet_boundary = stklet_meta.prev_stklet_bound as u32;
 
             // Update the stack usage.
-            current::with_current_task(|cur_task| {
+            current::with_cur_task(|cur_task| {
                 cur_task.with_stack_ctrl_block(|scb| {
                     scb.cumulated_size
                         .fetch_sub(stklet_meta.count_size, Ordering::SeqCst)
@@ -905,11 +905,11 @@ pub fn is_isr_unwinding() -> bool {
 }
 
 pub fn set_cur_task_unwinding(val: bool) {
-    current::with_current_task(|cur_task| cur_task.set_unwind_flag(val));
+    current::with_cur_task(|cur_task| cur_task.set_unwind_flag(val));
 }
 
 pub fn is_cur_task_unwinding() -> bool {
-    current::with_current_task(|cur_task| cur_task.is_unwinding())
+    current::with_cur_task(|cur_task| cur_task.is_unwinding())
 }
 
 pub fn is_unwinding() -> bool {

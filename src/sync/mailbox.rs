@@ -166,35 +166,37 @@ impl Mailbox {
         let mut should_block = true;
 
         // Suspend scheduling and acquire full access to the mailbox fields.
-        self.inner.lock().must_with_full_access(|full_access| {
-            let mut locked_wait_task = full_access.wait_task.lock_now_or_die();
+        self.inner.with_suspended_scheduler(|queue, sched_guard| {
+            queue.must_with_full_access(|full_access| {
+                let mut locked_wait_task = full_access.wait_task.lock_now_or_die();
 
-            // A sanity check to prevent more than one task to try to wait on
-            // the same mailbox.
-            assert!(locked_wait_task.is_none());
+                // A sanity check to prevent more than one task to try to wait on
+                // the same mailbox.
+                assert!(locked_wait_task.is_none());
 
-            // If the counter is currently positive, decrement the counter and
-            // do not block.
-            if full_access.count.load(Ordering::SeqCst) > 0 {
-                full_access.count.fetch_sub(1, Ordering::SeqCst);
-                should_block = false;
-                return;
-            }
+                // If the counter is currently positive, decrement the counter and
+                // do not block.
+                if full_access.count.load(Ordering::SeqCst) > 0 {
+                    full_access.count.fetch_sub(1, Ordering::SeqCst);
+                    should_block = false;
+                    return;
+                }
 
-            // Otherwise the task is going to be blocked. Reset the flag.
-            full_access.task_notified.store(false, Ordering::SeqCst);
+                // Otherwise the task is going to be blocked. Reset the flag.
+                full_access.task_notified.store(false, Ordering::SeqCst);
 
-            current::with_current_task_arc(|cur_task| {
-                cur_task.set_state(TaskState::Blocked);
+                current::with_cur_task_arc_and_suspended_sched(sched_guard, |cur_task| {
+                    cur_task.set_state(TaskState::Blocked);
 
-                // Record the waiting task on this mailbox.
-                *locked_wait_task = Some(Arc::clone(&cur_task));
+                    // Record the waiting task on this mailbox.
+                    *locked_wait_task = Some(Arc::clone(&cur_task));
 
-                // Add the waiting task to the sleeping queue.
-                // FIXME: This assumes 1ms tick interval.
-                let wake_at_tick = time::get_tick() + timeout_ms;
-                time::add_task_to_sleep_queue(cur_task, wake_at_tick);
-            });
+                    // Add the waiting task to the sleeping queue.
+                    // FIXME: This assumes 1ms tick interval.
+                    let wake_at_tick = time::get_tick() + timeout_ms;
+                    time::add_task_to_sleep_queue(cur_task, wake_at_tick);
+                });
+            })
         });
 
         if should_block {
@@ -205,13 +207,15 @@ impl Mailbox {
             // waiting time reaches timeout.
 
             // Suspend scheduling and acquire full access to the mailbox fields.
-            self.inner.lock().must_with_full_access(|full_access| {
-                // Clear the waiting task field. This field was not cleared if
-                // the task wakes up because of the timeout.
-                full_access.wait_task.lock_now_or_die().take();
+            self.inner.with_suspended_scheduler(|queue, _guard| {
+                queue.must_with_full_access(|full_access| {
+                    // Clear the waiting task field. This field was not cleared if
+                    // the task wakes up because of the timeout.
+                    full_access.wait_task.lock_now_or_die().take();
 
-                // Return whether the task wakes up because of notification.
-                full_access.task_notified.load(Ordering::SeqCst)
+                    // Return whether the task wakes up because of notification.
+                    full_access.task_notified.load(Ordering::SeqCst)
+                })
             })
         } else {
             // If the task need not block, it consumed a notification count and
@@ -227,28 +231,32 @@ impl Mailbox {
     /// This method is allowed in ISR context.
     pub fn notify_allow_isr(&self) {
         // Suspend scheduling and get access to the mailbox fields.
-        self.inner.lock().with_access(|access| match access {
-            // If we have full access to the inner fields, we directly wake up
-            // the waiting task or increment the counter.
-            Access::Full { full_access } => match full_access.wait_task.lock_now_or_die().take() {
-                // If there is a waiting task, wake it up.
-                Some(wait_task) => {
-                    time::remove_task_from_sleep_queue_allow_isr(wait_task);
-                    full_access.task_notified.store(true, Ordering::SeqCst);
+        self.inner.with_suspended_scheduler(|queue, _guard| {
+            queue.with_access(|access| match access {
+                // If we have full access to the inner fields, we directly wake up
+                // the waiting task or increment the counter.
+                Access::Full { full_access } => {
+                    match full_access.wait_task.lock_now_or_die().take() {
+                        // If there is a waiting task, wake it up.
+                        Some(wait_task) => {
+                            time::remove_task_from_sleep_queue_allow_isr(wait_task);
+                            full_access.task_notified.store(true, Ordering::SeqCst);
+                        }
+                        // If there is not a waiting task, increment the counter.
+                        None => {
+                            full_access.count.fetch_add(1, Ordering::SeqCst);
+                            full_access.task_notified.store(true, Ordering::SeqCst);
+                        }
+                    }
                 }
-                // If there is not a waiting task, increment the counter.
-                None => {
-                    full_access.count.fetch_add(1, Ordering::SeqCst);
-                    full_access.task_notified.store(true, Ordering::SeqCst);
+                // If other context is running with the full access and we preempt
+                // it, we get pend-only access. We increment the `pending_count` so
+                // that the full access owner can later help us update the counter
+                // or notify the waiting task on behalf.
+                Access::PendOnly { pend_access } => {
+                    pend_access.pending_count.fetch_add(1, Ordering::SeqCst);
                 }
-            },
-            // If other context is running with the full access and we preempt
-            // it, we get pend-only access. We increment the `pending_count` so
-            // that the full access owner can later help us update the counter
-            // or notify the waiting task on behalf.
-            Access::PendOnly { pend_access } => {
-                pend_access.pending_count.fetch_add(1, Ordering::SeqCst);
-            }
+            })
         });
     }
 }

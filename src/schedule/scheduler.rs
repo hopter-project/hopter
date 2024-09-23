@@ -59,7 +59,7 @@ struct InnerPendAccessor<'a> {
 /// them linked.
 impl<'a> RunPendedOp for InnerFullAccessor<'a> {
     fn run_pended_op(&mut self) {
-        current::with_current_task(|cur_task| {
+        current::with_cur_task(|cur_task| {
             let mut locked_list = self.ready_linked_list.lock_now_or_die();
             while let Some(task) = self.insert_buffer.dequeue() {
                 if task.should_preempt(cur_task) {
@@ -182,13 +182,12 @@ impl Scheduler {
             unrecoverable::die();
         }
 
-        READY_TASK_QUEUE
-            .lock()
-            .must_with_full_access(|full_access| {
+        READY_TASK_QUEUE.with_suspended_scheduler(|queue, sched_guard| {
+            queue.must_with_full_access(|full_access| {
                 let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
 
                 // Clean up for the current task.
-                current::with_current_task_arc(|cur_task| {
+                current::with_cur_task_arc_and_suspended_sched(sched_guard, |cur_task| {
                     match cur_task.get_state() {
                         // Put the current task back to the ready queue only if the
                         // task is in `Running` state.
@@ -260,6 +259,7 @@ impl Scheduler {
                 // performed one.
                 PENDING_CTXT_SWITCH.store(false, Ordering::SeqCst);
             })
+        })
     }
 
     /// Return if the scheduler has been started.
@@ -281,34 +281,36 @@ impl Scheduler {
 
     /// Internal implementation to insert a task to the ready queue.
     fn insert_task_to_ready_queue(task: Arc<Task>) {
-        READY_TASK_QUEUE.lock().with_access(|access| match access {
-            // The queue is not under contention. Directly put the task to the
-            // linked list.
-            Access::Full { full_access } => {
-                // Request a context switch if the incoming ready task has a
-                // higher priority than the current task. Check it only when
-                // the scheduler has started otherwise there will be no current
-                // task.
-                if Scheduler::has_started() {
-                    current::with_current_task(|cur_task| {
-                        if task.should_preempt(cur_task) {
-                            PENDING_CTXT_SWITCH.store(true, Ordering::SeqCst);
-                        }
-                    });
-                }
+        READY_TASK_QUEUE.with_suspended_scheduler(|queue, sched_guard| {
+            queue.with_access(|access| match access {
+                // The queue is not under contention. Directly put the task to the
+                // linked list.
+                Access::Full { full_access } => {
+                    // Request a context switch if the incoming ready task has a
+                    // higher priority than the current task. Check it only when
+                    // the scheduler has started otherwise there will be no current
+                    // task.
+                    if Scheduler::has_started() {
+                        current::with_cur_task_and_suspended_sched(sched_guard, |cur_task| {
+                            if task.should_preempt(cur_task) {
+                                PENDING_CTXT_SWITCH.store(true, Ordering::SeqCst);
+                            }
+                        });
+                    }
 
-                // Put the ready task to the linked list.
-                task.set_state(TaskState::Ready);
-                let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
-                locked_list.push_back(task);
-            }
-            // The queue is under contention. The current execution context, which
-            // must be an ISR, preempted another context that is holding the full
-            // access. Place the task in the lock-free buffer. The full access
-            // holder will later put it back to the linked list.
-            Access::PendOnly { pend_access } => {
-                pend_access.insert_buffer.enqueue(task).unwrap_or_die();
-            }
+                    // Put the ready task to the linked list.
+                    task.set_state(TaskState::Ready);
+                    let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
+                    locked_list.push_back(task);
+                }
+                // The queue is under contention. The current execution context, which
+                // must be an ISR, preempted another context that is holding the full
+                // access. Place the task in the lock-free buffer. The full access
+                // holder will later put it back to the linked list.
+                Access::PendOnly { pend_access } => {
+                    pend_access.insert_buffer.enqueue(task).unwrap_or_die();
+                }
+            })
         });
     }
 
@@ -349,7 +351,7 @@ impl Scheduler {
     pub(crate) fn drop_current_task_from_svc() {
         // Mark the task state as `Destructing` so that the scheduler will drop
         // the task struct upon a later context switch.
-        current::with_current_task(|cur_task| cur_task.set_state(TaskState::Destructing));
+        current::with_cur_task(|cur_task| cur_task.set_state(TaskState::Destructing));
 
         // Tail chain a PendSV to perform a context switch.
         cortex_m::peripheral::SCB::set_pendsv()

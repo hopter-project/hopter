@@ -122,7 +122,7 @@ where
             // task pointer.
             .and_then(|guard| {
                 if !current::is_in_isr_context() {
-                    current::with_current_task_arc(|cur_task| {
+                    current::with_cur_task_arc(|cur_task| {
                         self.owner.lock_now_or_die().replace(cur_task)
                     });
                 }
@@ -153,7 +153,7 @@ where
         }
 
         // Priority inheritance.
-        current::with_current_task(|cur_task| {
+        current::with_cur_task(|cur_task| {
             let locked_owner = self.owner.lock_now_or_die();
             if let Some(owner) = locked_owner.as_ref() {
                 owner.ceil_priority_from(cur_task);
