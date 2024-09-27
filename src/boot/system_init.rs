@@ -68,7 +68,7 @@ fn enable_systick(cp: &mut cortex_m::Peripherals) {
     cp.SYST.enable_interrupt();
 }
 
-extern "C" {
+extern "Rust" {
     /// A glue function that calls to the user defined main function with
     /// the [`#[main]`](crate::task::main) attribute.
     fn __main_trampoline(arg: AtomicPtr<u8>);
