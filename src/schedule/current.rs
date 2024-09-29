@@ -1,4 +1,4 @@
-use super::scheduler::Scheduler;
+use super::scheduler::{SchedSuspendGuard, Scheduler};
 use crate::{
     sync::{RwSpin, RwSpinReadGuard, RwSpinWriteGuard},
     task::{Task, TaskCtxt},
@@ -59,44 +59,84 @@ pub(super) fn update_cur_task(task: Arc<Task>) {
 #[no_mangle]
 pub(crate) static CUR_TASK_CTXT_PTR: AtomicPtr<TaskCtxt> = AtomicPtr::new(core::ptr::null_mut());
 
-/// Do things with the current task struct. When the given closure is being
-/// executed, the current task `Arc` will be locked in reader mode and no
-/// context switch will happen during this period.
+/// Execute the given closure with the current task struct as the argument. The
+/// current task struct is provided as an `Arc<Task>`. When the given closure
+/// is being executed, no context switch will happen during this period, and
+/// the [`CUR_TASK`] will be locked in reader mode.
 ///
-/// [`with_current_task_arc`] has slightly better performance than this
-/// function. Use that function if `&Task` suffices.
-pub(crate) fn with_current_task_arc<F, R>(closure: F) -> R
+/// [`with_cur_task`] has slightly better performance than this function.
+/// Use that function if `Arc<Task>` is an overkill and `&Task` suffices.
+///
+/// If before calling this function, the scheduler has already been suspended
+/// and a [`SchedSuspendGuard`] is available, call
+/// [`with_cur_task_arc_explicit_sched_suspend`] for better performance by
+/// avoiding recursively suspending the scheduler.
+pub(crate) fn with_cur_task_arc<F, R>(op: F) -> R
 where
     F: FnOnce(Arc<Task>) -> R,
 {
-    // Suspend the scheduler and lock the current task `Arc` in reader mode.
-    let _sched_suspend_guard = Scheduler::suspend();
-    let read_guard = CUR_TASK.read();
+    let guard = Scheduler::suspend();
+    with_cur_task_arc_explicit_sched_suspend(&guard, op)
+}
 
-    // Run the closure.
+/// Execute the given closure with the current task struct as the argument. The
+/// current task struct is provided as a `&Task`. When the given closure is
+/// being executed, no context switch will happen during this period, and
+/// the [`CUR_TASK`] will be locked in reader mode.
+///
+/// This function has slightly better performance than [`with_cur_task_arc`].
+///
+/// If before calling this function, the scheduler has already been suspended
+/// and a [`SchedSuspendGuard`] is available, call
+/// [`with_cur_task_explicit_sched_suspend`] for better performance by
+/// avoiding recursively suspending the scheduler.
+pub(crate) fn with_cur_task<F, R>(op: F) -> R
+where
+    F: FnOnce(&Task) -> R,
+{
+    // Suspend the scheduler and lock the current task `Arc` in reader mode.
+    let guard = Scheduler::suspend();
+    with_cur_task_explicit_sched_suspend(&guard, op)
+}
+
+/// Execute the given closure with the current task struct as the argument. The
+/// scheduler must be suspended beforehand, proven by passing a
+/// [`SchedSuspendGuard`] to this function. The current task struct is provided
+/// as an `Arc<Task>`. When the given closure is being executed the [`CUR_TASK`]
+/// will be locked in reader mode.
+///
+/// [`with_cur_task_explicit_sched_suspend`] has slightly better performance
+/// than this function. Use that function if `Arc<Task>` is an overkill and
+/// `&Task` suffices.
+pub(crate) fn with_cur_task_arc_explicit_sched_suspend<F, R>(_guard: &SchedSuspendGuard, op: F) -> R
+where
+    F: FnOnce(Arc<Task>) -> R,
+{
+    let read_guard: RwSpinReadGuard<_> = CUR_TASK.read();
+
     if let Some(cur_task) = &*read_guard {
-        closure(cur_task.clone())
+        op(cur_task.clone())
     } else {
         unrecoverable::die();
     }
 }
 
-/// Do things with the current task struct. When the given closure is being
-/// executed, the current task `Arc` will be locked in reader mode and no
-/// context switch will happen during this period.
+/// Execute the given closure with the current task struct as the argument. The
+/// scheduler must be suspended beforehand, proven by passing a
+/// [`SchedSuspendGuard`] to this function. The current task struct is provided
+/// as an `Arc<Task>`. When the given closure is being executed the [`CUR_TASK`]
+/// will be locked in reader mode.
 ///
-/// This function has slightly better performance than [`with_current_task_arc`].
-pub(crate) fn with_current_task<F, R>(closure: F) -> R
+/// This function has slightly better performance than
+/// [`with_cur_task_arc_explicit_sched_suspend`].
+pub(crate) fn with_cur_task_explicit_sched_suspend<F, R>(_guard: &SchedSuspendGuard, op: F) -> R
 where
     F: FnOnce(&Task) -> R,
 {
-    // Suspend the scheduler and lock the current task `Arc` in reader mode.
-    let _sched_suspend_guard = Scheduler::suspend();
     let read_guard: RwSpinReadGuard<_> = CUR_TASK.read();
 
-    // Run the closure.
     if let Some(cur_task) = &*read_guard {
-        closure(cur_task)
+        op(cur_task)
     } else {
         unrecoverable::die();
     }

@@ -116,13 +116,15 @@ pub fn get_tick() -> u32 {
 
 /// Wake up those sleeping tasks that have their sleeping time expired.
 pub(crate) fn wake_sleeping_tasks() {
-    SLEEP_TASK_QUEUE.lock().with_access(|access| match access {
-        Access::Full { full_access } => {
-            full_access.wake_expired_tasks();
-        }
-        Access::PendOnly { pend_access } => {
-            pend_access.time_to_wakeup.store(true, Ordering::SeqCst)
-        }
+    SLEEP_TASK_QUEUE.with_suspended_scheduler(|queue, _| {
+        queue.with_access(|access| match access {
+            Access::Full { full_access } => {
+                full_access.wake_expired_tasks();
+            }
+            Access::PendOnly { pend_access } => {
+                pend_access.time_to_wakeup.store(true, Ordering::SeqCst)
+            }
+        })
     });
 }
 
@@ -154,7 +156,7 @@ fn sleep_ms_unchecked(ms: u32) {
     // Outline the logic to reduce the stack frame size of `sleep_ms`.
     #[inline(never)]
     fn add_cur_task_to_sleep_queue(wake_at_tick: u32) {
-        current::with_current_task_arc(|cur_task| {
+        current::with_cur_task_arc(|cur_task| {
             cur_task.set_state(TaskState::Blocked);
             add_task_to_sleep_queue(cur_task, wake_at_tick);
         })
@@ -162,26 +164,28 @@ fn sleep_ms_unchecked(ms: u32) {
 }
 
 pub(crate) fn add_task_to_sleep_queue(task: Arc<Task>, wake_at_tick: u32) {
-    SLEEP_TASK_QUEUE
-        .lock()
-        .must_with_full_access(|full_access| {
+    SLEEP_TASK_QUEUE.with_suspended_scheduler(|queue, _| {
+        queue.must_with_full_access(|full_access| {
             task.set_wake_tick(wake_at_tick);
             let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
             locked_queue.push_back_tick_sorted(task);
-        });
+        })
+    });
 }
 
 pub(crate) fn remove_task_from_sleep_queue_allow_isr(task: Arc<Task>) {
-    SLEEP_TASK_QUEUE.lock().with_access(|access| match access {
-        Access::Full { full_access } => {
-            let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
-            if let Some(task) = locked_queue.remove_task(&task) {
-                Scheduler::accept_task(task);
+    SLEEP_TASK_QUEUE.with_suspended_scheduler(|queue, _| {
+        queue.with_access(|access| match access {
+            Access::Full { full_access } => {
+                let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
+                if let Some(task) = locked_queue.remove_task(&task) {
+                    Scheduler::accept_task(task);
+                }
             }
-        }
-        Access::PendOnly { pend_access } => {
-            pend_access.delete_buffer.enqueue(task).unwrap_or_die();
-        }
+            Access::PendOnly { pend_access } => {
+                pend_access.delete_buffer.enqueue(task).unwrap_or_die();
+            }
+        })
     });
 }
 
