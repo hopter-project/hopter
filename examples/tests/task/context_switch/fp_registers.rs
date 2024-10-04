@@ -13,10 +13,10 @@ use hopter::{
     task::main,
 };
 
-/// Whether the verifier task is running.
-static TEST_STARTED: AtomicBool = AtomicBool::new(false);
+/// Whether the clobbering task should run.
+static RUN_CLOBBER: AtomicBool = AtomicBool::new(false);
 
-/// Whether the cloberring task has executed.
+/// Whether the cloberring task has run.
 static CLOBBERED: AtomicBool = AtomicBool::new(false);
 
 static mut KNOWN_VALUE: [f32; 32] = [
@@ -48,31 +48,23 @@ fn main(_: cortex_m::Peripherals) {
 extern "C" fn verify_registers() -> ! {
     unsafe {
         asm!(
-            // Set `TEST_STARTED` to true.
-            "ldr    r0, ={test_started}",
+            // Set `RUN_CLOBBER` to true.
+            "0:",
+            "ldr    r0, ={run_clobber}",
             "mov    r1, #1",
             "strb   r1, [r0]",
-            "0:",
             // Set register `s0-s15` to known values.
             "ldr    r0, ={known_value}",
             "vldmia r0, {{s0-s15}}",
             // Trigger context switch.
-            "svc    #1",
-            // Examine the values of registers `s0-s15`. They should remain the
-            // same as before the context switch.
-            "ldr    r0, ={known_value}",
-            "vldmia r0, {{s16-s31}}",
-            "bl     {compare_fp_regs}",
-            // Set register `s16-s31` to known values.
-            "ldr    r0, ={known_value} + 64",
-            "vldmia r0, {{s16-s31}}",
-            // Trigger context switch.
-            "svc    #1",
-            // Examine the values of registers `s16-s31`. They should remain the
-            // same as before the context switch.
-            "ldr    r0, ={known_value} + 64",
-            "vldmia r0, {{s0-s15}}",
-            "bl     {compare_fp_regs}",
+            "mov    r0, #0xe0",
+            "msr    basepri, r0",
+            "mov    r1, #0x10000000",
+            "movw   r0, #0xed04",
+            "movt   r0, #0xe000",
+            "str    r1, [r0]",
+            "mov    r0, #0",
+            "msr    basepri, r0",
             // See if the clobbering task has run.
             "ldr    r0, ={clobber}",
             "ldrb   r0, [r0]",
@@ -80,12 +72,51 @@ extern "C" fn verify_registers() -> ! {
             // everything another time.
             "cmp    r0, #0",
             "beq    0b",
+            // Examine the values of registers `s0-s15`. They should remain the
+            // same as before the context switch.
+            "ldr    r0, ={known_value}",
+            "vldmia r0, {{s16-s31}}",
+            "bl     {compare_fp_regs}",
+            "1:",
+            // Set `CLOBERRED` to false.
+            "ldr    r0, ={cloberred}",
+            "mov    r1, #1",
+            "strb   r1, [r0]",
+            // Set `RUN_CLOBBER` to true.
+            "ldr    r0, ={run_clobber}",
+            "mov    r1, #1",
+            "strb   r1, [r0]",
+            // Set register `s16-s31` to known values.
+            "ldr    r0, ={known_value} + 64",
+            "vldmia r0, {{s16-s31}}",
+            // Trigger context switch.
+            "mov    r0, #0xe0",
+            "msr    basepri, r0",
+            "mov    r1, #0x10000000",
+            "movw   r0, #0xed04",
+            "movt   r0, #0xe000",
+            "str    r1, [r0]",
+            "mov    r0, #0",
+            "msr    basepri, r0",
+            // See if the clobbering task has run.
+            "ldr    r0, ={clobber}",
+            "ldrb   r0, [r0]",
+            // If the clobbering task has not run yet, we loop back and do
+            // everything another time.
+            "cmp    r0, #0",
+            "beq    1b",
+            // Examine the values of registers `s16-s31`. They should remain the
+            // same as before the context switch.
+            "ldr    r0, ={known_value} + 64",
+            "vldmia r0, {{s0-s15}}",
+            "bl     {compare_fp_regs}",
             // If the clobbering task has run, then we have verified that the
             // registers in this task's context were not affected. Declare
             // success.
             "b     {success}",
-            test_started = sym TEST_STARTED,
+            run_clobber = sym RUN_CLOBBER,
             known_value = sym KNOWN_VALUE,
+            cloberred = sym CLOBBERED,
             compare_fp_regs = sym compare_fp_regs,
             clobber = sym clobber_all_fp_regs,
             success = sym success,
@@ -100,15 +131,22 @@ extern "C" fn verify_registers() -> ! {
 extern "C" fn clobber_all_fp_regs() -> ! {
     unsafe {
         asm!(
-            "ldr    r0, ={test_started}",
             "0:",
-            // Load the current value of `TEST_STARTED`.
+            "ldr    r0, ={run_clobber}",
+            // Load the current value of `RUN_CLOBBER`.
             "ldrb   r1, [r0]",
             "cmp    r1, #0",
             // Goto cloberring the register if has started.
             "bne    1f",
             // Otherwise, perform a context switch and try again.
-            "svc    #1",
+            "mov    r0, #0xe0",
+            "msr    basepri, r0",
+            "mov    r1, #0x10000000",
+            "movw   r0, #0xed04",
+            "movt   r0, #0xe000",
+            "str    r1, [r0]",
+            "mov    r0, #0",
+            "msr    basepri, r0",
             "b      0b",
             // The verify task is running now. Clobber all registers. This
             // should not affect the registers in the verify task's context.
@@ -120,12 +158,22 @@ extern "C" fn clobber_all_fp_regs() -> ! {
             // Clobber registers.
             "ldr    r0, ={clobbered_value}",
             "vldmia r0, {{s0-s31}}",
+            // Set `RUN_CLOBBER` to false.
+            "ldr    r0, ={run_clobber}",
+            "mov    r1, #1",
+            "strb   r1, [r0]",
             // Perform context switch so that the verifier task can perform
             // the check.
-            "2:",
-            "svc    #1",
-            "b      2b",
-            test_started = sym TEST_STARTED,
+            "mov    r0, #0xe0",
+            "msr    basepri, r0",
+            "mov    r1, #0x10000000",
+            "movw   r0, #0xed04",
+            "movt   r0, #0xe000",
+            "str    r1, [r0]",
+            "mov    r0, #0",
+            "msr    basepri, r0",
+            "b      0b",
+            run_clobber = sym RUN_CLOBBER,
             clobbered_value = sym CLOBBERED_VALUE,
             cloberred = sym CLOBBERED,
             options(noreturn)

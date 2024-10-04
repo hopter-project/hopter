@@ -13,10 +13,10 @@ use hopter::{
     task::main,
 };
 
-/// Whether the verifier task is running.
-static TEST_STARTED: AtomicBool = AtomicBool::new(false);
+/// Whether the clobbering task should run.
+static RUN_CLOBBER: AtomicBool = AtomicBool::new(false);
 
-/// Whether the cloberring task has executed.
+/// Whether the cloberring task has run.
 static CLOBBERED: AtomicBool = AtomicBool::new(false);
 
 #[main]
@@ -41,15 +41,12 @@ fn main(_: cortex_m::Peripherals) {
 extern "C" fn verify_registers() -> ! {
     unsafe {
         asm!(
-            // Set `TEST_STARTED` to true.
-            "ldr  r0, ={test_started}",
+            // Set `RUN_CLOBBER` to true.
+            "0:",
+            "ldr  r0, ={run_clobber}",
             "mov  r1, #1",
             "strb r1, [r0]",
-            "0:",
-            // Preserve the current stack pointer value in the stack.
-            "mov  r0, sp",
-            "push {{r0}}",
-            // Write some known values to the registers.
+            // Write some known values to the low registers.
             "mov  r0, #1",
             "mov  r1, #2",
             "mov  r2, #3",
@@ -58,16 +55,24 @@ extern "C" fn verify_registers() -> ! {
             "mov  r5, #6",
             "mov  r6, #7",
             "mov  r7, #8",
-            "mov  r8, #9",
-            "mov  r9, #10",
-            "mov  r10, #11",
-            "mov  r11, #12",
-            "mov  r12, #13",
-            "mov  lr, #14",
             // Trigger context switch.
-            "svc  #1",
-            // Examine the values of registers. They should remain the same as
-            // before the context switch.
+            "mov  r8, #0xe0",
+            "msr  basepri, r8",
+            "mov  r9, #0x10000000",
+            "movw r8, #0xed04",
+            "movt r8, #0xe000",
+            "str  r9, [r8]",
+            "mov  r8, #0",
+            "msr  basepri, r8",
+            // See if the clobbering task has run.
+            "ldr  r8, ={clobber}",
+            "ldrb r8, [r8]",
+            // If the clobbering task has not run yet, we loop back and do
+            // everything another time.
+            "cmp  r8, #0",
+            "beq  0b",
+            // Examine the values of low registers. They should remain the same
+            // as before the context switch.
             "cmp  r0, #1",
             "bne  {error}",
             "cmp  r1, #2",
@@ -84,6 +89,43 @@ extern "C" fn verify_registers() -> ! {
             "bne  {error}",
             "cmp  r7, #8",
             "bne  {error}",
+            "1:",
+            // Set `CLOBERRED` to false.
+            "ldr  r0, ={cloberred}",
+            "mov  r1, #1",
+            "strb r1, [r0]",
+            // Set `RUN_CLOBBER` to true.
+            "ldr  r0, ={run_clobber}",
+            "mov  r1, #1",
+            "strb r1, [r0]",
+            // Preserve the current stack pointer value in the stack.
+            "mov  r0, sp",
+            "push {{r0}}",
+            // Write some known values to the high registers.
+            "mov  r8, #9",
+            "mov  r9, #10",
+            "mov  r10, #11",
+            "mov  r11, #12",
+            "mov  r12, #13",
+            "mov  lr, #14",
+            // Trigger context switch.
+            "mov  r0, #0xe0",
+            "msr  basepri, r0",
+            "mov  r1, #0x10000000",
+            "movw r0, #0xed04",
+            "movt r0, #0xe000",
+            "str  r1, [r0]",
+            "mov  r0, #0",
+            "msr  basepri, r0",
+            // See if the clobbering task has run.
+            "ldr  r0, ={clobber}",
+            "ldrb r0, [r0]",
+            // If the clobbering task has not run yet, we loop back and do
+            // everything another time.
+            "cmp  r0, #0",
+            "beq  1b",
+            // Examine the values of high registers. They should remain the same
+            // as before the context switch.
             "cmp  r8, #9",
             "bne  {error}",
             "cmp  r9, #10",
@@ -101,18 +143,12 @@ extern "C" fn verify_registers() -> ! {
             "pop  {{r0}}",
             "cmp  r0, sp",
             "bne  {error}",
-            // See if the clobbering task has run.
-            "ldr  r0, ={clobber}",
-            "ldrb r0, [r0]",
-            // If the clobbering task has not run yet, we loop back and do
-            // everything another time.
-            "cmp  r0, #0",
-            "beq  0b",
             // If the clobbering task has run, then we have verified that the
             // registers in this task's context were not affected. Declare
             // success.
             "b   {success}",
-            test_started = sym TEST_STARTED,
+            run_clobber = sym RUN_CLOBBER,
+            cloberred = sym CLOBBERED,
             clobber = sym clobber_all_gp_regs,
             error = sym error,
             success = sym success,
@@ -127,15 +163,22 @@ extern "C" fn verify_registers() -> ! {
 extern "C" fn clobber_all_gp_regs() -> ! {
     unsafe {
         asm!(
-            "ldr  r0, ={test_started}",
             "0:",
-            // Load the current value of `TEST_STARTED`.
+            "ldr  r0, ={run_clobber}",
+            // Load the current value of `RUN_CLOBBER`.
             "ldrb r1, [r0]",
             "cmp  r1, #0",
             // Goto cloberring the register if has started.
             "bne  1f",
             // Otherwise, perform a context switch and try again.
-            "svc  #1",
+            "mov  r0, #0xe0",
+            "msr  basepri, r0",
+            "mov  r1, #0x10000000",
+            "movw r0, #0xed04",
+            "movt r0, #0xe000",
+            "str  r1, [r0]",
+            "mov  r0, #0",
+            "msr  basepri, r0",
             "b    0b",
             // The verify task is running now. Clobber all registers. This
             // should not affect the registers in the verify task's context.
@@ -159,12 +202,22 @@ extern "C" fn clobber_all_gp_regs() -> ! {
             "mov  r11, #0xffffffff",
             "mov  r12, #0xffffffff",
             "mov  lr, #0xffffffff",
+            // Set `RUN_CLOBBER` to false.
+            "ldr  r0, ={run_clobber}",
+            "mov  r1, #1",
+            "strb r1, [r0]",
             // Perform context switch so that the verifier task can perform
             // the check.
-            "2:",
-            "svc  #1",
-            "b    2b",
-            test_started = sym TEST_STARTED,
+            "mov  r0, #0xe0",
+            "msr  basepri, r0",
+            "mov  r1, #0x10000000",
+            "movw r0, #0xed04",
+            "movt r0, #0xe000",
+            "str  r1, [r0]",
+            "mov  r0, #0",
+            "msr  basepri, r0",
+            "b    0b",
+            run_clobber = sym RUN_CLOBBER,
             cloberred = sym CLOBBERED,
             options(noreturn)
         )

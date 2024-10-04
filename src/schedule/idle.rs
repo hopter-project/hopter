@@ -1,5 +1,5 @@
 use crate::{
-    interrupt::svc,
+    interrupt::context_switch,
     sync::{SpinSchedSafe, SpinSchedSafeGuard},
 };
 use alloc::{sync::Arc, vec::Vec};
@@ -28,7 +28,7 @@ pub(super) unsafe extern "C" fn idle_task() -> ! {
     // The idle task is always executed first when the scheduler is just
     // started. A main task should always be present awaiting to run. Perform
     // a context switch to let the main task run.
-    svc::svc_yield_current_task();
+    context_switch::yield_current_task();
 
     // If nothing to do, enter low power state.
     loop {

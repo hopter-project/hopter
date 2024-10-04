@@ -39,7 +39,7 @@ use super::{
 use crate::{
     config,
     interrupt::{
-        svc,
+        context_switch, svc,
         svc_handler::SVCNum,
         trap_frame::{self, TrapFrame},
     },
@@ -524,7 +524,7 @@ impl UnwindState<'static> {
             // Let the scheduler re-schedule so the above priority reduction
             // will take effect.
             if !Scheduler::is_suspended() {
-                svc::svc_yield_current_task();
+                context_switch::yield_current_task();
             }
         }
 
@@ -1029,7 +1029,7 @@ unsafe extern "C" fn resume_unwind<'a>(
     if !config::ALLOW_TASK_PREEMPTION {
         if !current::is_in_isr_context() {
             if !Scheduler::is_suspended() {
-                svc::svc_yield_current_task();
+                context_switch::yield_current_task();
             }
         }
     }

@@ -41,21 +41,6 @@ pub(crate) unsafe extern "C" fn svc_free(ptr: *mut u8) {
     )
 }
 
-/// Yield the current task. Let the scheduler choose the next task to run.
-/// A task may voluntarily yield the CPU or it may be forced to yield when
-/// becoming blocked on a synchronization primitive.
-#[naked]
-pub(crate) extern "C" fn svc_yield_current_task() {
-    unsafe {
-        asm!(
-            "svc {task_yield}",
-            "bx lr",
-            task_yield = const(SVCNum::TaskYield as u8),
-            options(noreturn)
-        )
-    }
-}
-
 /// Terminate the current task and free its task struct.
 #[naked]
 pub(crate) unsafe extern "C" fn svc_destroy_current_task() {

@@ -1,6 +1,6 @@
 use crate::{
     config,
-    interrupt::svc,
+    interrupt::context_switch,
     schedule::{current, scheduler::Scheduler},
     sync::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin},
     task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
@@ -150,7 +150,7 @@ fn sleep_ms_unchecked(ms: u32) {
 
         // Yield from the current task. Even if the current task has already
         // been woken up, yielding from it will not introduce deadlock.
-        svc::svc_yield_current_task();
+        context_switch::yield_current_task();
     }
 
     // Outline the logic to reduce the stack frame size of `sleep_ms`.

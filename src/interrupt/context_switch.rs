@@ -112,3 +112,18 @@ extern "C" fn pendsv_handler(ex_ret_lr: u32) {
     // chosen task to run.
     Scheduler::pick_next();
 }
+
+/// Invoke the scheduler to choose a new task to run.
+///
+/// A task may voluntarily yield the CPU or it may be forced to yield, e.g.,
+/// when becoming blocked on a synchronization primitive.
+///
+/// This function should be called in a task's context and never in an ISR's
+/// context.
+pub(crate) fn yield_current_task() {
+    unsafe {
+        cortex_m::register::basepri::write(config::PENDSV_PRIORITY);
+        cortex_m::peripheral::SCB::set_pendsv();
+        cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
+    }
+}

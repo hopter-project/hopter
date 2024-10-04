@@ -2,7 +2,7 @@ use super::{
     Access, AllowPendOp, Lockable, RefCellSchedSafe, RunPendedOp, SoftLock, Spin, UnlockableGuard,
 };
 use crate::{
-    interrupt::svc,
+    interrupt::context_switch,
     schedule::{current, scheduler::Scheduler},
     task::{TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable,
@@ -103,7 +103,7 @@ impl WaitQueue {
 
         // We have put the current task to the wait queue.
         // Tell the scheduler to run another task.
-        svc::svc_yield_current_task();
+        context_switch::yield_current_task();
 
         // Outline the logic to reduce the stack frame size of `.wait()`.
         #[inline(never)]
@@ -153,7 +153,7 @@ impl WaitQueue {
 
             // Otherwise, we have put the current task to the wait queue.
             // Tell the scheduler to run another task.
-            svc::svc_yield_current_task();
+            context_switch::yield_current_task();
         }
 
         // Outline the logic to reduce the stack frame size of `.wait_until()`.
@@ -230,7 +230,7 @@ impl WaitQueue {
                 // the scheduler to run another task. After this task is scheduled
                 // again, take back the lock and try again.
                 Ok(mutex) => {
-                    svc::svc_yield_current_task();
+                    context_switch::yield_current_task();
                     guard = mutex.lock_and_get_guard();
                 }
             }

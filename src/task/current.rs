@@ -1,6 +1,6 @@
 use crate::{
     config,
-    interrupt::svc,
+    interrupt::context_switch,
     schedule::{current, scheduler::Scheduler},
 };
 
@@ -9,7 +9,7 @@ use crate::{
 pub fn yield_current() {
     // Yield only if the scheduler is not suspended.
     if !Scheduler::is_suspended() {
-        svc::svc_yield_current_task();
+        context_switch::yield_current_task();
     }
 }
 
@@ -25,7 +25,7 @@ pub fn change_current_priority(prio: u8) -> Result<(), ()> {
         return Err(());
     }
     current::with_cur_task(|cur_task| cur_task.change_intrinsic_priority(prio));
-    svc::svc_yield_current_task();
+    context_switch::yield_current_task();
     Ok(())
 }
 

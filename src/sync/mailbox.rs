@@ -1,6 +1,6 @@
 use super::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin};
 use crate::{
-    interrupt::svc,
+    interrupt::context_switch,
     schedule::{current, scheduler::Scheduler},
     task::{Task, TaskState},
     time, unrecoverable,
@@ -209,7 +209,7 @@ impl Mailbox {
         });
 
         if should_block {
-            svc::svc_yield_current_task();
+            context_switch::yield_current_task();
         }
     }
 
@@ -270,7 +270,7 @@ impl Mailbox {
 
         if should_block {
             // If the task should block, request a context switch.
-            svc::svc_yield_current_task();
+            context_switch::yield_current_task();
 
             // We reach here if either the waiting task is notified or the
             // waiting time reaches timeout.

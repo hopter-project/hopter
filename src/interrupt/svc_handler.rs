@@ -1,17 +1,12 @@
 //! A task invokes SVC when the kernel operation requested by the task needs
 //! to run with the kernel contiguous stack. An SVC always returns back to the
-//! calling task, i.e., SVC itself does not *directly* perform any context
-//! switch. Based on this invariant, the SVC entry instruction sequence is
-//! optimized so that only minimal context is saved. Specifically, caller-saved
-//! registers are pushed to the user segmented stack, forming the trap frame,
-//! while callee-saved registers are preserved by the handler functions
-//! following the function call ABI. So, there is no need to make a copy of
-//! callee-saved registers, unlike in [`TaskCtxt`](crate::task::TaskCtxt).
-//!
-//! To clarify, a task indeed invokes SVC to yield, but the actual context
-//! switch is done by chaining PendSV after the SVC. Logically, the SVC still
-//! returns to the yielding task, but PendSV then immediately causes the task
-//! to be switched out of the CPU.
+//! calling task, i.e., SVC does not perform any context switch. Based on this
+//! invariant, the SVC entry instruction sequence is optimized so that only
+//! minimal context is saved. Specifically, caller-saved registers are pushed
+//! to the user segmented stack, forming the trap frame, while callee-saved
+//! registers are preserved by the handler functions following the function
+//! call ABI. So, there is no need to make a copy of callee-saved registers,
+//! unlike in [`TaskCtxt`](crate::task::TaskCtxt).
 
 use super::trap_frame::TrapFrame;
 use crate::{
@@ -26,21 +21,14 @@ use int_enum::IntEnum;
 #[repr(u8)]
 #[derive(IntEnum)]
 pub(crate) enum SVCNum {
-    /// The calling task wants to get off from CPU. A task may voluntarily
-    /// yield the CPU or it may be forced to yield when becoming blocked on a
-    /// synchronization primitive.
-    ///
-    /// Note that the SVC handler does not directly perform a context switch.
-    /// Instead, a PendSV will be tail chained to perform it.
-    TaskYield = 1,
     /// The task wants to terminate and release its task struct.
-    TaskDestroy = 2,
+    TaskDestroy = 0,
     /// The calling task wants to release its top stacklet.
-    TaskLessStack = 3,
+    TaskLessStack = 1,
     /// The task wants to allocate dynamic memory.
-    MemAlloc = 4,
+    MemAlloc = 2,
     /// The task wants to free dynamic memory.
-    MemFree = 5,
+    MemFree = 3,
     /// The task wants to allocate a stacklet to run the stack unwinder.
     TaskUnwindPrepare = 252,
     /// The task wants to release the stacklet used to run the unwinder and
@@ -147,7 +135,6 @@ fn get_svc_num(tf: &TrapFrame) -> SVCNum {
 /// the assembly code.
 extern "C" fn svc_handler(tf: &mut TrapFrame, ctxt: &mut TaskSVCCtxt) {
     match get_svc_num(tf) {
-        SVCNum::TaskYield => Scheduler::yield_current_task_from_svc(),
         SVCNum::TaskDestroy => Scheduler::drop_current_task_from_svc(),
         SVCNum::TaskLessStack => task::less_stack(tf, ctxt),
         SVCNum::TaskMoreStack => task::more_stack(tf, ctxt, MoreStackReason::Normal),

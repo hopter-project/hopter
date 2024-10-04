@@ -1,7 +1,7 @@
 use super::{current, idle};
 use crate::{
     config,
-    interrupt::svc,
+    interrupt::context_switch,
     sync::{Access, AllowPendOp, Holdable, RefCellSchedSafe, RunPendedOp, SoftLock, Spin},
     task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
@@ -330,7 +330,7 @@ impl Scheduler {
             // Go through an SVC to perform context switch if currently is in
             // task context.
             if current::is_in_task_context() {
-                svc::svc_yield_current_task();
+                context_switch::yield_current_task();
             // Tail chain a PendSV to directly perform a context switch if
             // currently is in an ISR context. But if the code is already
             // *performing* context switch, i.e., called by PendSV, then we
@@ -353,12 +353,6 @@ impl Scheduler {
         // the task struct upon a later context switch.
         current::with_cur_task(|cur_task| cur_task.set_state(TaskState::Destructing));
 
-        // Tail chain a PendSV to perform a context switch.
-        cortex_m::peripheral::SCB::set_pendsv()
-    }
-
-    /// Switch to another ready task.
-    pub(crate) fn yield_current_task_from_svc() {
         // Tail chain a PendSV to perform a context switch.
         cortex_m::peripheral::SCB::set_pendsv()
     }
