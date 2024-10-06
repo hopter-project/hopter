@@ -48,7 +48,7 @@ default-features = false
 features = ["alloc"]
 
 [dependencies.hopter_proc_macro]
-version = "0.2.1"
+version = "0.2.2"
 
 [dependencies.hopter_conf_params]
 version = "0.2.0"
@@ -84,9 +84,7 @@ version = "0.21.0"
 default-features = false
 
 [package.metadata.docs.rs]
-targets = [
-    "thumbv7em-none-eabihf",
-]
+targets = ["thumbv7em-none-eabihf"]
 
 # *** Tests for sync - mailbox ***
 

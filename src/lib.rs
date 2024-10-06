@@ -76,7 +76,6 @@ mod assembly;
 mod boot;
 mod schedule;
 mod unrecoverable;
-mod unwind;
 
 pub mod config;
 pub mod debug;
@@ -84,3 +83,6 @@ pub mod interrupt;
 pub mod sync;
 pub mod task;
 pub mod time;
+
+#[doc(hidden)]
+pub mod unwind;
