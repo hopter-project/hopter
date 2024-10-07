@@ -121,9 +121,7 @@ extern "C" fn pendsv_handler(ex_ret_lr: u32) {
 /// This function should be called in a task's context and never in an ISR's
 /// context.
 pub(crate) fn yield_current_task() {
-    unsafe {
-        cortex_m::register::basepri::write(config::PENDSV_PRIORITY);
-        cortex_m::peripheral::SCB::set_pendsv();
-        cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
-    }
+    cortex_m::peripheral::SCB::set_pendsv();
+    cortex_m::asm::dsb();
+    cortex_m::asm::isb();
 }
