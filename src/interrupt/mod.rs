@@ -7,6 +7,4 @@ pub(crate) mod svc_handler;
 pub(crate) mod trap_frame;
 
 pub mod declare;
-#[doc(hidden)]
-pub mod entry_exit;
 pub mod mask;
