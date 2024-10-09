@@ -1,4 +1,4 @@
-use crate::{config, sync::Holdable};
+use crate::{config, schedule::scheduler::Scheduler, sync::Holdable};
 use core::{
     marker::PhantomData,
     sync::atomic::{AtomicUsize, Ordering},
@@ -38,6 +38,7 @@ pub trait MaskableIrq {
 
     /// Decrease the mask count by 1. Re-enable the interrupt(s) if the count
     /// reaches zero.
+    ///
     /// Safety: One has to guarantee that no race condition will occur after
     /// the interrupt is enabled.
     unsafe fn __enable_recursive();
@@ -57,11 +58,25 @@ pub trait MaskableIrq {
 static ALL_IRQ_MASK_CNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Representing all IRQs except SVC.
-/// FIXME: Should also suspend scheduler.
+///
+/// This is defined for application programmers' convenience to allow them mask
+/// out all interrupts. Hopter's kernel never masks interrupt.
+///
+/// Important: When all IRQs are masked, the scheduler is also suspended.
 pub struct AllIrqExceptSvc;
 
 impl MaskableIrq for AllIrqExceptSvc {
     fn __disable_recursive() {
+        // Suspend the scheduler. Forget the suspend guard to ensure that the
+        // scheduler remains being suspended while all IRQs are being masked.
+        //
+        // Internally the scheduler also maintains a suspend counter. `hold()`
+        // increments the counter by 1. By not dropping the guard, we prevent
+        // the counter from being automatically decremented. We will manually
+        // decrement the counter in `__enable_recursive()`.
+        let sched_guard = Scheduler::hold();
+        core::mem::forget(sched_guard);
+
         // Elevate the `BASEPRI` priority. This effectively masks out all
         // IRQs which all have priority 32 except SVC which has the highest
         // priority 0.
@@ -98,6 +113,13 @@ impl MaskableIrq for AllIrqExceptSvc {
                     config::SVC_NORMAL_PRIORITY,
                 );
             }
+        }
+
+        // Safety: We incremented the scheduler suspend counter in
+        // `__disable_recursive()` and forgot the suspend guard. Now we
+        // manually decrement the suspend counter and resume the scheduler.
+        unsafe {
+            Scheduler::force_unhold();
         }
     }
 }
