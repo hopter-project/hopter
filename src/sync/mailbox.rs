@@ -3,7 +3,7 @@ use crate::{
     interrupt::context_switch,
     schedule::{current, scheduler::Scheduler},
     task::{Task, TaskState},
-    time, unrecoverable,
+    time,
 };
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -178,7 +178,12 @@ impl Mailbox {
     ///
     /// NOTE: *must not* call this method in ISR context.
     pub fn wait(&self) {
-        unrecoverable::die_if_in_isr();
+        // The application logic must have gone terribly wrong if the task
+        // tries to block when the scheduler is suspended or if an ISR
+        // tries to block. In this case, panic the task or ISR.
+        if Scheduler::is_suspended() || current::is_in_isr_context() {
+            panic!();
+        }
 
         let mut should_block = true;
 
@@ -230,7 +235,12 @@ impl Mailbox {
     ///
     /// NOTE: *must not* call this method in ISR context.
     pub fn wait_until_timeout(&self, timeout_ms: u32) -> bool {
-        unrecoverable::die_if_in_isr();
+        // The application logic must have gone terribly wrong if the task
+        // tries to block when the scheduler is suspended or if an ISR
+        // tries to block. In this case, panic the task or ISR.
+        if Scheduler::is_suspended() || current::is_in_isr_context() {
+            panic!();
+        }
 
         let mut should_block = true;
 

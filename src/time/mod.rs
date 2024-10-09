@@ -156,6 +156,13 @@ fn sleep_ms_unchecked(ms: u32) {
     // Outline the logic to reduce the stack frame size of `sleep_ms`.
     #[inline(never)]
     fn add_cur_task_to_sleep_queue(wake_at_tick: u32) {
+        // The application logic must have gone terribly wrong if the task
+        // tries to block when the scheduler is suspended or if an ISR
+        // tries to block. In this case, panic the task or ISR.
+        if Scheduler::is_suspended() || current::is_in_isr_context() {
+            panic!();
+        }
+
         current::with_cur_task_arc(|cur_task| {
             cur_task.set_state(TaskState::Blocked);
             add_task_to_sleep_queue(cur_task, wake_at_tick);

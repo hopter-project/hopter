@@ -1,5 +1,3 @@
-use crate::schedule::current;
-
 pub trait Lethal {
     type T;
     fn unwrap_or_die(self) -> Self::T;
@@ -34,11 +32,5 @@ where
 {
     if cond() {
         die()
-    }
-}
-
-pub fn die_if_in_isr() {
-    if current::is_in_isr_context() {
-        die();
     }
 }

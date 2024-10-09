@@ -5,7 +5,6 @@ use crate::{
     interrupt::context_switch,
     schedule::{current, scheduler::Scheduler},
     task::{TaskListAdapter, TaskListInterfaces, TaskState},
-    unrecoverable,
 };
 use core::sync::atomic::{AtomicUsize, Ordering};
 use intrusive_collections::LinkedList;
@@ -97,8 +96,6 @@ impl WaitQueue {
     #[inline]
     #[allow(unused)]
     pub(super) fn wait(&self) {
-        unrecoverable::die_if_in_isr();
-
         add_cur_task_to_block_queue(self);
 
         // We have put the current task to the wait queue.
@@ -108,6 +105,13 @@ impl WaitQueue {
         // Outline the logic to reduce the stack frame size of `.wait()`.
         #[inline(never)]
         fn add_cur_task_to_block_queue(wq: &WaitQueue) {
+            // The application logic must have gone terribly wrong if the task
+            // tries to block when the scheduler is suspended or if an ISR
+            // tries to block. In this case, panic the task or ISR.
+            if Scheduler::is_suspended() || current::is_in_isr_context() {
+                panic!();
+            }
+
             // Should always grant full access to a task.
             wq.inner.with_suspended_scheduler(|queue, sched_guard| {
                 queue.must_with_full_access(|full_access| {
@@ -140,8 +144,6 @@ impl WaitQueue {
     where
         F: FnMut() -> Option<R>,
     {
-        unrecoverable::die_if_in_isr();
-
         // Keep blocking until the predicate is satisfied.
         loop {
             let res = add_cur_task_to_block_queue_with_condition(self, &mut condition);
@@ -165,6 +167,13 @@ impl WaitQueue {
         where
             F: FnMut() -> Option<R>,
         {
+            // The application logic must have gone terribly wrong if the task
+            // tries to block when the scheduler is suspended or if an ISR
+            // tries to block. In this case, panic the task or ISR.
+            if Scheduler::is_suspended() || current::is_in_isr_context() {
+                panic!();
+            }
+
             // Should always grant full access to a task.
             wq.inner.with_suspended_scheduler(|queue, sched_guard| {
                 queue.must_with_full_access(|full_access| {
@@ -216,8 +225,6 @@ impl WaitQueue {
         G: UnlockableGuard<'a, LockType = L>,
         L: Lockable<GuardType<'a> = G> + 'a,
     {
-        unrecoverable::die_if_in_isr();
-
         // Keep blocking until the predicate is satisfied.
         loop {
             let res = add_cur_task_to_block_queue_and_unlock(self, guard, &mut condition);
@@ -248,6 +255,13 @@ impl WaitQueue {
             G: UnlockableGuard<'a, LockType = L>,
             L: Lockable<GuardType<'a> = G> + 'a,
         {
+            // The application logic must have gone terribly wrong if the task
+            // tries to block when the scheduler is suspended or if an ISR
+            // tries to block. In this case, panic the task or ISR.
+            if Scheduler::is_suspended() || current::is_in_isr_context() {
+                panic!();
+            }
+
             // Should always grant full access to a task.
             wq.inner.with_suspended_scheduler(|queue, sched_guard| {
                 queue.must_with_full_access(|full_access| {
