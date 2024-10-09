@@ -1,6 +1,6 @@
 use super::{CompoundHoldable, Holdable};
 use crate::{
-    interrupt::mask::{HeldInterrupt, RecursivelyMaskable},
+    interrupt::mask::{HeldInterrupt, MaskableIrq},
     schedule::scheduler::{SchedSuspendGuard, Scheduler},
     unrecoverable::Lethal,
 };
@@ -316,7 +316,7 @@ define_spin_lock!(
     "When the lock is acquired, the associated IRQ will also be masked.",
     SpinIrqSafeGuard,
     "The associated IRQ will be masked until the guard is dropped.",
-    <T, I: RecursivelyMaskable>,
+    <T, I: MaskableIrq>,
     GenericSpin<T, I, HeldInterrupt<I>>,
     GenericSpinGuard<'a, T, HeldInterrupt<I>>
 );
@@ -340,7 +340,7 @@ and subsequently the scheduler is resumed.",
     SpinSchedIrqSafeGuard,
     "The associated IRQ will be masked and the scheduler will be suspended \
 until the guard is dropped.",
-    <T, I: RecursivelyMaskable>,
+    <T, I: MaskableIrq>,
     GenericSpin<
         T,
         CompoundHoldable<Scheduler, I, SchedSuspendGuard, HeldInterrupt<I>>,

@@ -4,28 +4,53 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-/// Representing recursively maskable interrupt(s). Recursive means one can
-/// [`mask_recursive`](RecursivelyMaskable::mask_recursive) an already masked
-/// interrupt, which will increase the mask count by one.
-/// [`unmask_recursive`](RecursivelyMaskable::unmask_recursive) will decrease
-/// the mask count, and the interrupt will be unmasked only when the count
-/// reaches zero.
+/// This trait allows masking an interrupt or interrupts. Normally, the
+/// implementation of this trait should be generated automatically by using
+/// the [`irq!`](crate::interrupt::declare::irq) macro.
 ///
-/// If two types `T0` and `T1` are [`RecursivelyMaskable`], then the tuple
-/// `(T0, T1)` is also [`RecursivelyMaskable`]. The masking follows the same
+/// To mask interrupts, call the [`mask`](MaskableIrq::mask) function, which
+/// returns a mask guard. The interrupt(s) will remain masked until the guard
+/// is dropped. Interrupts can be masked recursively, i.e., there is a counter
+/// associtated to each interrupt. Every [`mask`](MaskableIrq::mask) call will
+/// increment the counter by 1, and dropping a mask guard will decrement it by 1.
+/// The interrupt will be unmasked when the counter becomes zero.
+///
+/// If two types `T0` and `T1` are [`MaskableIrq`], then the tuple
+/// `(T0, T1)` is also [`MaskableIrq`]. The masking follows the same
 /// order as in the tuple definition, i.e., mask `T0` and then `T1`. The
 /// unmasking follows the reverse order, i.e., unmask `T1` and then `T0`.
 ///
-/// [`RecursivelyMaskable`] trait implementation is provided for tuples of
+/// [`MaskableIrq`] trait implementation is provided for tuples of
 /// length up to 10.
-pub trait RecursivelyMaskable {
-    /// Mask the interrupt and increase the mask count by 1.
-    fn mask_recursive();
-    /// Decrease the mask count by 1. Re-enable the interrupt if the count
+///
+/// Internally, implementing this trait must provide the definition of
+/// [`__disable_recursive`](MaskableIrq::__disable_recursive) that masks the
+/// interrupt and increments the counter, and the definition of
+/// [`__enable_recursive`](MaskableIrq::__enable_recursive) that decrements the
+/// counter and unmasks the interrupt. Again, the definition is normally
+/// generated automatically by the [`irq!`](crate::interrupt::declare::irq)
+/// macro. These two functions are not intended to be called from application
+/// code. Instead, call [`mask`](MaskableIrq::mask) which returns a guard so
+/// that the interrupt can be unmasked properly even in case of a panic.
+pub trait MaskableIrq {
+    /// Mask the interrupt(s) and increase the mask count by 1.
+    fn __disable_recursive();
+
+    /// Decrease the mask count by 1. Re-enable the interrupt(s) if the count
     /// reaches zero.
     /// Safety: One has to guarantee that no race condition will occur after
     /// the interrupt is enabled.
-    unsafe fn unmask_recursive();
+    unsafe fn __enable_recursive();
+
+    /// Mask the interrupt(s) and return a mask guard. The interrupt(s) will be
+    /// unmasked after all guards are dropped.
+    fn mask() -> HeldInterrupt<Self>
+    where
+        Self: Sized,
+    {
+        Self::__disable_recursive();
+        HeldInterrupt::new()
+    }
 }
 
 /// The mask count for `AllIrqExceptSvc`.
@@ -35,8 +60,8 @@ static ALL_IRQ_MASK_CNT: AtomicUsize = AtomicUsize::new(0);
 /// FIXME: Should also suspend scheduler.
 pub struct AllIrqExceptSvc;
 
-impl RecursivelyMaskable for AllIrqExceptSvc {
-    fn mask_recursive() {
+impl MaskableIrq for AllIrqExceptSvc {
+    fn __disable_recursive() {
         // Elevate the `BASEPRI` priority. This effectively masks out all
         // IRQs which all have priority 32 except SVC which has the highest
         // priority 0.
@@ -56,7 +81,7 @@ impl RecursivelyMaskable for AllIrqExceptSvc {
         assert!(prev_cnt < usize::MAX)
     }
 
-    unsafe fn unmask_recursive() {
+    unsafe fn __enable_recursive() {
         // Decrease the mask count.
         let prev_cnt = ALL_IRQ_MASK_CNT.fetch_sub(1, Ordering::SeqCst);
 
@@ -79,23 +104,34 @@ impl RecursivelyMaskable for AllIrqExceptSvc {
 
 /// Representing interrupt(s) being masked. When the struct is dropped, the
 /// masked interrupt(s) will be unmasked if no where else is still masking
-/// it. See [`RecursivelyMaskable`] for details.
-pub(crate) struct HeldInterrupt<I>
+/// it. See [`MaskableIrq`] for details.
+pub struct HeldInterrupt<I>
 where
-    I: RecursivelyMaskable,
+    I: MaskableIrq,
 {
     _phantom: PhantomData<I>,
 }
 
+impl<I> HeldInterrupt<I>
+where
+    I: MaskableIrq,
+{
+    const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<I> Drop for HeldInterrupt<I>
 where
-    I: RecursivelyMaskable,
+    I: MaskableIrq,
 {
     fn drop(&mut self) {
         // Safety: An instance can be created only by calling `hold()` where
         // `mask_recursive` would have been called.
         unsafe {
-            I::unmask_recursive();
+            I::__enable_recursive();
         }
     }
 }
@@ -107,69 +143,69 @@ impl<I> !Send for HeldInterrupt<I> {}
 /// That some interrupts are being masked is a holdable condition.
 impl<I> Holdable for I
 where
-    I: RecursivelyMaskable,
+    I: MaskableIrq,
 {
     type GuardType = HeldInterrupt<I>;
 
     fn hold() -> HeldInterrupt<I> {
-        I::mask_recursive();
+        I::__disable_recursive();
         HeldInterrupt {
             _phantom: PhantomData,
         }
     }
 
     unsafe fn force_unhold() {
-        I::unmask_recursive();
+        I::__enable_recursive();
     }
 }
 
-/// If all types compounding a tuple are [`RecursivelyMaskable`], then the
-/// tuple type is also [`RecursivelyMaskable`]. Masking follows the ordering in
+/// If all types compounding a tuple are [`MaskableIrq`], then the
+/// tuple type is also [`MaskableIrq`]. Masking follows the ordering in
 /// the definition of the tuple, while unmasking follows the reverse order.
-macro_rules! impl_recursively_maskable_for_tuples {
+macro_rules! impl_maskable_irq_for_tuples {
     (($($T:ident),+), ($($G:ident),+)) => {
-        impl<$($T),+> RecursivelyMaskable for ($($T,)+)
+        impl<$($T),+> MaskableIrq for ($($T,)+)
         where
-            $($T: RecursivelyMaskable,)+
+            $($T: MaskableIrq,)+
         {
-            fn mask_recursive() {
+            fn __disable_recursive() {
                 $(
-                    $T::mask_recursive();
+                    $T::__disable_recursive();
                 )+
             }
 
-            unsafe fn unmask_recursive() {
+            unsafe fn __enable_recursive() {
                 $(
-                    $G::unmask_recursive();
+                    $G::__enable_recursive();
                 )+
             }
         }
     };
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1), (T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2), (T2, T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2, T3), (T3, T2, T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2, T3, T4), (T4, T3, T2, T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2, T3, T4, T5), (T5, T4, T3, T2, T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2, T3, T4, T5, T6), (T6, T5, T4, T3, T2, T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2, T3, T4, T5, T6, T7), (T7, T6, T5, T4, T3, T2, T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2, T3, T4, T5, T6, T7, T8), (T8, T7, T6, T5, T4, T3, T2, T1, T0)
 }
-impl_recursively_maskable_for_tuples! {
+impl_maskable_irq_for_tuples! {
     (T0, T1, T2, T3, T4, T5, T6, T7, T8, T9), (T9, T8, T7, T6, T5, T4, T3, T2, T1, T0)
 }

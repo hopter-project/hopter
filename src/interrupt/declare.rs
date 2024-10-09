@@ -33,15 +33,15 @@ macro_rules! __macro_impl_declare_irq {
 
             pub struct $name {}
 
-            impl $crate::interrupt::mask::RecursivelyMaskable for $name {
-                fn mask_recursive() {
+            impl $crate::interrupt::mask::MaskableIrq for $name {
+                fn __disable_recursive() {
                     cortex_m::peripheral::NVIC::mask($irq);
                     let prev_cnt = [<__ $name _MASK_CNT>]
                         .fetch_add(1, $crate::interrupt::declare::__Ordering::SeqCst);
                     assert!(prev_cnt < usize::MAX);
                 }
 
-                unsafe fn unmask_recursive() {
+                unsafe fn __enable_recursive() {
                     let prev_cnt = [<__ $name _MASK_CNT>]
                         .fetch_sub(1, $crate::interrupt::declare::__Ordering::SeqCst);
                     assert!(prev_cnt > 0);

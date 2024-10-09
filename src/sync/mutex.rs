@@ -3,7 +3,7 @@ use super::{
     UnlockableGuard, WaitQueue,
 };
 use crate::{
-    interrupt::mask::{HeldInterrupt, RecursivelyMaskable},
+    interrupt::mask::{HeldInterrupt, MaskableIrq},
     schedule::{
         current,
         scheduler::{SchedSuspendGuard, Scheduler},
@@ -392,7 +392,7 @@ define_mutex!(
     "When the mutex is acquired, the associated IRQ will also be masked.",
     MutexIrqSafeGuard,
     "The associated IRQ will be masked until the guard is dropped.",
-    <T, I: RecursivelyMaskable>,
+    <T, I: MaskableIrq>,
     GenericMutex<T, I, HeldInterrupt<I>>,
     GenericMutexGuard<'a, T, I, HeldInterrupt<I>>
 );
