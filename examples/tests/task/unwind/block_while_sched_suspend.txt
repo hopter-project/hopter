@@ -1,0 +1,6 @@
+Panicked with semaphore.
+Panicked with mutex.
+Panicked with channel.
+Panicked with condvar.
+Panicked with mailbox.
+Panicked with sleep.

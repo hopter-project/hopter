@@ -19,3 +19,17 @@ jobs:
           sub-category: unwind
           test-name: simple
           timeout: 15s
+
+  panic_upon_blocking:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test panic_upon_blocking
+        uses: ./.github/workflows/actions/run-test
+        with:
+          category: interrupt
+          sub-category: unwind
+          test-name: panic_upon_blocking
+          timeout: 15s

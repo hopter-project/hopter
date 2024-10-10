@@ -98,7 +98,8 @@ impl<T, const N: usize> Producer<T, N> {
     /// Push an element into the corresponding channel. If the channel is
     /// already full, block until there is an empty slot and it can proceed.
     ///
-    /// Important: *must not* call this method in ISR context.
+    /// Important: *Must not* call this method in ISR context. An ISR
+    /// attempting to block will result in a panic.
     pub fn produce(&self, data: T) {
         self.channel.push(data)
     }
@@ -122,7 +123,8 @@ impl<T, const N: usize> Consumer<T, N> {
     /// Pop an element from the corresponding channel. If the channel is
     /// empty, block until there is an element and it can proceed.
     ///
-    /// Important: *must not* call this method in ISR context.
+    /// Important: *Must not* call this method in ISR context. An ISR
+    /// attempting to block will result in a panic.
     pub fn consume(&self) -> T {
         self.channel.pop()
     }

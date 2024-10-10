@@ -176,7 +176,8 @@ impl Mailbox {
     /// Otherwise, if the counter is currently positive, the calling task to
     /// this method decrements the counter and continues its execution.
     ///
-    /// NOTE: *must not* call this method in ISR context.
+    /// NOTE: *Must not* call this method in ISR context. An ISR attempting
+    /// to block will result in a panic.
     pub fn wait(&self) {
         // The application logic must have gone terribly wrong if the task
         // tries to block when the scheduler is suspended or if an ISR
@@ -233,7 +234,8 @@ impl Mailbox {
     /// - `true` if the waiting task is woken up by notification, or `false` if
     ///   by timeout.
     ///
-    /// NOTE: *must not* call this method in ISR context.
+    /// NOTE: *Must not* call this method in ISR context. An ISR attempting
+    /// to block will result in a panic.
     pub fn wait_until_timeout(&self, timeout_ms: u32) -> bool {
         // The application logic must have gone terribly wrong if the task
         // tries to block when the scheduler is suspended or if an ISR

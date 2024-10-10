@@ -47,7 +47,8 @@ impl Semaphore {
     /// Increment the counter value by 1. Block if the counter value is already
     /// at the maximum until it is decremented by someone else.
     ///
-    /// Important: *must not* call this method in ISR context.
+    /// Important: *must not* call this method in ISR context. An ISR
+    /// attempting to block will result in a panic.
     pub fn up(&self) {
         loop {
             // If the counter is already at the maximum, wait until it is not.
@@ -122,7 +123,8 @@ impl Semaphore {
     /// Decrement the counter value by 1. Block if the counter value is already
     /// zero until it is incremented by someone else.
     ///
-    /// Important: *must not* call this method in ISR context.
+    /// Important: *Must not* call this method in ISR context. An ISR
+    /// attempting to block will result in a panic.
     pub fn down(&self) {
         loop {
             // If the counter is already at the zero, wait until it is not.

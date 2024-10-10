@@ -129,6 +129,9 @@ pub(crate) fn wake_sleeping_tasks() {
 }
 
 /// Block the task for the given number of milliseconds.
+///
+/// Important: *Must not* call this method in ISR context. An ISR attempting to
+/// block will result in a panic.
 #[inline]
 pub fn sleep_ms(ms: u32) -> Result<(), SleepError> {
     // See `tick_cmp` for the reason of limitation.
@@ -222,8 +225,9 @@ impl IntervalBarrier {
 
     /// Block the current task until the interval is elapsed since the last time
     /// the task was resumed.
-    /// FIXME: fix the case when the task cannot keep up with the interval of the
-    /// barrier.
+    ///
+    /// Important: *Must not* call this method in ISR context. An ISR attempting to
+    /// block will result in a panic.
     pub fn wait(&mut self) {
         let cur_tick = TICKS.load(Ordering::SeqCst);
         if let CmpOrdering::Less = tick_cmp(cur_tick, self.next_tick_to_wake) {

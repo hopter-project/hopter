@@ -18,7 +18,8 @@ impl CondVar {
 
     /// Wait on the condition variable until notified and the condition is met.
     ///
-    /// Important: *must not* call this method in ISR context.
+    /// Important: *Must not* call this method in ISR context. An ISR
+    /// attempting to block will result in a panic.
     ///
     /// Important: the tasks waiting for nofitication follow first-in-first-out
     /// order. If the front task being notified does not have its condition met,
@@ -39,7 +40,8 @@ impl CondVar {
     /// is met. When the task resumes, it will get back the lock guard from the
     /// method's return value.
     ///
-    /// Important: *must not* call this method in ISR context.
+    /// Important: *Must not* call this method in ISR context. An ISR
+    /// attempting to block will result in a panic.
     ///
     /// Important: the tasks waiting for nofitication follow first-in-first-out
     /// order. If the front task being notified does not have its condition met,

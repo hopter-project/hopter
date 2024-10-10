@@ -258,6 +258,10 @@ path = "examples/tests/task/unwind/concurrent_restart.rs"
 name = "test-task-unwind-failed_concurrent_restart"
 path = "examples/tests/task/unwind/failed_concurrent_restart.rs"
 
+[[example]]
+name = "test-task-unwind-block_while_sched_suspend"
+path = "examples/tests/task/unwind/block_while_sched_suspend.rs"
+
 # *** Tests for task - segmented stack ***
 
 [[example]]
@@ -283,6 +287,10 @@ path = "examples/tests/task/context_switch/fp_registers.rs"
 [[example]]
 name = "test-interrupt-unwind-simple"
 path = "examples/tests/interrupt/unwind/simple.rs"
+
+[[example]]
+name = "test-interrupt-unwind-panic_upon_blocking"
+path = "examples/tests/interrupt/unwind/panic_upon_blocking.rs"
 
 # *** Tests for debug - cpu load ***
 

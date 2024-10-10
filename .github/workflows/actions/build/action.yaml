@@ -296,6 +296,13 @@ runs:
         sub-category: unwind
         test-name: concurrent_restart
 
+    - name: Build test test-task-unwind-block_while_sched_suspend
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: task
+        sub-category: unwind
+        test-name: block_while_sched_suspend
+
     # *** Tests for task - segmented stack ***
 
     - name: Build test test-task-segmented_stack-function_arguments
@@ -336,6 +343,13 @@ runs:
         category: interrupt
         sub-category: unwind
         test-name: simple
+
+    - name: Build test test-interrupt-unwind-panic_upon_blocking
+      uses: ./.github/workflows/actions/build-test
+      with:
+        category: interrupt
+        sub-category: unwind
+        test-name: panic_upon_blocking
 
     # *** Tests for debug - cpu load ***
 

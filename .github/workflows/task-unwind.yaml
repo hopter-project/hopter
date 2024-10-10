@@ -70,3 +70,16 @@ jobs:
           category: task
           sub-category: unwind
           test-name: concurrent_restart
+
+  block_while_sched_suspend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test block_while_sched_suspend
+        uses: ./.github/workflows/actions/run-test
+        with:
+          category: task
+          sub-category: unwind
+          test-name: block_while_sched_suspend
