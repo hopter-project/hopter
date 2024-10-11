@@ -1,8 +1,8 @@
 use super::{current, idle};
 use crate::{
     config,
-    interrupt::context_switch,
-    sync::{Access, AllowPendOp, Holdable, RefCellSchedSafe, RunPendedOp, SoftLock, Spin},
+    interrupt::{context_switch, mask::AllIrqExceptSvc},
+    sync::{Holdable, SpinSchedIrqSafe},
     task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::{self, Lethal},
 };
@@ -11,86 +11,29 @@ use core::{
     arch::asm,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
-use heapless::mpmc::MpMcQueue;
 use intrusive_collections::LinkedList;
 
 /// A ready task queue. Ready tasks will be popped out with respect to
 /// their priorities.
-type ReadyQueue = RefCellSchedSafe<SoftLock<Inner>>;
+type ReadyQueue = SpinSchedIrqSafe<Inner, AllIrqExceptSvc>;
 
 /// The inner content of a ready task queue.
 struct Inner {
-    /// The lock-free circular buffer holding `Arc<Task>`s which are not yet
-    /// linked into the ready linked list.
-    insert_buffer: InsertBuffer,
     /// Ready tasks linked together as a linked list, allowing us to remove the
     /// one with the highest priority. This linked list is *not* sorted.
-    ready_linked_list: Spin<LinkedList<TaskListAdapter>>,
+    ready_linked_list: LinkedList<TaskListAdapter>,
 }
-
-/// A lock-free circular buffer holding `Arc<Task>`. When the ready queue is
-/// under contention, new ready tasks will be placed into this buffer and will
-/// be linked into the ready linked list at a later time.
-type InsertBuffer = MpMcQueue<Arc<Task>, { config::MAX_TASK_NUMBER }>;
 
 impl Inner {
     const fn new() -> Self {
         Self {
-            insert_buffer: InsertBuffer::new(),
-            ready_linked_list: Spin::new(LinkedList::new(TaskListAdapter::NEW)),
-        }
-    }
-}
-
-/// Representing full access to the queue.
-struct InnerFullAccessor<'a> {
-    insert_buffer: &'a InsertBuffer,
-    ready_linked_list: &'a Spin<LinkedList<TaskListAdapter>>,
-}
-
-/// Representing pend-only access to the queue. Using this accessor one can only
-/// enqueue a task struct `Arc` into the circular buffer. Later the buffer will
-/// be consumed and get the tasks linked into the linked list.
-struct InnerPendAccessor<'a> {
-    insert_buffer: &'a InsertBuffer,
-}
-
-/// If the insert buffer is not empty, we should pop these tasks out and get
-/// them linked.
-impl<'a> RunPendedOp for InnerFullAccessor<'a> {
-    fn run_pended_op(&mut self) {
-        current::with_cur_task(|cur_task| {
-            let mut locked_list = self.ready_linked_list.lock_now_or_die();
-            while let Some(task) = self.insert_buffer.dequeue() {
-                if task.should_preempt(cur_task) {
-                    PENDING_CTXT_SWITCH.store(true, Ordering::SeqCst);
-                }
-                task.set_state(TaskState::Ready);
-                locked_list.push_back(task);
-            }
-        })
-    }
-}
-
-/// Bind the accessor types.
-impl<'a> AllowPendOp<'a> for Inner {
-    type FullAccessor = InnerFullAccessor<'a>;
-    type PendOnlyAccessor = InnerPendAccessor<'a>;
-    fn full_access(&'a self) -> Self::FullAccessor {
-        InnerFullAccessor {
-            insert_buffer: &self.insert_buffer,
-            ready_linked_list: &self.ready_linked_list,
-        }
-    }
-    fn pend_only_access(&'a self) -> Self::PendOnlyAccessor {
-        InnerPendAccessor {
-            insert_buffer: &self.insert_buffer,
+            ready_linked_list: LinkedList::new(TaskListAdapter::NEW),
         }
     }
 }
 
 /// The ready task queue.
-static READY_TASK_QUEUE: ReadyQueue = RefCellSchedSafe::new(SoftLock::new(Inner::new()));
+static READY_TASK_QUEUE: ReadyQueue = SpinSchedIrqSafe::new(Inner::new());
 
 /// The number of existing tasks.
 static EXIST_TASK_NUM: AtomicUsize = AtomicUsize::new(0);
@@ -182,84 +125,81 @@ impl Scheduler {
             unrecoverable::die();
         }
 
-        READY_TASK_QUEUE.with_suspended_scheduler(|queue, sched_guard| {
-            queue.must_with_full_access(|full_access| {
-                let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
+        let mut locked_queue = READY_TASK_QUEUE.lock();
+        let ready_list = &mut locked_queue.ready_linked_list;
 
-                // Clean up for the current task.
-                current::with_cur_task_arc_explicit_sched_suspend(sched_guard, |cur_task| {
-                    match cur_task.get_state() {
-                        // Put the current task back to the ready queue only if the
-                        // task is in `Running` state.
-                        TaskState::Running => {
-                            cur_task.set_state(TaskState::Ready);
-                            locked_list.push_back(cur_task);
-                        }
-                        // A `Blocked` task should have been put to a waiting queue and
-                        // maintain a positive `Arc` reference count there.
-                        //
-                        // A `Destructing` task have no `Arc` reference elsewhere other
-                        // than the one maintained by the `current` module. We want to
-                        // drop the only reference.
-                        //
-                        // In both cases, we will not put the task back to the ready
-                        // queue and will later use `current::set_cur_task` to overwrite
-                        // the current task reference maintained by the `current` module.
-                        TaskState::Blocked | TaskState::Destructing => {}
-                        // The current task can be set into the `Ready` state under a
-                        // rare circumstance: The task was first set to `Blocked` state
-                        // and was pushed to a sleeping or waiting queue. But before the
-                        // task was removed from the CPU, i.e. while the task still the
-                        // current task, i.e. the scheduler has not been invoked yet, the
-                        // task was woken up. During the wake up procedure, the task's
-                        // `Arc` will be moved from the sleeping or waiting queue to the
-                        // scheduler's ready queue and the task's state will be set to
-                        // `Ready`. Since the task already has a copy of its `Arc` in the
-                        // ready queue, we do nothing here.
-                        TaskState::Ready => {}
-                        // The current task should never be in the `Initializing` state.
-                        TaskState::Initializing => unrecoverable::die(),
-                    }
-                });
-
-                // Pick the next task based on the priority. An idle task
-                // guarantees that the ready queue will always be non-empty.
-                let next_task = locked_list.pop_highest_priority().unwrap_or_die();
-                next_task.set_state(TaskState::Running);
-
-                let next_idle = next_task.is_idle();
-
-                // Load if the current task is the idle task and also set it to
-                // the new value.
-                let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
-
-                // Invoke idle callbacks if the idle task is switched in or out.
-                {
-                    let locked_callbacks = idle::lock_idle_callbacks();
-
-                    // When the idle task is switched out of CPU.
-                    if was_idle {
-                        for callback in locked_callbacks.iter() {
-                            callback.idle_end();
-                        }
-                    }
-
-                    // When the idle task is switched on to the CPU.
-                    if next_idle {
-                        for callback in locked_callbacks.iter() {
-                            callback.idle_begin();
-                        }
-                    }
+        // Clean up for the current task.
+        current::with_cur_task_arc(|cur_task| {
+            match cur_task.get_state() {
+                // Put the current task back to the ready queue only if the
+                // task is in `Running` state.
+                TaskState::Running => {
+                    cur_task.set_state(TaskState::Ready);
+                    ready_list.push_back(cur_task);
                 }
+                // A `Blocked` task should have been put to a waiting queue and
+                // maintain a positive `Arc` reference count there.
+                //
+                // A `Destructing` task have no `Arc` reference elsewhere other
+                // than the one maintained by the `current` module. We want to
+                // drop the only reference.
+                //
+                // In both cases, we will not put the task back to the ready
+                // queue and will later use `current::set_cur_task` to overwrite
+                // the current task reference maintained by the `current` module.
+                TaskState::Blocked | TaskState::Destructing => {}
+                // The current task can be set into the `Ready` state under a
+                // rare circumstance: The task was first set to `Blocked` state
+                // and was pushed to a sleeping or waiting queue. But before the
+                // task was removed from the CPU, i.e. while the task still the
+                // current task, i.e. the scheduler has not been invoked yet, the
+                // task was woken up. During the wake up procedure, the task's
+                // `Arc` will be moved from the sleeping or waiting queue to the
+                // scheduler's ready queue and the task's state will be set to
+                // `Ready`. Since the task already has a copy of its `Arc` in the
+                // ready queue, we do nothing here.
+                TaskState::Ready => {}
+                // The current task should never be in the `Initializing` state.
+                TaskState::Initializing => unrecoverable::die(),
+            }
+        });
 
-                // Set the chosen task to be current.
-                current::update_cur_task(next_task);
+        // Pick the next task based on the priority. An idle task
+        // guarantees that the ready queue will always be non-empty.
+        let next_task = ready_list.pop_highest_priority().unwrap_or_die();
+        next_task.set_state(TaskState::Running);
 
-                // Clear the context switch request flag because we just
-                // performed one.
-                PENDING_CTXT_SWITCH.store(false, Ordering::SeqCst);
-            })
-        })
+        let next_idle = next_task.is_idle();
+
+        // Load if the current task is the idle task and also set it to
+        // the new value.
+        let was_idle = CUR_TASK_IDLE.swap(next_idle, Ordering::SeqCst);
+
+        // Invoke idle callbacks if the idle task is switched in or out.
+        {
+            let locked_callbacks = idle::lock_idle_callbacks();
+
+            // When the idle task is switched out of CPU.
+            if was_idle {
+                for callback in locked_callbacks.iter() {
+                    callback.idle_end();
+                }
+            }
+
+            // When the idle task is switched on to the CPU.
+            if next_idle {
+                for callback in locked_callbacks.iter() {
+                    callback.idle_begin();
+                }
+            }
+        }
+
+        // Set the chosen task to be current.
+        current::update_cur_task(next_task);
+
+        // Clear the context switch request flag because we just
+        // performed one.
+        PENDING_CTXT_SWITCH.store(false, Ordering::SeqCst);
     }
 
     /// Return if the scheduler has been started.
@@ -281,37 +221,24 @@ impl Scheduler {
 
     /// Internal implementation to insert a task to the ready queue.
     fn insert_task_to_ready_queue(task: Arc<Task>) {
-        READY_TASK_QUEUE.with_suspended_scheduler(|queue, sched_guard| {
-            queue.with_access(|access| match access {
-                // The queue is not under contention. Directly put the task to the
-                // linked list.
-                Access::Full { full_access } => {
-                    // Request a context switch if the incoming ready task has a
-                    // higher priority than the current task. Check it only when
-                    // the scheduler has started otherwise there will be no current
-                    // task.
-                    if Scheduler::has_started() {
-                        current::with_cur_task_explicit_sched_suspend(sched_guard, |cur_task| {
-                            if task.should_preempt(cur_task) {
-                                PENDING_CTXT_SWITCH.store(true, Ordering::SeqCst);
-                            }
-                        });
-                    }
+        let mut locked_queue = READY_TASK_QUEUE.lock();
+        let ready_list = &mut locked_queue.ready_linked_list;
 
-                    // Put the ready task to the linked list.
-                    task.set_state(TaskState::Ready);
-                    let mut locked_list = full_access.ready_linked_list.lock_now_or_die();
-                    locked_list.push_back(task);
+        // Request a context switch if the incoming ready task has a
+        // higher priority than the current task. Check it only when
+        // the scheduler has started otherwise there will be no current
+        // task.
+        if Scheduler::has_started() {
+            current::with_cur_task(|cur_task| {
+                if task.should_preempt(cur_task) {
+                    PENDING_CTXT_SWITCH.store(true, Ordering::SeqCst);
                 }
-                // The queue is under contention. The current execution context, which
-                // must be an ISR, preempted another context that is holding the full
-                // access. Place the task in the lock-free buffer. The full access
-                // holder will later put it back to the linked list.
-                Access::PendOnly { pend_access } => {
-                    pend_access.insert_buffer.enqueue(task).unwrap_or_die();
-                }
-            })
-        });
+            });
+        }
+
+        // Put the ready task to the linked list.
+        task.set_state(TaskState::Ready);
+        ready_list.push_back(task);
     }
 
     /// Prevent any context switch while the returned guard type is not dropped.
