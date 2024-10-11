@@ -1,4 +1,8 @@
-use crate::{config, schedule::scheduler::Scheduler, sync::Holdable};
+use crate::{
+    config,
+    schedule::{current, scheduler::Scheduler},
+    sync::Holdable,
+};
 use core::{
     marker::PhantomData,
     sync::atomic::{AtomicUsize, Ordering},
@@ -81,10 +85,13 @@ impl MaskableIrq for AllIrqExceptSvc {
         // IRQs which all have priority 32 except SVC which has the highest
         // priority 0.
         unsafe {
-            cortex_m::Peripherals::steal().SCB.set_priority(
-                cortex_m::peripheral::scb::SystemHandler::SVCall,
-                config::SVC_RAISED_PRIORITY,
-            );
+            if current::is_in_task_context() {
+                cortex_m::Peripherals::steal().SCB.set_priority(
+                    cortex_m::peripheral::scb::SystemHandler::SVCall,
+                    config::SVC_RAISED_PRIORITY,
+                );
+            }
+
             cortex_m::register::basepri::write(config::IRQ_DISABLE_BASEPRI_PRIORITY);
         }
 
@@ -108,10 +115,13 @@ impl MaskableIrq for AllIrqExceptSvc {
         if prev_cnt == 1 {
             unsafe {
                 cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
-                cortex_m::Peripherals::steal().SCB.set_priority(
-                    cortex_m::peripheral::scb::SystemHandler::SVCall,
-                    config::SVC_NORMAL_PRIORITY,
-                );
+
+                if current::is_in_task_context() {
+                    cortex_m::Peripherals::steal().SCB.set_priority(
+                        cortex_m::peripheral::scb::SystemHandler::SVCall,
+                        config::SVC_NORMAL_PRIORITY,
+                    );
+                }
             }
         }
 

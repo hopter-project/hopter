@@ -1,104 +1,48 @@
 use crate::{
-    config,
-    interrupt::context_switch,
+    interrupt::{context_switch, mask::AllIrqExceptSvc},
     schedule::{current, scheduler::Scheduler},
-    sync::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin},
+    sync::SpinSchedIrqSafe,
     task::{Task, TaskListAdapter, TaskListInterfaces, TaskState},
     unrecoverable::Lethal,
 };
 use alloc::sync::Arc;
 use core::{
     cmp::Ordering as CmpOrdering,
-    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+    sync::atomic::{AtomicU32, Ordering},
 };
-use heapless::mpmc::MpMcQueue;
 use intrusive_collections::LinkedList;
 
 struct Inner {
-    time_sorted_queue: Spin<LinkedList<TaskListAdapter>>,
-    delete_buffer: DeleteBuffer,
-    time_to_wakeup: AtomicBool,
+    time_sorted_queue: LinkedList<TaskListAdapter>,
 }
-
-type DeleteBuffer = MpMcQueue<Arc<Task>, { config::MAX_TASK_NUMBER }>;
 
 impl Inner {
     const fn new() -> Self {
         Self {
-            time_sorted_queue: Spin::new(LinkedList::new(TaskListAdapter::NEW)),
-            delete_buffer: DeleteBuffer::new(),
-            time_to_wakeup: AtomicBool::new(false),
+            time_sorted_queue: LinkedList::new(TaskListAdapter::NEW),
         }
     }
 }
 
-type SleepQueue = RefCellSchedSafe<SoftLock<Inner>>;
+type SleepQueue = SpinSchedIrqSafe<Inner, AllIrqExceptSvc>;
 
-struct InnerFullAccessor<'a> {
-    time_sorted_queue: &'a Spin<LinkedList<TaskListAdapter>>,
-    delete_buffer: &'a DeleteBuffer,
-    time_to_wakeup: &'a AtomicBool,
-}
+fn wake_expired_tasks(inner: &mut Inner) {
+    let cur_tick = TICKS.load(Ordering::SeqCst);
+    let locked_queue = &mut inner.time_sorted_queue;
 
-struct InnerPendAccessor<'a> {
-    delete_buffer: &'a DeleteBuffer,
-    time_to_wakeup: &'a AtomicBool,
-}
-
-/// Bind the accessor types.
-impl<'a> AllowPendOp<'a> for Inner {
-    type FullAccessor = InnerFullAccessor<'a>;
-    type PendOnlyAccessor = InnerPendAccessor<'a>;
-    fn full_access(&'a self) -> InnerFullAccessor<'a> {
-        InnerFullAccessor {
-            time_sorted_queue: &self.time_sorted_queue,
-            delete_buffer: &self.delete_buffer,
-            time_to_wakeup: &self.time_to_wakeup,
-        }
-    }
-    fn pend_only_access(&'a self) -> InnerPendAccessor<'a> {
-        InnerPendAccessor {
-            delete_buffer: &self.delete_buffer,
-            time_to_wakeup: &self.time_to_wakeup,
+    // remove also moves the cursor to the next element
+    let mut cursor_mut = locked_queue.front_mut();
+    while let Some(task) = cursor_mut.get() {
+        if let CmpOrdering::Less | CmpOrdering::Equal = tick_cmp(task.get_wake_tick(), cur_tick) {
+            let task = cursor_mut.remove().unwrap_or_die();
+            Scheduler::accept_task(task);
+        } else {
+            break;
         }
     }
 }
 
-impl<'a> InnerFullAccessor<'a> {
-    fn wake_expired_tasks(&self) {
-        let cur_tick = TICKS.load(Ordering::SeqCst);
-        let mut locked_queue = self.time_sorted_queue.lock_now_or_die();
-
-        // remove also moves the cursor to the next element
-        let mut cursor_mut = locked_queue.front_mut();
-        while let Some(task) = cursor_mut.get() {
-            if let CmpOrdering::Less | CmpOrdering::Equal = tick_cmp(task.get_wake_tick(), cur_tick)
-            {
-                let task = cursor_mut.remove().unwrap_or_die();
-                Scheduler::accept_task(task);
-            } else {
-                break;
-            }
-        }
-
-        while let Some(task) = self.delete_buffer.dequeue() {
-            if let Some(task) = locked_queue.remove_task(&task) {
-                Scheduler::accept_task(task);
-            }
-        }
-    }
-}
-
-impl<'a> RunPendedOp for InnerFullAccessor<'a> {
-    fn run_pended_op(&mut self) {
-        if self.time_to_wakeup.load(Ordering::SeqCst) {
-            self.wake_expired_tasks();
-            self.time_to_wakeup.store(false, Ordering::SeqCst);
-        }
-    }
-}
-
-static SLEEP_TASK_QUEUE: SleepQueue = RefCellSchedSafe::new(SoftLock::new(Inner::new()));
+static SLEEP_TASK_QUEUE: SleepQueue = SpinSchedIrqSafe::new(Inner::new());
 
 /// The tick number of SysTick.
 static TICKS: AtomicU32 = AtomicU32::new(0);
@@ -116,16 +60,7 @@ pub fn get_tick() -> u32 {
 
 /// Wake up those sleeping tasks that have their sleeping time expired.
 pub(crate) fn wake_sleeping_tasks() {
-    SLEEP_TASK_QUEUE.with_suspended_scheduler(|queue, _| {
-        queue.with_access(|access| match access {
-            Access::Full { full_access } => {
-                full_access.wake_expired_tasks();
-            }
-            Access::PendOnly { pend_access } => {
-                pend_access.time_to_wakeup.store(true, Ordering::SeqCst)
-            }
-        })
-    });
+    wake_expired_tasks(&mut *SLEEP_TASK_QUEUE.lock());
 }
 
 /// Block the task for the given number of milliseconds.
@@ -174,29 +109,18 @@ fn sleep_ms_unchecked(ms: u32) {
 }
 
 pub(crate) fn add_task_to_sleep_queue(task: Arc<Task>, wake_at_tick: u32) {
-    SLEEP_TASK_QUEUE.with_suspended_scheduler(|queue, _| {
-        queue.must_with_full_access(|full_access| {
-            task.set_wake_tick(wake_at_tick);
-            let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
-            locked_queue.push_back_tick_sorted(task);
-        })
-    });
+    let mut locked_inner = SLEEP_TASK_QUEUE.lock();
+    task.set_wake_tick(wake_at_tick);
+    let locked_queue = &mut locked_inner.time_sorted_queue;
+    locked_queue.push_back_tick_sorted(task);
 }
 
 pub(crate) fn remove_task_from_sleep_queue_allow_isr(task: Arc<Task>) {
-    SLEEP_TASK_QUEUE.with_suspended_scheduler(|queue, _| {
-        queue.with_access(|access| match access {
-            Access::Full { full_access } => {
-                let mut locked_queue = full_access.time_sorted_queue.lock_now_or_die();
-                if let Some(task) = locked_queue.remove_task(&task) {
-                    Scheduler::accept_task(task);
-                }
-            }
-            Access::PendOnly { pend_access } => {
-                pend_access.delete_buffer.enqueue(task).unwrap_or_die();
-            }
-        })
-    });
+    let mut locked_inner = SLEEP_TASK_QUEUE.lock();
+    let locked_queue = &mut locked_inner.time_sorted_queue;
+    if let Some(task) = locked_queue.remove_task(&task) {
+        Scheduler::accept_task(task);
+    }
 }
 
 /// A time-based task barrier that allow a task to proceed at a given interval.
