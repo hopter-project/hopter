@@ -1,12 +1,11 @@
-use super::{Access, AllowPendOp, RefCellSchedSafe, RunPendedOp, SoftLock, Spin};
+use super::SpinSchedIrqSafe;
 use crate::{
-    interrupt::context_switch,
+    interrupt::{context_switch, mask::AllIrqExceptSvc},
     schedule::{current, scheduler::Scheduler},
     task::{Task, TaskState},
     time,
 };
 use alloc::sync::Arc;
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 /// A synchronization primitive that allows a task to wait for a notification
 /// until timeout. [`Mailbox`] allows synchronization between tasks or between
@@ -28,24 +27,21 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 /// and returns immediately. A task blocks on [`wait`](Mailbox::wait) only when
 /// the notification counter is zero.
 pub struct Mailbox {
-    inner: RefCellSchedSafe<SoftLock<Inner>>,
+    inner: SpinSchedIrqSafe<Inner, AllIrqExceptSvc>,
 }
 
 struct Inner {
     /// The number of notifications posted but not yet received by the waiting
     /// task.
-    count: AtomicUsize,
-    /// When the [`Mailbox`] is under contention, new notifications will first
-    /// post to this field, and will later be moved to [`count`](Self::count).
-    pending_count: AtomicUsize,
+    count: usize,
     /// The task waiting on this [`Mailbox`]. The spin lock around it is only
     /// for sanity check. This field should not be accessed concurrently.
-    wait_task: Spin<WaitTask>,
+    wait_task: WaitTask,
     /// Whether the [`notify_allow_isr`](Mailbox::notify_allow_isr) has been
     /// invoked. This is used to distinguish between waking up a task by
     /// notification and by timeout. The field is meaningful only when the
     /// waiting task is [`WithTimeout`](WaitTask::WithTimeout).
-    task_notified: AtomicBool,
+    task_notified: bool,
 }
 
 /// Enumaration of the waiting task category.
@@ -73,89 +69,12 @@ enum WaitTask {
     NoTask,
 }
 
-/// Representing full access to all fields of the [`Mailbox`].
-struct InnerFullAccessor<'a> {
-    count: &'a AtomicUsize,
-    pending_count: &'a AtomicUsize,
-    wait_task: &'a Spin<WaitTask>,
-    task_notified: &'a AtomicBool,
-}
-
-/// Representing pend-only access to the [`Mailbox`]. Only the fields that
-/// expect concurrent access are granted by this accessor.
-struct InnerPendAccessor<'a> {
-    pending_count: &'a AtomicUsize,
-}
-
-/// Bind the accessor types.
-impl<'a> AllowPendOp<'a> for Inner {
-    type FullAccessor = InnerFullAccessor<'a>;
-    type PendOnlyAccessor = InnerPendAccessor<'a>;
-    fn full_access(&'a self) -> Self::FullAccessor {
-        Self::FullAccessor {
-            count: &self.count,
-            pending_count: &self.pending_count,
-            wait_task: &self.wait_task,
-            task_notified: &self.task_notified,
-        }
-    }
-
-    fn pend_only_access(&'a self) -> Self::PendOnlyAccessor {
-        Self::PendOnlyAccessor {
-            pending_count: &self.pending_count,
-        }
-    }
-}
-
-/// Resolve contention of multiple concurrent access.
-impl<'a> RunPendedOp for InnerFullAccessor<'a> {
-    fn run_pended_op(&mut self) {
-        // Move the values from `pending_count` to `count`.
-        //
-        // NOTE: Since `pending_count` allows concurrent access, it is possible
-        // that when we are executing this function another preempting
-        // interrupt handler again increments the `pending_count`. We must use
-        // the `swap` method to read the current value and reset it to 0
-        // atomically. In contrast, using a separate `load` and then `store`
-        // will lead to race condition if an interrupt handler preempts in
-        // between.
-        let pending_count = self.pending_count.swap(0, Ordering::SeqCst);
-        self.count.fetch_add(pending_count, Ordering::SeqCst);
-
-        // When `run_pended_op` is invoked, a pend-only accessor must have been
-        // previously granted, and thus the `pending_count` must have been
-        // incremented to be greater than zero. (See `notify_allow_isr`.) It
-        // follows that now `count` must also be greater than zero. Thus, as
-        // long as there is a waiting task, we should notify it.
-        match self.wait_task.lock_now_or_die().take() {
-            // If there is a waiting task with timeout, wake it up. The task's
-            // ownership is moved from the sleeping queue to the scheduler's
-            // ready queue. See the documentation of `WithTimeout` for details.
-            WaitTask::WithTimeout(wait_task) => {
-                time::remove_task_from_sleep_queue_allow_isr(wait_task);
-                self.count.fetch_sub(1, Ordering::SeqCst);
-                self.task_notified.store(true, Ordering::SeqCst);
-            }
-            // If there is a waiting task without timeout, wake it up. The
-            // task's ownership is moved from this enum variant to the
-            // scheduler's ready queue. See the documentation of
-            // `WithoutTimeout` for details.
-            WaitTask::WithoutTimeout(wait_task) => {
-                Scheduler::accept_task(wait_task);
-                self.count.fetch_sub(1, Ordering::SeqCst);
-            }
-            WaitTask::NoTask => {}
-        }
-    }
-}
-
 impl Inner {
     const fn new() -> Self {
         Self {
-            count: AtomicUsize::new(0),
-            pending_count: AtomicUsize::new(0),
-            wait_task: Spin::new(WaitTask::NoTask),
-            task_notified: AtomicBool::new(false),
+            count: 0,
+            wait_task: WaitTask::NoTask,
+            task_notified: false,
         }
     }
 }
@@ -165,7 +84,7 @@ impl Mailbox {
     /// zero.
     pub const fn new() -> Self {
         Self {
-            inner: RefCellSchedSafe::new(SoftLock::new(Inner::new())),
+            inner: SpinSchedIrqSafe::new(Inner::new()),
         }
     }
 
@@ -187,32 +106,23 @@ impl Mailbox {
         }
 
         let mut should_block = true;
+        {
+            let mut locked_inner = self.inner.lock();
 
-        // Suspend scheduling and acquire full access to the mailbox fields.
-        self.inner.with_suspended_scheduler(|mailbox, sched_guard| {
-            mailbox.must_with_full_access(|full_access| {
-                let mut locked_wait_task = full_access.wait_task.lock_now_or_die();
+            assert!(locked_inner.wait_task.is_no_task());
 
-                // A sanity check to prevent more than one task to try to wait on
-                // the same mailbox.
-                assert!(locked_wait_task.is_no_task());
-
-                // If the counter is currently positive, decrement the counter and
-                // do not block.
-                if full_access.count.load(Ordering::SeqCst) > 0 {
-                    full_access.count.fetch_sub(1, Ordering::SeqCst);
-                    should_block = false;
-                    return;
-                }
-
-                current::with_cur_task_arc_explicit_sched_suspend(sched_guard, |cur_task| {
+            if locked_inner.count > 0 {
+                locked_inner.count -= 1;
+                should_block = false;
+            } else {
+                current::with_cur_task_arc(|cur_task| {
                     cur_task.set_state(TaskState::Blocked);
 
                     // Record the waiting task on this mailbox.
-                    *locked_wait_task = WaitTask::WithoutTimeout(Arc::clone(&cur_task));
+                    locked_inner.wait_task = WaitTask::WithoutTimeout(Arc::clone(&cur_task));
                 });
-            })
-        });
+            }
+        }
 
         if should_block {
             context_switch::yield_current_task();
@@ -246,39 +156,35 @@ impl Mailbox {
 
         let mut should_block = true;
 
-        // Suspend scheduling and acquire full access to the mailbox fields.
-        self.inner.with_suspended_scheduler(|mailbox, sched_guard| {
-            mailbox.must_with_full_access(|full_access| {
-                let mut locked_wait_task = full_access.wait_task.lock_now_or_die();
+        {
+            let mut locked_inner = self.inner.lock();
 
-                // A sanity check to prevent more than one task to try to wait on
-                // the same mailbox.
-                assert!(locked_wait_task.is_no_task());
+            // A sanity check to prevent more than one task to try to wait on
+            // the same mailbox.
+            assert!(locked_inner.wait_task.is_no_task());
 
-                // If the counter is currently positive, decrement the counter and
-                // do not block.
-                if full_access.count.load(Ordering::SeqCst) > 0 {
-                    full_access.count.fetch_sub(1, Ordering::SeqCst);
-                    should_block = false;
-                    return;
-                }
-
+            // If the counter is currently positive, decrement the counter and
+            // do not block.
+            if locked_inner.count > 0 {
+                locked_inner.count -= 1;
+                should_block = false;
+            } else {
                 // Otherwise the task is going to be blocked. Reset the flag.
-                full_access.task_notified.store(false, Ordering::SeqCst);
+                locked_inner.task_notified = false;
 
-                current::with_cur_task_arc_explicit_sched_suspend(sched_guard, |cur_task| {
+                current::with_cur_task_arc(|cur_task| {
                     cur_task.set_state(TaskState::Blocked);
 
                     // Record the waiting task on this mailbox.
-                    *locked_wait_task = WaitTask::WithTimeout(Arc::clone(&cur_task));
+                    locked_inner.wait_task = WaitTask::WithTimeout(Arc::clone(&cur_task));
 
                     // Add the waiting task to the sleeping queue.
                     // FIXME: This assumes 1ms tick interval.
                     let wake_at_tick = time::get_tick() + timeout_ms;
                     time::add_task_to_sleep_queue(cur_task, wake_at_tick);
                 });
-            })
-        });
+            }
+        }
 
         if should_block {
             // If the task should block, request a context switch.
@@ -287,17 +193,10 @@ impl Mailbox {
             // We reach here if either the waiting task is notified or the
             // waiting time reaches timeout.
 
-            // Suspend scheduling and acquire full access to the mailbox fields.
-            self.inner.with_suspended_scheduler(|mailbox, _| {
-                mailbox.must_with_full_access(|full_access| {
-                    // Clear the waiting task field. This field was not cleared if
-                    // the task wakes up because of the timeout.
-                    full_access.wait_task.lock_now_or_die().take();
+            let mut locked_inner = self.inner.lock();
 
-                    // Return whether the task wakes up because of notification.
-                    full_access.task_notified.load(Ordering::SeqCst)
-                })
-            })
+            locked_inner.wait_task.take();
+            locked_inner.task_notified
         } else {
             // If the task need not block, it consumed a notification count and
             // is considered to be notified.
@@ -311,43 +210,29 @@ impl Mailbox {
     ///
     /// This method is allowed in ISR context.
     pub fn notify_allow_isr(&self) {
-        // Suspend scheduling and get access to the mailbox fields.
-        self.inner.with_suspended_scheduler(|mailbox, _| {
-            mailbox.with_access(|access| match access {
-                // If we have full access to the inner fields, we directly wake up
-                // the waiting task or increment the counter.
-                Access::Full { full_access } => {
-                    match full_access.wait_task.lock_now_or_die().take() {
-                        // If there is a waiting task with timeout, wake it up. The
-                        // task's ownership is moved from the sleeping queue to the
-                        // scheduler's ready queue. See the documentation of
-                        // `WithTimeout` for details.
-                        WaitTask::WithTimeout(wait_task) => {
-                            time::remove_task_from_sleep_queue_allow_isr(wait_task);
-                            full_access.task_notified.store(true, Ordering::SeqCst);
-                        }
-                        // If there is a waiting task without timeout, wake it up. The
-                        // task's ownership is moved from this enum variant to the
-                        // scheduler's ready queue. See the documentation of
-                        // `WithoutTimeout` for details.
-                        WaitTask::WithoutTimeout(wait_task) => {
-                            Scheduler::accept_task(wait_task);
-                        }
-                        // If there is not a waiting task, increment the counter.
-                        WaitTask::NoTask => {
-                            full_access.count.fetch_add(1, Ordering::SeqCst);
-                        }
-                    }
-                }
-                // If other context is running with the full access and we preempt
-                // it, we get pend-only access. We increment the `pending_count` so
-                // that the full access owner can later help us update the counter
-                // or notify the waiting task on behalf.
-                Access::PendOnly { pend_access } => {
-                    pend_access.pending_count.fetch_add(1, Ordering::SeqCst);
-                }
-            })
-        });
+        let mut locked_inner = self.inner.lock();
+
+        match locked_inner.wait_task.take() {
+            // If there is a waiting task with timeout, wake it up. The
+            // task's ownership is moved from the sleeping queue to the
+            // scheduler's ready queue. See the documentation of
+            // `WithTimeout` for details.
+            WaitTask::WithTimeout(wait_task) => {
+                time::remove_task_from_sleep_queue_allow_isr(wait_task);
+                locked_inner.task_notified = true;
+            }
+            // If there is a waiting task without timeout, wake it up. The
+            // task's ownership is moved from this enum variant to the
+            // scheduler's ready queue. See the documentation of
+            // `WithoutTimeout` for details.
+            WaitTask::WithoutTimeout(wait_task) => {
+                Scheduler::accept_task(wait_task);
+            }
+            // If there is not a waiting task, increment the counter.
+            WaitTask::NoTask => {
+                locked_inner.count += 1;
+            }
+        }
     }
 }
 
