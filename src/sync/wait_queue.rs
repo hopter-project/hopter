@@ -1,17 +1,14 @@
-use super::{
-    Access, AllowPendOp, Lockable, RefCellSchedSafe, RunPendedOp, SoftLock, Spin, UnlockableGuard,
-};
+use super::{Lockable, SpinSchedIrqSafe, UnlockableGuard};
 use crate::{
-    interrupt::context_switch,
+    interrupt::{context_switch, mask::AllIrqExceptSvc},
     schedule::{current, scheduler::Scheduler},
     task::{TaskListAdapter, TaskListInterfaces, TaskState},
 };
-use core::sync::atomic::{AtomicUsize, Ordering};
 use intrusive_collections::LinkedList;
 
 /// Queue for blocked tasks waiting for notification.
 pub(super) struct WaitQueue {
-    inner: RefCellSchedSafe<SoftLock<Inner>>,
+    inner: SpinSchedIrqSafe<Inner, AllIrqExceptSvc>,
 }
 
 /// The inner content of a wait queue.
@@ -19,64 +16,13 @@ struct Inner {
     /// A buffer containing reference counted task pointers. The buffer will
     /// be sorted based on task priority when popping out tasks. The spin lock
     /// around it is only for sanity check.
-    queue: Spin<LinkedList<TaskListAdapter>>,
-    /// When an ISR is trying to dequeue a task when the queue is already locked,
-    /// it increments the notification counter, so that the lock holder can later
-    /// dequeue the task on behalf of the ISR.
-    notify_cnt: AtomicUsize,
-}
-
-/// Representing full access to the queue.
-struct InnerFullAccessor<'a> {
-    queue: &'a Spin<LinkedList<TaskListAdapter>>,
-    notify_cnt: &'a AtomicUsize,
-}
-
-/// Representing pend-only access to the queue. Using this accessor one can only
-/// increment the notification counter indicating that one more task needs to be
-/// notified.
-struct InnerPendAccessor<'a> {
-    notify_cnt: &'a AtomicUsize,
-}
-
-/// Bind the accessor types.
-impl<'a> AllowPendOp<'a> for Inner {
-    type FullAccessor = InnerFullAccessor<'a>;
-    type PendOnlyAccessor = InnerPendAccessor<'a>;
-    fn full_access(&'a self) -> InnerFullAccessor<'a> {
-        InnerFullAccessor {
-            queue: &self.queue,
-            notify_cnt: &self.notify_cnt,
-        }
-    }
-    fn pend_only_access(&'a self) -> InnerPendAccessor<'a> {
-        InnerPendAccessor {
-            notify_cnt: &self.notify_cnt,
-        }
-    }
-}
-
-/// If the notification counter is non-zero, we should notify tasks as many times
-/// as indicated by the counter.
-impl<'a> RunPendedOp for InnerFullAccessor<'a> {
-    fn run_pended_op(&mut self) {
-        let mut locked_queue = self.queue.lock_now_or_die();
-        let cnt = self.notify_cnt.swap(0, Ordering::SeqCst);
-        for _ in 0..cnt {
-            if let Some(task) = locked_queue.pop_highest_priority() {
-                Scheduler::accept_task(task);
-            } else {
-                break;
-            }
-        }
-    }
+    queue: LinkedList<TaskListAdapter>,
 }
 
 impl Inner {
     const fn new() -> Self {
         Self {
-            queue: Spin::new(LinkedList::new(TaskListAdapter::NEW)),
-            notify_cnt: AtomicUsize::new(0),
+            queue: LinkedList::new(TaskListAdapter::NEW),
         }
     }
 }
@@ -85,7 +31,7 @@ impl WaitQueue {
     /// Create a new empty wait queue.
     pub(super) const fn new() -> Self {
         Self {
-            inner: RefCellSchedSafe::new(SoftLock::<Inner>::new(Inner::new())),
+            inner: SpinSchedIrqSafe::new(Inner::new()),
         }
     }
 
@@ -112,16 +58,13 @@ impl WaitQueue {
                 panic!();
             }
 
-            // Should always grant full access to a task.
-            wq.inner.with_suspended_scheduler(|queue, sched_guard| {
-                queue.must_with_full_access(|full_access| {
-                    // Put the current task into the queue.
-                    current::with_cur_task_arc_explicit_sched_suspend(sched_guard, |cur_task| {
-                        cur_task.set_state(TaskState::Blocked);
-                        let mut locked_queue = full_access.queue.lock_now_or_die();
-                        locked_queue.push_back(cur_task);
-                    });
-                })
+            let mut locked_inner = wq.inner.lock();
+            let locked_queue = &mut locked_inner.queue;
+
+            // Put the current task into the queue.
+            current::with_cur_task_arc(|cur_task| {
+                cur_task.set_state(TaskState::Blocked);
+                locked_queue.push_back(cur_task);
             });
         }
     }
@@ -174,28 +117,25 @@ impl WaitQueue {
                 panic!();
             }
 
-            // Should always grant full access to a task.
-            wq.inner.with_suspended_scheduler(|queue, sched_guard| {
-                queue.must_with_full_access(|full_access| {
-                    // Must lock the queue here before evaluating the condition to
-                    // prevent deadlock.
-                    let mut locked_queue = full_access.queue.lock_now_or_die();
+            let mut locked_inner = wq.inner.lock();
 
-                    // Check if the predicate is satisfied and if yes return the value
-                    // contained in `Some`.
-                    if let Some(ret) = condition() {
-                        return Some(ret);
-                    }
+            // Must lock the queue here before evaluating the condition to
+            // prevent deadlock.
+            let locked_queue = &mut locked_inner.queue;
 
-                    // Otherwise, put the current task into the queue.
-                    current::with_cur_task_arc_explicit_sched_suspend(sched_guard, |cur_task| {
-                        cur_task.set_state(TaskState::Blocked);
-                        locked_queue.push_back(cur_task);
-                    });
+            // Check if the predicate is satisfied and if yes return the value
+            // contained in `Some`.
+            if let Some(ret) = condition() {
+                return Some(ret);
+            }
 
-                    None
-                })
-            })
+            // Otherwise, put the current task into the queue.
+            current::with_cur_task_arc(|cur_task| {
+                cur_task.set_state(TaskState::Blocked);
+                locked_queue.push_back(cur_task);
+            });
+
+            None
         }
     }
 
@@ -262,31 +202,28 @@ impl WaitQueue {
                 panic!();
             }
 
-            // Should always grant full access to a task.
-            wq.inner.with_suspended_scheduler(|queue, sched_guard| {
-                queue.must_with_full_access(|full_access| {
-                    // Must lock the queue here before evaluating the condition and
-                    // releasing the `guard` passed in argument to prevent deadlock.
-                    let mut locked_queue = full_access.queue.lock_now_or_die();
+            let mut locked_inner = wq.inner.lock();
 
-                    // Check if the predicate is satisfied and if yes return the value
-                    // contained in `Some` with the lock guard.
-                    if let Some(ret) = condition(&mut guard) {
-                        return Err((guard, ret));
-                    }
+            // Must lock the queue here before evaluating the condition and
+            // releasing the `guard` passed in argument to prevent deadlock.
+            let locked_queue = &mut locked_inner.queue;
 
-                    // Otherwise, release the lock guard and get the lock itself.
-                    let mutex = guard.unlock_and_into_lock_ref();
+            // Check if the predicate is satisfied and if yes return the value
+            // contained in `Some` with the lock guard.
+            if let Some(ret) = condition(&mut guard) {
+                return Err((guard, ret));
+            }
 
-                    // Put the current task into the queue.
-                    current::with_cur_task_arc_explicit_sched_suspend(sched_guard, |cur_task| {
-                        cur_task.set_state(TaskState::Blocked);
-                        locked_queue.push_back(cur_task);
-                    });
+            // Otherwise, release the lock guard and get the lock itself.
+            let mutex = guard.unlock_and_into_lock_ref();
 
-                    Ok(mutex)
-                })
-            })
+            // Put the current task into the queue.
+            current::with_cur_task_arc(|cur_task| {
+                cur_task.set_state(TaskState::Blocked);
+                locked_queue.push_back(cur_task);
+            });
+
+            Ok(mutex)
         }
     }
 
@@ -300,23 +237,10 @@ impl WaitQueue {
     /// will be in turn notified, i.e., the notification is treated as spurious and
     /// is discarded.
     pub(super) fn notify_one_allow_isr(&self) {
-        self.inner.with_suspended_scheduler(|queue, _| {
-            queue.with_access(|access| match access {
-                // If we have full access to the inner components, we directly operate
-                // on the queue to make the popped task ready.
-                Access::Full { full_access } => {
-                    let mut locked_queue = full_access.queue.lock_now_or_die();
-                    if let Some(task) = locked_queue.pop_highest_priority() {
-                        Scheduler::accept_task(task);
-                    }
-                }
-                // If other context is running with the full access and we preempt it,
-                // we get pend-only access. We increment the counter so that the full
-                // access owner can later pop out the task on our behalf.
-                Access::PendOnly { pend_access } => {
-                    pend_access.notify_cnt.fetch_add(1, Ordering::SeqCst);
-                }
-            })
-        });
+        let mut locked_inner = self.inner.lock();
+        let locked_queue = &mut locked_inner.queue;
+        if let Some(task) = locked_queue.pop_highest_priority() {
+            Scheduler::accept_task(task);
+        }
     }
 }
