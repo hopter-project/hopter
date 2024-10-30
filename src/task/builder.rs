@@ -93,7 +93,11 @@ macro_rules! define_task_spawn {
         /// With [`spawn`](Self::spawn), the task will not be restarted after
         /// its resource is reclaimed through unwinding. With
         /// [`spawn_restartable`](Self::spawn_restartable), the task will be
-        /// restarted again from the given entry closure.
+        /// restarted again from the given entry closure running in concurrent
+        /// with the stack unwinding of the previous one. With
+        /// [`spawn_restartable_no_concur`](Self::spawn_restartable_no_concur),
+        /// the task will be restarted again from the given entry closure after
+        /// the stack unwinding is finished.
         pub fn $method_name(self) -> Result<(), TaskBuildError> {
             let stack_config = self.parse_stack_config()?;
 
@@ -125,7 +129,11 @@ macro_rules! define_breathing_task_spawn {
         /// With [`spawn`](Self::spawn), the task will not be restarted after
         /// its resource is reclaimed through unwinding. With
         /// [`spawn_restartable`](Self::spawn_restartable), the task will be
-        /// restarted again from the given entry closure.
+        /// restarted again from the given entry closure running in concurrent
+        /// with the stack unwinding of the previous one. With
+        /// [`spawn_restartable_no_concur`](Self::spawn_restartable_no_concur),
+        /// the task will be restarted again from the given entry closure after
+        /// the stack unwinding is finished.
         pub fn $method_name(self) -> Result<(), TaskBuildError> {
             let init = self.init.ok_or(TaskBuildError::NoEntry)?;
             let wait = self.wait.ok_or(TaskBuildError::NoEntry)?;
@@ -245,6 +253,7 @@ where
     F: FnOnce() + Send + Sync + Clone + 'static,
 {
     define_task_spawn!(spawn_restartable, build_restartable);
+    define_task_spawn!(spawn_restartable_no_concur, build_restartable_no_concur);
 }
 
 /// Start a new task from a previously failed task.
@@ -358,5 +367,10 @@ where
         spawn_restartable,
         construct_restartable_breathing_task_entry,
         build_restartable
+    );
+    define_breathing_task_spawn!(
+        spawn_restartable_no_concur,
+        construct_restartable_breathing_task_entry,
+        build_restartable_no_concur
     );
 }

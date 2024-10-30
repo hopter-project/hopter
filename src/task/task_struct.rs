@@ -169,6 +169,8 @@ pub(crate) struct Task {
     /// context.
     #[cfg(feature = "unwind")]
     has_restarted: AtomicBool,
+    #[cfg(feature = "unwind")]
+    concurrent_restartable: AtomicBool,
 
     /*** Fields present only for restartable tasks. ***/
     /// An `Arc` pointing to the bundled struct containing the task entry
@@ -248,11 +250,11 @@ impl Task {
         Ok(task)
     }
 
-    /// Build a new restartable task struct. Return `Ok(())` if successful,
-    /// otherwise `Err(())`. When the built task panics during its execution,
-    /// the task's stack will be unwound, and then the task will be *restarted*.
-    /// The restarted task will start its execution again from the same entry
-    /// closure.
+    /// Build a new restartable task struct with concurrent restart. Return
+    /// `Ok(())` if successful, otherwise `Err(())`. When the built task panics
+    /// during its execution, the task's stack will be unwound, and then the
+    /// task will be *restarted*. The restarted task will start its execution
+    /// again from the same entry closure.
     ///
     /// - `id`: A numerical task ID that does not have functional purpose. It
     ///   is only for diagnostic purpose.
@@ -273,7 +275,36 @@ impl Task {
         F: FnOnce() + Send + Sync + Clone + 'static,
     {
         let mut task = Self::new(quota, false);
-        task.initialize_restartable(id, entry_closure, stack_config, priority)?;
+        task.initialize_restartable(id, entry_closure, stack_config, priority, true)?;
+        Ok(task)
+    }
+
+    /// Build a new restartable task struct without concurrent restart. Return
+    /// `Ok(())` if successful, otherwise `Err(())`. When the built task panics
+    /// during its execution, the task's stack will be unwound, and then the
+    /// task will be *restarted*. The restarted task will start its execution
+    /// again from the same entry closure.
+    ///
+    /// - `id`: A numerical task ID that does not have functional purpose. It
+    ///   is only for diagnostic purpose.
+    /// - `entry_closure`: The entry closure for the new task, i.e., the code
+    ///   where the new task starts to execute.
+    /// - `stack_config`: The configuration of the function call stack.
+    /// - `priority`: The priority of the task. Smaller numerical values
+    ///   represent higher priority.
+    #[cfg(feature = "unwind")]
+    pub(crate) fn build_restartable_no_concur<F>(
+        quota: TaskQuota,
+        id: u8,
+        entry_closure: F,
+        stack_config: StackConfig,
+        priority: u8,
+    ) -> Result<Self, TaskBuildError>
+    where
+        F: FnOnce() + Send + Sync + Clone + 'static,
+    {
+        let mut task = Self::new(quota, false);
+        task.initialize_restartable(id, entry_closure, stack_config, priority, false)?;
         Ok(task)
     }
 
@@ -335,6 +366,8 @@ impl Task {
             is_unwinding: AtomicBool::new(false),
             #[cfg(feature = "unwind")]
             has_restarted: AtomicBool::new(false),
+            #[cfg(feature = "unwind")]
+            concurrent_restartable: AtomicBool::new(false),
             #[cfg(feature = "unwind")]
             entry_closure: None,
             #[cfg(feature = "unwind")]
@@ -524,6 +557,7 @@ impl Task {
         entry_closure: F,
         stack_config: StackConfig,
         priority: u8,
+        allow_concurrent_restart: bool,
     ) -> Result<(), TaskBuildError>
     where
         F: FnOnce() + Send + Sync + Clone + 'static,
@@ -550,6 +584,9 @@ impl Task {
         // Store the trampoline to the task struct, so that we can call it again
         // during task restart.
         self.restart_entry_trampoline = Some(entry_trampoline);
+
+        self.concurrent_restartable
+            .store(allow_concurrent_restart, Ordering::SeqCst);
 
         // Perform other common initialization.
         self.initialize_common(
@@ -591,6 +628,11 @@ impl Task {
         // Record that this new task is a restarted instance from the panicked
         // task.
         self.restarted_from = Some(Arc::downgrade(&prev_task));
+
+        self.concurrent_restartable.store(
+            prev_task.concurrent_restartable.load(Ordering::SeqCst),
+            Ordering::SeqCst,
+        );
 
         // Record that the panicked task has been restarted. This will prevent
         // other restart attempt.
@@ -665,6 +707,11 @@ impl Task {
     #[cfg(feature = "unwind")]
     pub(crate) fn is_restartable(&self) -> bool {
         self.entry_closure.is_some()
+    }
+
+    #[cfg(feature = "unwind")]
+    pub(crate) fn allow_concurrent_restart(&self) -> bool {
+        self.concurrent_restartable.load(Ordering::SeqCst)
     }
 
     /// Lock the task context and return the mutable raw pointer to the

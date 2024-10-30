@@ -44,10 +44,10 @@ use crate::{
         trap_frame::{self, TrapFrame},
     },
     schedule::{current, scheduler::Scheduler},
-    task,
+    task::{self, Task},
     unrecoverable::{self, Lethal},
 };
-use alloc::boxed::Box;
+use alloc::{boxed::Box, sync::Arc};
 use core::{
     alloc::Layout,
     arch::asm,
@@ -394,25 +394,27 @@ impl<'a> Debug for UnwindState<'a> {
 }
 
 #[inline(never)]
-fn try_concurrent_restart() {
-    current::with_cur_task_arc(|cur_task| {
-        // We will limit the concurrent restart rate to at most one concurrent
-        // instance. If this task is a restarted instance, and also if the original
-        // instance has not finished unwinding, i.e. the task struct reference
-        // count is positive, we will not do concurrent restart.
-        if let Some(restarted_from) = cur_task.get_restart_origin_task() {
-            if restarted_from.strong_count() != 0 {
-                return;
-            }
+fn try_concurrent_restart(cur_task: Arc<Task>) -> bool {
+    // We will limit the concurrent restart rate to at most one concurrent
+    // instance. If this task is a restarted instance, and also if the original
+    // instance has not finished unwinding, i.e. the task struct reference
+    // count is positive, we will not do concurrent restart.
+    if let Some(restarted_from) = cur_task.get_restart_origin_task() {
+        if restarted_from.strong_count() != 0 {
+            return false;
         }
+    }
 
-        // Otherwise, we try to concurrently restart the panicked task. It is
-        // fine if we are not able to start a new instance running concurrently,
-        // probably because the maximum number of tasks has been reached. In
-        // this case the restarted instance will reuse the current task struct
-        // and will run only after the unwinding finishes.
-        let _ = task::try_spawn_restarted(cur_task);
-    })
+    if !cur_task.allow_concurrent_restart() {
+        return false;
+    }
+
+    // Otherwise, we try to concurrently restart the panicked task. It is
+    // fine if we are not able to start a new instance running concurrently,
+    // probably because the maximum number of tasks has been reached. In
+    // this case the restarted instance will reuse the current task struct
+    // and will run only after the unwinding finishes.
+    task::try_spawn_restarted(cur_task).is_ok()
 }
 
 impl UnwindState<'static> {
@@ -470,6 +472,43 @@ impl UnwindState<'static> {
         // Mark that we are now unwinding.
         set_unwinding(true);
 
+        // If panic occured in an ISR context, then the panic has nothing to do
+        // with the current task. There was something wrong with the IRQ
+        // handler but do not touch the task.
+        if !current::is_in_isr_context() {
+            let mut need_reschedule = false;
+
+            current::with_cur_task_arc(|cur_task| {
+                if cur_task.is_restartable() {
+                    if try_concurrent_restart(Arc::clone(&cur_task)) {
+                        // Reduce the priority of the panicked task, so that
+                        // the unwinding procedure of the panicked task uses
+                        // only otherwise idle CPU time.
+                        //
+                        // However, if concurrent restart is not successful,
+                        // keep the original priority.
+                        cur_task.change_intrinsic_priority(config::UNWIND_PRIORITY);
+
+                        // Let the scheduler re-schedule so the above priority reduction
+                        // will take effect.
+                        need_reschedule = true;
+                    }
+                } else {
+                    // If the task is not restartable, we always put it to a
+                    // low priority so the unwinding uses otherwise idle CPU
+                    // time.
+                    cur_task.change_intrinsic_priority(config::UNWIND_PRIORITY);
+                    need_reschedule = true;
+                }
+            });
+
+            if need_reschedule {       
+                if !Scheduler::is_suspended() {
+                    context_switch::yield_current_task();
+                }
+            }
+        }
+
         // Allocate memory on the heap first and manually initialize the fields.
         // This is to avoid increasing the stack memory footprint.
         // See Rust issue #53827: https://github.com/rust-lang/rust/issues/53827
@@ -505,28 +544,6 @@ impl UnwindState<'static> {
         // valid because we just allocated it.
         let unw_state_ptr: *mut UnwindState = uninit_unw_state_ptr.cast();
         let unw_state = unsafe { &mut *unw_state_ptr };
-
-        // If panic occured in an ISR context, then the panic has nothing to do
-        // with the current task. There was something wrong with the IRQ
-        // handler but do not touch the task.
-        if !current::is_in_isr_context() {
-            current::with_cur_task(|cur_task| {
-                if cur_task.is_restartable() {
-                    try_concurrent_restart();
-                }
-
-                // Reduce the priority of the previously panicked task, so that
-                // the unwinding procedure of the panicked task uses only
-                // otherwise idle CPU time.
-                cur_task.change_intrinsic_priority(config::UNWIND_PRIORITY);
-            });
-
-            // Let the scheduler re-schedule so the above priority reduction
-            // will take effect.
-            if !Scheduler::is_suspended() {
-                context_switch::yield_current_task();
-            }
-        }
 
         // Continue to initialize register states to what they are just before the
         // unwinder is invoked.
