@@ -74,6 +74,7 @@ pub(crate) extern "C" fn deferred_unwind() {
             // Clear the deferred unwinding pending flag.
             "mov r0, #0",
             "ldr r1, ={tls_mem_addr}",
+            "str r0, [r1, #4]",
             "str r0, [r1, #8]",
             // Jump to the entry point to start unwinding.
             "b {start_unwind_entry}",
