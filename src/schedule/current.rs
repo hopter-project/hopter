@@ -157,24 +157,3 @@ pub(crate) fn is_in_isr_context() -> bool {
 
     ipsr != 0
 }
-
-/// Return if the code is currently executing in a task, in contrast to in an
-/// interrupt service routine (ISR).
-pub(crate) fn is_in_task_context() -> bool {
-    !is_in_isr_context()
-}
-
-/// Return if the code is currently executing in the PendSV exception context.
-pub(crate) fn is_in_pendsv_context() -> bool {
-    let ipsr: u32;
-
-    unsafe {
-        asm!(
-            "mrs {}, ipsr",
-            out(reg) ipsr,
-            options(nomem, nostack)
-        );
-    }
-
-    ipsr == 14
-}

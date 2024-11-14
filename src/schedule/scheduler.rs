@@ -327,17 +327,12 @@ impl Scheduler {
         SUSPEND_CNT.fetch_sub(1, Ordering::SeqCst);
 
         if SUSPEND_CNT.load(Ordering::SeqCst) == 0 && PENDING_CTXT_SWITCH.load(Ordering::SeqCst) {
-            // Go through an SVC to perform context switch if currently is in
-            // task context.
-            if current::is_in_task_context() {
-                context_switch::yield_current_task();
-            // Tail chain a PendSV to directly perform a context switch if
-            // currently is in an ISR context. But if the code is already
-            // *performing* context switch, i.e., called by PendSV, then we
-            // should not request PendSV again.
-            } else if !current::is_in_pendsv_context() {
-                cortex_m::peripheral::SCB::set_pendsv()
-            }
+            // If the code is currently running in an ISR context, the context
+            // switch (performed by the PendSV handler) will begin after the
+            // return from all ISRs, because PendSV has the lowest priority.
+            // If the code is running in a task's context, the context switch
+            // will happen immediately.
+            context_switch::yield_current_task();
         }
     }
 
