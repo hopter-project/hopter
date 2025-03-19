@@ -18,10 +18,13 @@ pub(super) extern "C" fn system_start() -> ! {
             .set_priority(SystemHandler::SVCall, config::SVC_NORMAL_PRIORITY);
         cp.SCB
             .set_priority(SystemHandler::PendSV, config::PENDSV_PRIORITY);
-        cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
+
+        // Cortex-M0 Port: Delete
+        // cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
     }
 
-    cp.SCB.enable_fpu();
+    // Cortex-M0 Port: Delete
+    // cp.SCB.enable_fpu();
 
     // Spawn the main task. The task will not be executed until we start the
     // scheduler.

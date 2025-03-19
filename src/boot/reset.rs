@@ -16,7 +16,8 @@ use crate::unwind;
 pub(super) unsafe extern "C" fn entry() -> ! {
     asm!(
         // Jump to perform memory initialization.
-        "b  {memory_init}",
+        "ldr r0, ={memory_init}",
+        "bx  r0",
         memory_init = sym memory_init,
         options(noreturn)
     );
@@ -40,24 +41,25 @@ unsafe extern "C" fn memory_init() {
 
     asm!(
         // Fill zero to `.bss` section in SRAM.
-        "ldr r0, ={sbss}",
-        "ldr r1, ={ebss}",
-        "sub r1, r1, r0",
-        "bl  {memclr}",
+        "ldr  r0, ={sbss}",
+        "ldr  r1, ={ebss}",
+        "subs r1, r1, r0",
+        "bl   {memclr}",
         // Copy the `.data` section from flash to SRAM.
-        "ldr r0, ={sdata}",
-        "ldr r1, ={sidata}",
-        "ldr r2, ={edata}",
-        "sub r2, r2, r0",
-        "bl  {memcpy}",
+        "ldr  r0, ={sdata}",
+        "ldr  r1, ={sidata}",
+        "ldr  r2, ={edata}",
+        "subs r2, r2, r0",
+        "bl   {memcpy}",
         // Fill 0xAA to the contiguous stack region. Will help us diagnose
         // stack overflow.
-        "mov r0, #0x20000000",
-        "mov r1, #0xAA",
-        "ldr r2, ={cont_stk_len}",
-        "bl  {memset}",
+        "ldr  r0, =0x20000000",
+        "movs r1, #0xAA",
+        "ldr  r2, ={cont_stk_len}",
+        "bl   {memset}",
         // Next, perform TLS area initialization.
-        "b  {tls_init}",
+        "ldr  r0, ={tls_init}",
+        "bx   r0",
         sbss = sym __sbss,
         ebss = sym __ebss,
         sdata = sym __sdata,
@@ -79,15 +81,16 @@ unsafe extern "C" fn tls_init() {
         // Setting the task local storage (TLS) area.
         // See `task::TaskLocalStorage` for details.
         // Set the `stklet_bound` field.
-        "ldr r1, ={cont_stk_boundary}",
-        "ldr r0, ={stklet_boundary_mem_addr}",
-        "str r1, [r0]",
+        "ldr  r1, ={cont_stk_boundary}",
+        "ldr  r0, ={stklet_boundary_mem_addr}",
+        "str  r1, [r0]",
         // Set the `nested_drop_cnt` and `unwind_pending` field.
-        "mov r1, #0",
-        "str r1, [r0, #4]",
-        "str r1, [r0, #8]",
+        "movs r1, #0",
+        "str  r1, [r0, #4]",
+        "str  r1, [r0, #8]",
         // Next, perform deferred forced unwinding initialization.
-        "b  {deferred_unwind_init}",
+        "ldr  r0, ={deferred_unwind_init}",
+        "bx   r0",
         cont_stk_boundary = const config::__CONTIGUOUS_STACK_BOUNDARY,
         stklet_boundary_mem_addr = const config::__TLS_MEM_ADDR,
         deferred_unwind_init = sym deferred_unwind_init,
@@ -102,11 +105,15 @@ unsafe extern "C" fn deferred_unwind_init() {
     asm!(
         // Set the function pointer for deferred forced unwinding. See
         // `unwind::forced` for details.
-        "ldr r1, ={deferred_unwind}",
-        "str r1, [r0, #12]",
-        "mov lr, #0",
+        "ldr  r0, ={stklet_boundary_mem_addr}",
+        "ldr  r1, ={deferred_unwind}",
+        "str  r1, [r0, #12]",
+        "movs r1, #0",
+        "mov  lr, r1",
         // Call into Rust code.
-        "b  {system_start}",
+        "ldr  r0, ={system_start}",
+        "bx   r0",
+        stklet_boundary_mem_addr = const config::__TLS_MEM_ADDR,
         deferred_unwind = sym unwind::forced::deferred_unwind,
         system_start = sym system_init::system_start,
         options(noreturn)
@@ -118,7 +125,8 @@ unsafe extern "C" fn deferred_unwind_init() {
 unsafe extern "C" fn deferred_unwind_init() {
     asm!(
         // Call into Rust code when unwinding is not enabled.
-        "b  {system_start}",
+        "ldr  r0, ={system_start}",
+        "bx   r0",
         system_start = sym system_init::system_start,
         options(noreturn)
     )

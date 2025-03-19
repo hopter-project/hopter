@@ -58,7 +58,8 @@ use core::arch::asm;
 pub(crate) extern "C" fn diverted_unwind() {
     unsafe {
         asm!(
-            "b {start_unwind_entry}",
+            "ldr r0, ={start_unwind_entry}",
+            "bx  r0",
             start_unwind_entry = sym unwind::start_unwind_entry,
             options(noreturn)
         )
@@ -72,12 +73,13 @@ pub(crate) extern "C" fn deferred_unwind() {
     unsafe {
         asm!(
             // Clear the deferred unwinding pending flag.
-            "mov r0, #0",
-            "ldr r1, ={tls_mem_addr}",
-            "str r0, [r1, #4]",
-            "str r0, [r1, #8]",
+            "movs r0, #0",
+            "ldr  r1, ={tls_mem_addr}",
+            "str  r0, [r1, #4]",
+            "str  r0, [r1, #8]",
             // Jump to the entry point to start unwinding.
-            "b {start_unwind_entry}",
+            "ldr  r2, ={start_unwind_entry}",
+            "bx   r2",
             tls_mem_addr = const config::__TLS_MEM_ADDR,
             start_unwind_entry = sym unwind::start_unwind_entry,
             options(noreturn)

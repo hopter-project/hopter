@@ -1,8 +1,5 @@
-use crate::{config, schedule::scheduler::Scheduler, sync::Holdable};
-use core::{
-    marker::PhantomData,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use crate::sync::Holdable;
+use core::marker::PhantomData;
 
 /// This trait allows masking an interrupt or interrupts. Normally, the
 /// implementation of this trait should be generated automatically by using
@@ -51,76 +48,6 @@ pub trait MaskableIrq {
     {
         Self::__disable_recursive();
         HeldInterrupt::new()
-    }
-}
-
-/// The mask count for `AllIrqExceptSvc`.
-static ALL_IRQ_MASK_CNT: AtomicUsize = AtomicUsize::new(0);
-
-/// Representing all IRQs except SVC.
-///
-/// This is defined for application programmers' convenience to allow them mask
-/// out all interrupts. Hopter's kernel never masks interrupt.
-///
-/// Important: When all IRQs are masked, the scheduler is also suspended.
-pub struct AllIrqExceptSvc;
-
-impl MaskableIrq for AllIrqExceptSvc {
-    fn __disable_recursive() {
-        // Suspend the scheduler. Forget the suspend guard to ensure that the
-        // scheduler remains being suspended while all IRQs are being masked.
-        //
-        // Internally the scheduler also maintains a suspend counter. `hold()`
-        // increments the counter by 1. By not dropping the guard, we prevent
-        // the counter from being automatically decremented. We will manually
-        // decrement the counter in `__enable_recursive()`.
-        let sched_guard = Scheduler::hold();
-        core::mem::forget(sched_guard);
-
-        // Elevate the `BASEPRI` priority. This effectively masks out all
-        // IRQs which all have priority 32 except SVC which has the highest
-        // priority 0.
-        unsafe {
-            cortex_m::Peripherals::steal().SCB.set_priority(
-                cortex_m::peripheral::scb::SystemHandler::SVCall,
-                config::SVC_RAISED_PRIORITY,
-            );
-            cortex_m::register::basepri::write(config::IRQ_DISABLE_BASEPRI_PRIORITY);
-        }
-
-        // Increase the mask count.
-        // This operation wraps around on overflow.
-        let prev_cnt = ALL_IRQ_MASK_CNT.fetch_add(1, Ordering::SeqCst);
-
-        // Panic if it overflows.
-        assert!(prev_cnt < usize::MAX)
-    }
-
-    unsafe fn __enable_recursive() {
-        // Decrease the mask count.
-        let prev_cnt = ALL_IRQ_MASK_CNT.fetch_sub(1, Ordering::SeqCst);
-
-        // Panic if it underflows.
-        assert!(prev_cnt > 0);
-
-        // If the mask count reaches zero, decrease the `BASEPRI` priority to 64,
-        // which effectively enables all IRQs which all have priority 32 or up.
-        if prev_cnt == 1 {
-            unsafe {
-                cortex_m::register::basepri::write(config::IRQ_ENABLE_BASEPRI_PRIORITY);
-                cortex_m::Peripherals::steal().SCB.set_priority(
-                    cortex_m::peripheral::scb::SystemHandler::SVCall,
-                    config::SVC_NORMAL_PRIORITY,
-                );
-            }
-        }
-
-        // Safety: We incremented the scheduler suspend counter in
-        // `__disable_recursive()` and forgot the suspend guard. Now we
-        // manually decrement the suspend counter and resume the scheduler.
-        unsafe {
-            Scheduler::force_unhold();
-        }
     }
 }
 

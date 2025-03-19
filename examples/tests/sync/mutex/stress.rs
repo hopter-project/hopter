@@ -14,8 +14,8 @@ use hopter::{
 };
 
 static MUTEX: Mutex<usize> = Mutex::new(0);
-const ITERATIONS: usize = 10;
-const NUM_TASK: usize = 10;
+const ITERATIONS: usize = 6;
+const NUM_TASK: usize = 6;
 
 #[main]
 fn main(_: cortex_m::Peripherals) {

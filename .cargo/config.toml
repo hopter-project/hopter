@@ -1,5 +1,5 @@
-[target.thumbv7em-none-eabihf]
-runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
+[target.thumbv6m-none-eabi]
+runner = "qemu-system-arm -machine microbit -nographic -semihosting-config enable=on,target=native -kernel"
 
 rustflags = [
   # This is needed if your flash or ram addresses are not aligned to 0x10000 in memory.x
@@ -18,8 +18,9 @@ rustflags = [
 build-std = ["core", "alloc"]
 
 [build]
-target = "thumbv7em-none-eabihf"     # Cortex-M4F and Cortex-M7F (with FPU)
+target = "thumbv6m-none-eabi"     # Cortex-M4F and Cortex-M7F (with FPU)
 
 [profile.release]
 opt-level = 3
 lto = "fat"
+debug = true

@@ -95,6 +95,7 @@ extern "C" {
     fn SysTick();
 }
 
+mod stm32f072;
 mod stm32f401;
 mod stm32f405;
 mod stm32f407;

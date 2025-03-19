@@ -19,11 +19,13 @@ use core::arch::asm;
 #[naked]
 pub(super) unsafe extern "C" fn memset(ptr: *mut u8, val: u8, cnt: u32) {
     asm!(
-        "cbz  r2, 1f",
+        "cmp  r2, #0",
+        "beq  1f",
         "mov  r3, r0",
         "0:",
+        "strb r1, [r3]",
+        "adds r3, #1",
         "subs r2, #1",
-        "strb r1, [r3], #1",
         "bne  0b",
         "1:",
         "bx   lr",
@@ -47,7 +49,8 @@ pub(super) unsafe extern "C" fn memclr(ptr: *mut u8, cnt: u32) {
 #[naked]
 pub(super) unsafe extern "C" fn memcpy(dst: *mut u8, src: *const u8, cnt: u32) {
     asm!(
-        "cbz  r2, 1f",
+        "cmp  r2, #0",
+        "beq  1f",
         "0:",
         "subs r2, #1",
         "ldrb r3, [r1, r2]",
@@ -63,12 +66,15 @@ pub(super) unsafe extern "C" fn memcpy(dst: *mut u8, src: *const u8, cnt: u32) {
 #[naked]
 pub(super) unsafe extern "C" fn memcpy_fwd(dst: *mut u8, src: *const u8, cnt: u32) {
     asm!(
-        "cbz  r2, 1f",
+        "cmp  r2, #0",
+        "beq  1f",
         "mov  r12, r0",
         "adds r2, r0",
         "0:",
-        "ldrb r3, [r1], #1",
-        "strb r3, [r0], #1",
+        "ldrb r3, [r1]",
+        "adds r1, #1",
+        "strb r3, [r0]",
+        "adds r0, #1",
         "cmp  r2, r0",
         "bne  0b",
         "mov  r0, r12",

@@ -136,28 +136,23 @@ impl Scheduler {
             // Run the idle task.
             asm!(
                 // Set the idle task's stack pointer.
-                "msr psp, r0",
+                "msr  psp, r0",
                 // Set the idle task's TLS fields.
-                "ldr r0, ={tls_mem_addr}",
-                "str r1, [r0]",
-                "mov r1, #0",
-                "str r1, [r0, #4]",
-                "str r1, [r0, #8]",
+                "ldr  r0, ={tls_mem_addr}",
+                "str  r1, [r0]",
+                "movs r1, #0",
+                "str  r1, [r0, #4]",
+                "str  r1, [r0, #8]",
                 // Start to use PSP instead of MSP.
                 // PSP is for running tasks.
                 // MSP is for the kernel.
-                "mrs r0, control",
-                "orr r0, #2",
-                "msr control, r0",
+                "mrs  r0, control",
+                "movs r1, #2",
+                "orrs r0, r1",
+                "msr  control, r0",
                 // Let MSP point to the kernel stack bottom.
-                "ldr r0, ={kern_stk_bottom}",
-                "msr msp, r0",
-                // Execute a floating point instruction, so that the CPU will
-                // have the internal floating point context bit set, and later
-                // upon SVC the CPU will push a trap frame with floating point
-                // registers. Just enabling FPU is NOT enough for the CPU to
-                // push floating point registers upon exception.
-                "vmov.f32 s0, s0",
+                "ldr  r0, ={kern_stk_bottom}",
+                "msr  msp, r0",
                 // With the stack pointer and boundary updated, now the code
                 // runs in the idle task's context. Jump to the idle task entry.
                 "b {idle_task}",

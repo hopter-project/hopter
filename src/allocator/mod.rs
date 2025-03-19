@@ -50,7 +50,7 @@ impl Allocator {
     }
 
     /// Allocate memory when running in the kernel, i.e., handler mode.
-    fn kernel_malloc(&self, size: usize) -> *mut u8 {
+    extern "C" fn kernel_malloc(&self, size: usize) -> *mut u8 {
         die_if_not_in_svc();
 
         // Make sure the heap is initialized.
@@ -80,7 +80,7 @@ impl Allocator {
     }
 
     /// Free memory when running in the kernel, i.e., handler mode.
-    fn kernel_free(&self, ptr: *mut u8) {
+    extern "C" fn kernel_free(&self, ptr: *mut u8) {
         die_if_not_in_svc_or_pendsv();
 
         // Make sure the heap is initialized.
@@ -104,11 +104,17 @@ impl Allocator {
     extern "C" fn alloc_impl(&self, size: usize) -> *mut u8 {
         unsafe {
             asm!(
-                "mrs  r12, CONTROL",
-                "ands r12, r12, #2",
-                "beq  {kernel_malloc}",
+                "push {{lr}}",
+                "mrs  r2, CONTROL",
+                "movs r3, #2",
+                "ands r2, r3",
+                "bne  0f",
+                "bl   {kernel_malloc}",
+                "pop  {{pc}}",
+                "0:",
                 "mov  r0, r1",
-                "b    {task_malloc}",
+                "bl   {task_malloc}",
+                "pop  {{pc}}",
                 kernel_malloc = sym Allocator::kernel_malloc,
                 task_malloc = sym svc::svc_malloc,
                 options(noreturn)
@@ -123,11 +129,17 @@ impl Allocator {
     extern "C" fn free_impl(&self, ptr: *mut u8) {
         unsafe {
             asm!(
-                "mrs  r12, CONTROL",
-                "ands r12, r12, #2",
-                "beq  {kernel_free}",
+                "push {{lr}}",
+                "mrs  r2, CONTROL",
+                "movs r3, #2",
+                "ands r2, r3",
+                "bne  0f",
+                "bl   {kernel_free}",
+                "pop  {{pc}}",
+                "0:",
                 "mov  r0, r1",
-                "b    {task_free}",
+                "bl   {task_free}",
+                "pop  {{pc}}",
                 kernel_free = sym Allocator::kernel_free,
                 task_free = sym svc::svc_free,
                 options(noreturn)

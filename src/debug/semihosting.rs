@@ -16,7 +16,7 @@
 //!
 //! Original license: <https://opensource.org/license/mit>
 
-use crate::{interrupt::mask::AllIrqExceptSvc, sync::SpinSchedIrqSafe};
+use crate::sync::SpinSchedSafe;
 use core::fmt::{self, Write};
 use cortex_m_semihosting::{
     debug,
@@ -32,7 +32,7 @@ pub fn terminate(success: bool) -> ! {
     loop {}
 }
 
-static HSTDOUT: SpinSchedIrqSafe<Option<HostStream>, AllIrqExceptSvc> = SpinSchedIrqSafe::new(None);
+static HSTDOUT: SpinSchedSafe<Option<HostStream>> = SpinSchedSafe::new(None);
 
 pub fn hstdout_str(s: &str) {
     let mut hstdout = HSTDOUT.lock_now_or_die();
@@ -52,7 +52,7 @@ pub fn hstdout_fmt(args: fmt::Arguments) {
     let _ = hstdout.as_mut().unwrap().write_fmt(args).map_err(drop);
 }
 
-static HSTDERR: SpinSchedIrqSafe<Option<HostStream>, AllIrqExceptSvc> = SpinSchedIrqSafe::new(None);
+static HSTDERR: SpinSchedSafe<Option<HostStream>> = SpinSchedSafe::new(None);
 
 pub fn hstderr_str(s: &str) {
     let mut hstderr = HSTDERR.lock_now_or_die();

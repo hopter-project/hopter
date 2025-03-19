@@ -55,28 +55,6 @@ struct CalleeSavedGPRegs {
     r11: u32,
 }
 
-#[repr(C)]
-#[derive(Default)]
-/// Callee-saved floating point registers on Cortex-M.
-struct CalleeSavedFPRegs {
-    s16: u32,
-    s17: u32,
-    s18: u32,
-    s19: u32,
-    s20: u32,
-    s21: u32,
-    s22: u32,
-    s23: u32,
-    s24: u32,
-    s25: u32,
-    s26: u32,
-    s27: u32,
-    s28: u32,
-    s29: u32,
-    s30: u32,
-    s31: u32,
-}
-
 /// The task local storage to support the segmented stack and deferred panic.
 #[repr(C)]
 #[derive(Default)]
@@ -110,8 +88,6 @@ pub(crate) struct TaskCtxt {
     sp: u32,
     /// Preserved callee-saved general purpose registers.
     gp_regs: CalleeSavedGPRegs,
-    /// Preserved callee-saved floating point registers.
-    fp_regs: CalleeSavedFPRegs,
 }
 
 /// Representing the configuration of a task's stack.
