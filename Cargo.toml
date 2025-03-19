@@ -77,8 +77,8 @@ default-features = false
 features = ["alloc"]
 
 [dependencies.hopter_proc_macro]
-# version = "0.2.2"
-path = "../hopter-procedural-macro"
+git = "https://github.com/hopter-project/hopter-procedural-macro.git"
+branch = "armv6-port"
 
 [dependencies.hopter_conf_params]
 version = "0.2.0"
