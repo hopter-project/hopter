@@ -16,7 +16,11 @@
 //!
 //! Original license: <https://opensource.org/license/mit>
 
+#[cfg(armv6m)]
+use crate::sync::SpinSchedSafe;
+#[cfg(not(armv6m))]
 use crate::{interrupt::mask::AllIrqExceptSvc, sync::SpinSchedIrqSafe};
+
 use core::fmt::{self, Write};
 use cortex_m_semihosting::{
     debug,
@@ -32,7 +36,10 @@ pub fn terminate(success: bool) -> ! {
     loop {}
 }
 
+#[cfg(not(armv6m))]
 static HSTDOUT: SpinSchedIrqSafe<Option<HostStream>, AllIrqExceptSvc> = SpinSchedIrqSafe::new(None);
+#[cfg(armv6m)]
+static HSTDOUT: SpinSchedSafe<Option<HostStream>> = SpinSchedSafe::new(None);
 
 pub fn hstdout_str(s: &str) {
     let mut hstdout = HSTDOUT.lock_now_or_die();
@@ -52,7 +59,10 @@ pub fn hstdout_fmt(args: fmt::Arguments) {
     let _ = hstdout.as_mut().unwrap().write_fmt(args).map_err(drop);
 }
 
+#[cfg(not(armv6m))]
 static HSTDERR: SpinSchedIrqSafe<Option<HostStream>, AllIrqExceptSvc> = SpinSchedIrqSafe::new(None);
+#[cfg(armv6m)]
+static HSTDERR: SpinSchedSafe<Option<HostStream>> = SpinSchedSafe::new(None);
 
 pub fn hstderr_str(s: &str) {
     let mut hstderr = HSTDERR.lock_now_or_die();
@@ -76,6 +86,11 @@ pub fn hstderr_fmt(args: fmt::Arguments) {
 ///
 /// This is similar to the `print!` macro in the standard library. Both will panic on any failure to
 /// print.
+/// 
+/// DEADLOCK WARNING: The internal implementation acquires a spin lock with the scheduler diabled.
+/// Interrupts are also disabled only on ARMv7em architectures but not on ARMv6m. Consequently,
+/// deadlock may occur on ARMv6m in the following case: While a task is printing through semihosting,
+/// an interrupt handler is invoked and also tries to print, resulting in a deadlock on the spin lock.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __macro_impl_dbg_print {
@@ -91,6 +106,11 @@ macro_rules! __macro_impl_dbg_print {
 ///
 /// This is similar to the `println!` macro in the standard library. Both will panic on any failure to
 /// print.
+/// 
+/// DEADLOCK WARNING: The internal implementation acquires a spin lock with the scheduler diabled.
+/// Interrupts are also disabled only on ARMv7em architectures but not on ARMv6m. Consequently,
+/// deadlock may occur on ARMv6m in the following case: While a task is printing through semihosting,
+/// an interrupt handler is invoked and also tries to print, resulting in a deadlock on the spin lock.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __macro_impl_dbg_println {
@@ -109,6 +129,11 @@ macro_rules! __macro_impl_dbg_println {
 ///
 /// This is similar to the `eprint!` macro in the standard library. Both will panic on any failure
 /// to print.
+/// 
+/// DEADLOCK WARNING: The internal implementation acquires a spin lock with the scheduler diabled.
+/// Interrupts are also disabled only on ARMv7em architectures but not on ARMv6m. Consequently,
+/// deadlock may occur on ARMv6m in the following case: While a task is printing through semihosting,
+/// an interrupt handler is invoked and also tries to print, resulting in a deadlock on the spin lock.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __macro_impl_dbg_eprint {
@@ -124,6 +149,11 @@ macro_rules! __macro_impl_dbg_eprint {
 ///
 /// This is similar to the `eprintln!` macro in the standard library. Both will panic on any failure
 /// to print.
+/// 
+/// DEADLOCK WARNING: The internal implementation acquires a spin lock with the scheduler diabled.
+/// Interrupts are also disabled only on ARMv7em architectures but not on ARMv6m. Consequently,
+/// deadlock may occur on ARMv6m in the following case: While a task is printing through semihosting,
+/// an interrupt handler is invoked and also tries to print, resulting in a deadlock on the spin lock.
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __macro_impl_dbg_eprintln {

@@ -55,6 +55,7 @@ struct CalleeSavedGPRegs {
     r11: u32,
 }
 
+#[cfg(armv7em)]
 #[repr(C)]
 #[derive(Default)]
 /// Callee-saved floating point registers on Cortex-M.
@@ -111,6 +112,7 @@ pub(crate) struct TaskCtxt {
     /// Preserved callee-saved general purpose registers.
     gp_regs: CalleeSavedGPRegs,
     /// Preserved callee-saved floating point registers.
+    #[cfg(armv7em)]
     fp_regs: CalleeSavedFPRegs,
 }
 

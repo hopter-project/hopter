@@ -4,9 +4,16 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() {
+    let target = env::var("TARGET").unwrap();
+
     println!("cargo:rustc-check-cfg=cfg(armv6m)");
-    println!("cargo:rustc-check-cfg=cfg(armv7m)");
-    println!("cargo:rustc-check-cfg=cfg(armv8m)");
+    println!("cargo:rustc-check-cfg=cfg(armv7em)");
+
+    if target.starts_with("thumbv6m-") {
+        println!("cargo:rustc-cfg=armv6m");
+    } else if target.starts_with("thumbv7em-") {
+        println!("cargo:rustc-cfg=armv7em");
+    }
 
     // Write the link script to the crate output directory.
     let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());

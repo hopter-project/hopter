@@ -1,8 +1,10 @@
-use crate::{config, schedule::scheduler::Scheduler, sync::Holdable};
-use core::{
-    marker::PhantomData,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+#[cfg(not(armv6m))]
+use crate::{config, schedule::scheduler::Scheduler};
+#[cfg(not(armv6m))]
+use core::sync::atomic::{AtomicUsize, Ordering};
+
+use crate::sync::Holdable;
+use core::marker::PhantomData;
 
 /// This trait allows masking an interrupt or interrupts. Normally, the
 /// implementation of this trait should be generated automatically by using
@@ -55,6 +57,7 @@ pub trait MaskableIrq {
 }
 
 /// The mask count for `AllIrqExceptSvc`.
+#[cfg(not(armv6m))]
 static ALL_IRQ_MASK_CNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Representing all IRQs except SVC.
@@ -63,8 +66,10 @@ static ALL_IRQ_MASK_CNT: AtomicUsize = AtomicUsize::new(0);
 /// out all interrupts. Hopter's kernel never masks interrupt.
 ///
 /// Important: When all IRQs are masked, the scheduler is also suspended.
+#[cfg(not(armv6m))]
 pub struct AllIrqExceptSvc;
 
+#[cfg(not(armv6m))]
 impl MaskableIrq for AllIrqExceptSvc {
     fn __disable_recursive() {
         // Suspend the scheduler. Forget the suspend guard to ensure that the

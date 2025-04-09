@@ -71,6 +71,7 @@ pub(crate) struct TaskSVCCtxt {
 /// IRQ, because it saves some extra context in order to allocate or free
 /// stacklets. The SVC always exception returns to the calling task. PendSV
 /// performs context switch instead.
+#[cfg(armv7em)]
 #[export_name = "SVCall"]
 #[allow(unused)]
 #[naked]
@@ -113,6 +114,64 @@ unsafe extern "C" fn svc_entry() {
         "stmia    r12, {{r1-r3}}",
         // Exception return.
         "bx       lr",
+        tls_mem_addr = const config::__TLS_MEM_ADDR,
+        kern_stk_boundary = const config::__CONTIGUOUS_STACK_BOUNDARY,
+        svc_handler = sym svc_handler,
+        die = sym unrecoverable::die,
+        options(noreturn)
+    )
+}
+
+/// The interrupt entry function for SVC. The SVC handling is slower than other
+/// IRQ, because it saves some extra context in order to allocate or free
+/// stacklets. The SVC always exception returns to the calling task. PendSV
+/// performs context switch instead.
+#[cfg(armv6m)]
+#[export_name = "SVCall"]
+#[allow(unused)]
+#[naked]
+unsafe extern "C" fn svc_entry() {
+    asm!(
+        // Make sure SVC is invoked from thread mode, was using process stack
+        // pointer, and the floating point registers s0-s15 were pushed in the
+        // trap frame.
+        "mov      r0, lr",
+        "ldr      r1, =0xfffffffd",
+        "cmp      r0, r1",
+        "beq      0f",
+        "bl       {die}",
+        "0:",
+        // Read task's stack pointer into `r0`, which is pointing the trap
+        // frame, and which will become the first argument to the SVC handler.
+        "mrs      r0, psp",
+        // Preserve `r4`.
+        "push     {{r4}}",
+        // Read the task local storage fields into `r1-r3`.
+        "ldr      r4, ={tls_mem_addr}",
+        "ldmia    r4!, {{r1-r3}}",
+        // Preserve the stack pointer, the TLS, and the exception return value.
+        // They become the `TaskSVCCtxt` struct.
+        "push     {{r0-r3, lr}}",
+        // Update the stacklet boundary to the kernel's boundary and zero out
+        // other fields in the TLS.
+        "ldr      r1, ={kern_stk_boundary}",
+        "movs     r2, #0",
+        "movs     r3, #0",
+        "ldr      r4, ={tls_mem_addr}",
+        "stmia    r4!, {{r1-r3}}",
+        // Load the pointer to the `TaskSVCCtxt` struct into `r1`, which
+        // becomes the second argument to the SVC handler.
+        "mov      r1, sp",
+        // Call the SVC handler.
+        "bl       {svc_handler}",
+        // Restore the stack pointer and TLS of the current task.
+        "pop      {{r0-r3}}",
+        "msr      psp, r0",
+        "ldr      r4, ={tls_mem_addr}",
+        "stmia    r4!, {{r1-r3}}",
+        // Exception return.
+        "pop      {{r0,r4}}",
+        "bx       r0",
         tls_mem_addr = const config::__TLS_MEM_ADDR,
         kern_stk_boundary = const config::__CONTIGUOUS_STACK_BOUNDARY,
         svc_handler = sym svc_handler,

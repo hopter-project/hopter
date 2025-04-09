@@ -17,18 +17,39 @@ unwind_print_trace = ["unwind"]
 # Verbose stack unwinder execution log message.
 unwind_debug = ["unwind"]
 
+# Supported boards in STM32F0 family.
+stm32f030 = ["hopter_proc_macro/stm32f030"]
+stm32f030x4 = ["hopter_proc_macro/stm32f030x4"]
+stm32f030x6 = ["hopter_proc_macro/stm32f030x6"]
+stm32f030x8 = ["hopter_proc_macro/stm32f030x8"]
+stm32f030xc = ["hopter_proc_macro/stm32f030xc"]
+stm32f031 = ["hopter_proc_macro/stm32f031"]
+stm32f038 = ["hopter_proc_macro/stm32f038"]
+stm32f042 = ["hopter_proc_macro/stm32f042"]
+stm32f048 = ["hopter_proc_macro/stm32f048"]
+stm32f051 = ["hopter_proc_macro/stm32f051"]
+stm32f058 = ["hopter_proc_macro/stm32f058"]
+stm32f070 = ["hopter_proc_macro/stm32f070"]
+stm32f070x6 = ["hopter_proc_macro/stm32f070x6"]
+stm32f070xb = ["hopter_proc_macro/stm32f070xb"]
+stm32f071 = ["hopter_proc_macro/stm32f071"]
+stm32f072 = ["hopter_proc_macro/stm32f072"]
+stm32f078 = ["hopter_proc_macro/stm32f078"]
+stm32f091 = ["hopter_proc_macro/stm32f091"]
+stm32f098 = ["hopter_proc_macro/stm32f098"]
+
 # Supported boards in STM32F4 family.
-stm32f401 = ["hopter_proc_macro/stm32f401", "stm32f4xx-hal/stm32f401"]
-stm32f405 = ["hopter_proc_macro/stm32f405", "stm32f4xx-hal/stm32f405"]
-stm32f407 = ["hopter_proc_macro/stm32f407", "stm32f4xx-hal/stm32f407"]
-stm32f410 = ["hopter_proc_macro/stm32f410", "stm32f4xx-hal/stm32f410"]
-stm32f411 = ["hopter_proc_macro/stm32f411", "stm32f4xx-hal/stm32f411"]
-stm32f412 = ["hopter_proc_macro/stm32f412", "stm32f4xx-hal/stm32f412"]
-stm32f413 = ["hopter_proc_macro/stm32f413", "stm32f4xx-hal/stm32f413"]
-stm32f427 = ["hopter_proc_macro/stm32f427", "stm32f4xx-hal/stm32f427"]
-stm32f429 = ["hopter_proc_macro/stm32f429", "stm32f4xx-hal/stm32f429"]
-stm32f446 = ["hopter_proc_macro/stm32f446", "stm32f4xx-hal/stm32f446"]
-stm32f469 = ["hopter_proc_macro/stm32f469", "stm32f4xx-hal/stm32f469"]
+stm32f401 = ["hopter_proc_macro/stm32f401"]
+stm32f405 = ["hopter_proc_macro/stm32f405"]
+stm32f407 = ["hopter_proc_macro/stm32f407"]
+stm32f410 = ["hopter_proc_macro/stm32f410"]
+stm32f411 = ["hopter_proc_macro/stm32f411"]
+stm32f412 = ["hopter_proc_macro/stm32f412"]
+stm32f413 = ["hopter_proc_macro/stm32f413"]
+stm32f427 = ["hopter_proc_macro/stm32f427"]
+stm32f429 = ["hopter_proc_macro/stm32f429"]
+stm32f446 = ["hopter_proc_macro/stm32f446"]
+stm32f469 = ["hopter_proc_macro/stm32f469"]
 
 # Used for testing with GitHub workflow and locally with QEMU.
 qemu = ["stm32f405"]
@@ -48,7 +69,7 @@ default-features = false
 features = ["alloc"]
 
 [dependencies.hopter_proc_macro]
-version = "0.2.2"
+version = "0.2.3"
 
 [dependencies.hopter_conf_params]
 version = "0.2.0"
@@ -82,6 +103,12 @@ nb = "1.1"
 [dev-dependencies.stm32f4xx-hal]
 version = "0.21.0"
 default-features = false
+features = ["stm32f405"]
+
+[dev-dependencies.stm32f0xx-hal]
+version = "0.18.0"
+default-features = false
+features = ["stm32f072"]
 
 [package.metadata.docs.rs]
 targets = ["thumbv7em-none-eabihf"]

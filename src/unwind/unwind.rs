@@ -562,14 +562,17 @@ impl UnwindState<'static> {
         unw_state.gp_regs[ARMGPReg::PC] = init_ctxt.lr - 2;
 
         // Also for floating point registers.
-        unw_state.dpfp_regs[ARMDPFPReg::D8] = init_ctxt.d8;
-        unw_state.dpfp_regs[ARMDPFPReg::D9] = init_ctxt.d9;
-        unw_state.dpfp_regs[ARMDPFPReg::D10] = init_ctxt.d10;
-        unw_state.dpfp_regs[ARMDPFPReg::D11] = init_ctxt.d11;
-        unw_state.dpfp_regs[ARMDPFPReg::D12] = init_ctxt.d12;
-        unw_state.dpfp_regs[ARMDPFPReg::D13] = init_ctxt.d13;
-        unw_state.dpfp_regs[ARMDPFPReg::D14] = init_ctxt.d14;
-        unw_state.dpfp_regs[ARMDPFPReg::D15] = init_ctxt.d15;
+        #[cfg(armv7em)]
+        {
+            unw_state.dpfp_regs[ARMDPFPReg::D8] = init_ctxt.d8;
+            unw_state.dpfp_regs[ARMDPFPReg::D9] = init_ctxt.d9;
+            unw_state.dpfp_regs[ARMDPFPReg::D10] = init_ctxt.d10;
+            unw_state.dpfp_regs[ARMDPFPReg::D11] = init_ctxt.d11;
+            unw_state.dpfp_regs[ARMDPFPReg::D12] = init_ctxt.d12;
+            unw_state.dpfp_regs[ARMDPFPReg::D13] = init_ctxt.d13;
+            unw_state.dpfp_regs[ARMDPFPReg::D14] = init_ctxt.d14;
+            unw_state.dpfp_regs[ARMDPFPReg::D15] = init_ctxt.d15;
+        }
 
         // Find the unwind ability for the last function before
         // the unwinder is invoked.
@@ -803,17 +806,26 @@ struct UnwindInitContext {
     before_unwind_stklet_bound: u32,
     /// The boundary of the stacklet that the unwinder is running with.
     unwinder_stklet_bound: u32,
+    #[cfg(armv7em)]
     d8: u64,
+    #[cfg(armv7em)]
     d9: u64,
+    #[cfg(armv7em)]
     d10: u64,
+    #[cfg(armv7em)]
     d11: u64,
+    #[cfg(armv7em)]
     d12: u64,
+    #[cfg(armv7em)]
     d13: u64,
+    #[cfg(armv7em)]
     d14: u64,
+    #[cfg(armv7em)]
     d15: u64,
 }
 
 /// Prepare the initial unwinding context and jump to `start_unwind()`.
+#[cfg(armv7em)]
 #[naked]
 pub extern "C" fn start_unwind_entry() {
     unsafe {
@@ -887,6 +899,104 @@ pub extern "C" fn start_unwind_entry() {
             // the landing address.
             "1:",
             "ldr    sp, [r2, #32]",         // Restore the stack pointer.
+            "bx     r1",                    // Jump to the landing address.
+            create_unwind_state = sym UnwindState::create_unwind_state,
+            resume_unwind = sym resume_unwind,
+            tls_mem_addr = const config::__TLS_MEM_ADDR,
+            task_unwind_prep = const(SVCNum::TaskUnwindPrepare as u8),
+            task_unwind_land = const(SVCNum::TaskUnwindLand as u8),
+            options(noreturn)
+        )
+    }
+}
+
+/// Prepare the initial unwinding context and jump to `start_unwind()`.
+#[cfg(armv6m)]
+#[naked]
+pub extern "C" fn start_unwind_entry() {
+    unsafe {
+        asm!(
+            // Preserve some registers, because `lr` and `sp` will be overwritten
+            // after the following SVC.
+            "mov    r0, lr",                // Copy `lr` to `r0`.
+            "mov    r1, sp",                // Copy `sp` to `r1`.
+            "ldr    r2, ={tls_mem_addr}",   // Let `r2` hold the stacklet boundary of the
+            "ldr    r2, [r2]",              // task before the unwinder in invoked.
+
+            // If we are in an ISR, skip the following SVC, because we need not a new
+            // stacklet since the code is already running in the contiguous stack.
+            "mrs    r3, ipsr",              // Read the active ISR number.
+            "cmp    r3, #0",
+            "bne    0f",                    // If non-zero, an ISR is active. Skip the SVC.
+
+            // Allocate the initial stacklet for the unwinder.
+            "svc    {task_unwind_prep}",    // Allocate a new stacklet for unwinder.
+                                            // All registers will be preserved except
+                                            // `sp` and `lr`.
+            ".short 512",                   // Stacklet request size 2048 bytes.
+            ".short 0",                     // No stack argument.
+
+            // Prepare arguments in the stack.
+            "0:",
+            "ldr    r3, ={tls_mem_addr}",   // The execution starts here after the
+            "ldr    r3, [r3]",              // system call is completed. We save the
+                                            // boundary of the unwinder's stacklet
+                                            // into `r3`.
+
+            "push   {{r0-r3}}",             // Push `r0-r3` onto the stack. They will
+                                            // become part of the `UnwindInitContext`.
+
+            "mov    r0, r8",                // Save callee-saved registers. They will
+            "mov    r1, r9",                // become part of the `UnwindInitContext`.
+            "mov    r2, r10",
+            "mov    r3, r11",
+            "push   {{r0-r3}}",
+            "push   {{r4-r7}}",
+
+            // Prepare register arguments and create the unwind state struct.
+            "mov    r0, sp",                // Let `r0` point to `UnwindInitContext` struct.
+            "bl     {create_unwind_state}", // Call `create_unwind_state()`.
+
+            // Prepare register arguments and run the unwinder.
+            // Now `r0` contains the pointer to the unwind state struct returned above.
+            "add    sp, #32",               // Pop `UnwindInitContext`, but leave space
+                                            // of 16 bytes for `LandInfo`
+            "mov    r1, sp",                // Let `r1` point to `LandInfo` struct.
+            "bl     {resume_unwind}",
+
+            // The unwinder returns the information for landing in the `LandInfo`
+            // struct. Here we restore callee-saved registers. Later, the SVC call
+            // at the end will take care of restoring caller-saved registers.
+            "pop    {{r0-r3}}",             // Get the 4 fields of `LandInfo` into `r0-r3`.
+            "adds   r2, #20",               // Let `r2` point to `gp_regs[ARMGPReg::R8]`.
+            "ldmia  r2!, {{r4-r7}}",        // Restore `r8` to `r11`.
+            "mov    r8, r4",
+            "mov    r9, r5",
+            "mov    r10, r6",
+            "mov    r11, r7",
+            "subs   r2, #32",               // Let `r2` point to `gp_regs[ARMGPReg::R4]`.
+            "ldmia  r2!, {{r4-r7}}",        // Restore `r4` to `r7`.
+
+            // If we are in an ISR, skip the following SVC, because we need not free any
+            // stacklet since the code is already running in the contiguous stack. Also,
+            // we perform the landing directly without invoking SVC. We maintain the
+            // invariant that SVC shall not be invoked from CPU handler mode.
+            "mrs    r3, ipsr",              // Read the active ISR number.
+            "cmp    r3, #0",
+            "bne    1f",                    // If non-zero, an ISR is active. Skip the SVC.
+
+            // Invoke SVC to land if not running inside ISR.
+            "svc    {task_unwind_land}",    // Invoke SVC to jump to the landing pad.
+                                            // This SVC also frees the stacklet we allocated
+                                            // above.
+
+            // Callee-saved registers have been restored. The unwind state pointer is
+            // already in `r0`. We just need to restore the stack pointer and jump to
+            // the landing address.
+            "1:",
+            "adds   r2, #16",               // Let `r2` point to `gp_regs[ARMGPReg::SP]`.
+            "ldr    r2, [r2]",              // Restore the stack pointer.
+            "mov    sp, r2",
             "bx     r1",                    // Jump to the landing address.
             create_unwind_state = sym UnwindState::create_unwind_state,
             resume_unwind = sym resume_unwind,
@@ -1069,6 +1179,7 @@ unsafe extern "C" fn resume_unwind<'a>(
 /// The compiler automatically invokes this function at the end of
 /// each cleanup routine. The function is marked `unsafe` because it
 /// should not be invoked by any programmer's code.
+#[cfg(armv7em)]
 #[no_mangle]
 #[naked]
 #[export_name = "_Unwind_Resume"]
@@ -1117,6 +1228,76 @@ unsafe extern "C" fn unwind_resume_entry(unw_state_ptr: *mut UnwindState) -> ! {
             // the landing address.
             "1:",
             "ldr    sp, [r2, #32]",       // Restore the stack pointer.
+            "bx     r1",                  // Jump to the landing address.
+            resume_unwind = sym resume_unwind,
+            task_unwind_prep = const(SVCNum::TaskUnwindPrepare as u8),
+            task_unwind_land = const(SVCNum::TaskUnwindLand as u8),
+            options(noreturn)
+        )
+    }
+}
+
+/// The compiler automatically invokes this function at the end of
+/// each cleanup routine. The function is marked `unsafe` because it
+/// should not be invoked by any programmer's code.
+#[cfg(armv6m)]
+#[no_mangle]
+#[naked]
+#[export_name = "_Unwind_Resume"]
+unsafe extern "C" fn unwind_resume_entry(unw_state_ptr: *mut UnwindState) -> ! {
+    unsafe {
+        asm!(
+            // If we are in an ISR, skip the following SVC, because we need not a new
+            // stacklet since the code is already running in the contiguous stack.
+            "mrs    r3, ipsr",            // Read the active ISR number.
+            "cmp    r3, #0",
+            "bne    0f",                  // If non-zero, an ISR is active. Skip the SVC.
+
+            // Allocate the initial stacklet for the unwinder.
+            "svc    {task_unwind_prep}",  // Allocate a new stacklet for unwinder.
+            ".short 512",                 // Stacklet request size 2048 bytes.
+            ".short 0",                   // No stack argument.
+
+            // Prepare register arguments and call the unwinder.
+            // `r0` is holding the unwind state pointer.
+            "0:",
+            "sub    sp, #16",             // Allocate space for `LandInfo`
+            "mov    r1, sp",              // Let `r1` point to `LandInfo` struct.
+            "bl     {resume_unwind}",     // Call `resume_unwind()`
+
+            // The unwinder returns the information for landing in the `LandInfo`
+            // struct. Here we restore callee-saved registers. Later, the SVC call
+            // at the end will take care of restoring caller-saved registers.
+            "pop    {{r0-r3}}",           // Get the 4 fields of `LandInfo` into `r0-r3`.
+            "adds   r2, #20",             // Let `r2` point to `gp_regs[ARMGPReg::R8]`.
+            "ldmia  r2!, {{r4-r7}}",      // Restore `r8` to `r11`.
+            "mov    r8, r4",
+            "mov    r9, r5",
+            "mov    r10, r6",
+            "mov    r11, r7",
+            "subs   r2, #32",             // Let `r2` point to `gp_regs[ARMGPReg::R4]`.
+            "ldmia  r2!, {{r4-r7}}",      // Restore `r4` to `r7`.
+
+            // If we are in an ISR, skip the following SVC, because we need not free any
+            // stacklet since the code is already running in the contiguous stack. Also,
+            // we perform the landing directly without invoking SVC. We maintain the
+            // invariant that SVC shall not be invoked from CPU handler mode.
+            "mrs    r3, ipsr",            // Read the active ISR number.
+            "cmp    r3, #0",
+            "bne    1f",                  // If non-zero, an ISR is active. Skip the SVC.
+
+            // Invoke SVC to land if not running inside ISR.
+            "svc    {task_unwind_land}",  // Invoke SVC to jump to the landing pad.
+                                          // This SVC also frees the stacklet we allocated
+                                          // above.
+
+            // Callee-saved registers have been restored. The unwind state pointer is
+            // already in `r0`. We just need to restore the stack pointer and jump to
+            // the landing address.
+            "1:",
+            "adds   r2, #16",             // Let `r2` point to `gp_regs[ARMGPReg::SP]`.
+            "ldr    r2, [r2]",            // Restore the stack pointer.
+            "mov    sp, r2",
             "bx     r1",                  // Jump to the landing address.
             resume_unwind = sym resume_unwind,
             task_unwind_prep = const(SVCNum::TaskUnwindPrepare as u8),

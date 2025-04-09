@@ -3,6 +3,7 @@
 #[derive(Clone, Default)]
 pub(crate) struct TrapFrame {
     pub gp_regs: TrapFrameGPRegs,
+    #[cfg(armv7em)]
     pub fp_regs: TrapFrameFPRegs,
 }
 
@@ -27,6 +28,7 @@ pub(crate) struct TrapFrameGPRegs {
 
 /// The floating point registers preserved in a trap frame.
 /// The `_padding` is to ensure the whole struct is a multiple of 8 bytes.
+#[cfg(armv7em)]
 #[repr(C)]
 #[derive(Clone, Default)]
 pub(crate) struct TrapFrameFPRegs {

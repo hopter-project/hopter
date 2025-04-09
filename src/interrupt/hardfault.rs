@@ -8,18 +8,20 @@ use core::arch::asm;
 pub(crate) unsafe extern "C" fn hardfault_trampoline() {
     asm!(
         // See whether it was running with MSP or PSP before the hardfault.
-        "mov r0, lr",
-        "mov r1, #4",
-        "tst r0, r1",
-        "bne 0f",
+        "mov  r0, lr",
+        "movs r1, #4",
+        "tst  r0, r1",
+        "bne  0f",
         // Was running with MSP.
-        "mrs r0, MSP",
-        "b {hardfault_handler}",
+        "mrs  r0, MSP",
+        "ldr  r1, ={hardfault_handler}",
+        "bx   r1",
         // Was running with PSP.
         "0:",
-        "mrs r0, PSP",
+        "mrs  r0, PSP",
+        "ldr  r1, ={hardfault_handler}",
         // Jump to and loop in the hardfault handler.
-        "b {hardfault_handler}",
+        "bx   r1",
         hardfault_handler = sym hardfault_handler,
         options(noreturn)
     )

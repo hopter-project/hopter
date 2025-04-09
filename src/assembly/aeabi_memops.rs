@@ -6,8 +6,9 @@
 //! details.
 
 use super::memops;
-use core::arch::asm;
+use core::arch::{asm, global_asm};
 
+#[cfg(armv7em)]
 #[no_mangle]
 #[naked]
 unsafe extern "C" fn __aeabi_memset(ptr: *mut u8, cnt: u32, val: u8) {
@@ -21,56 +22,38 @@ unsafe extern "C" fn __aeabi_memset(ptr: *mut u8, cnt: u32, val: u8) {
     )
 }
 
+#[cfg(armv6m)]
 #[no_mangle]
 #[naked]
-unsafe extern "C" fn __aeabi_memset4(ptr: *mut u8, cnt: u32, val: u8) {
+unsafe extern "C" fn __aeabi_memset(ptr: *mut u8, cnt: u32, val: u8) {
     asm!(
-        "b {aeabi_memset}",
-        aeabi_memset = sym __aeabi_memset,
+        "mov r3, r2",
+        "mov r2, r1",
+        "mov r1, r3",
+        "ldr r3, ={memset}",
+        "bx  r3",
+        memset = sym memops::memset,
         options(noreturn)
     )
 }
 
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memset8(ptr: *mut u8, cnt: u32, val: u8) {
-    asm!(
-        "b {aeabi_memset}",
-        aeabi_memset = sym __aeabi_memset,
-        options(noreturn)
-    )
-}
+global_asm!(
+    ".global __aeabi_memset4",
+    ".set __aeabi_memset4, __aeabi_memset",
+    ".global __aeabi_memset8",
+    ".set __aeabi_memset8, __aeabi_memset",
+);
 
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memcpy(dst: *mut u8, src: *const u8, cnt: u32) {
-    asm!(
-        "b {memcpy}",
-        memcpy = sym memops::memcpy,
-        options(noreturn)
-    )
-}
+global_asm!(
+    ".global __aeabi_memcpy",
+    ".set __aeabi_memcpy, memcpy",
+    ".global __aeabi_memcpy4",
+    ".set __aeabi_memcpy4, memcpy",
+    ".global __aeabi_memcpy8",
+    ".set __aeabi_memcpy8, memcpy",
+);
 
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memcpy4(dst: *mut u8, src: *const u8, cnt: u32) {
-    asm!(
-        "b {memcpy}",
-        memcpy = sym memops::memcpy,
-        options(noreturn)
-    )
-}
-
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memcpy8(dst: *mut u8, src: *const u8, cnt: u32) {
-    asm!(
-        "b {memcpy}",
-        memcpy = sym memops::memcpy,
-        options(noreturn)
-    )
-}
-
+#[cfg(armv7em)]
 #[no_mangle]
 #[naked]
 unsafe extern "C" fn __aeabi_memclr(ptr: *mut u8, cnt: u32) {
@@ -83,56 +66,32 @@ unsafe extern "C" fn __aeabi_memclr(ptr: *mut u8, cnt: u32) {
     )
 }
 
+#[cfg(armv6m)]
 #[no_mangle]
 #[naked]
-unsafe extern "C" fn __aeabi_memclr4(ptr: *mut u8, cnt: u32) {
+unsafe extern "C" fn __aeabi_memclr(ptr: *mut u8, cnt: u32) {
     asm!(
         "mov  r2, r1",
         "eors r1, r1",
-        "b   {memset}",
+        "ldr  r3, ={memset}",
+        "bx   r3",
         memset = sym memops::memset,
         options(noreturn)
     )
 }
 
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memclr8(ptr: *mut u8, cnt: u32) {
-    asm!(
-        "mov  r2, r1",
-        "eors r1, r1",
-        "b   {memset}",
-        memset = sym memops::memset,
-        options(noreturn)
-    )
-}
+global_asm!(
+    ".global __aeabi_memclr4",
+    ".set __aeabi_memclr4, __aeabi_memclr",
+    ".global __aeabi_memclr8",
+    ".set __aeabi_memclr8, __aeabi_memclr",
+);
 
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memmove(dst: *mut u8, src: *const u8, cnt: u32) {
-    asm!(
-        "b {memmove}",
-        memmove = sym memops::memmove,
-        options(noreturn)
-    )
-}
-
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memmove4(dst: *mut u8, src: *const u8, cnt: u32) {
-    asm!(
-        "b {memmove}",
-        memmove = sym memops::memmove,
-        options(noreturn)
-    )
-}
-
-#[no_mangle]
-#[naked]
-unsafe extern "C" fn __aeabi_memmove8(dst: *mut u8, src: *const u8, cnt: u32) {
-    asm!(
-        "b {memmove}",
-        memmove = sym memops::memmove,
-        options(noreturn)
-    )
-}
+global_asm!(
+    ".global __aeabi_memmove",
+    ".set __aeabi_memmove, memmove",
+    ".global __aeabi_memmove4",
+    ".set __aeabi_memmove4, memmove",
+    ".global __aeabi_memmove8",
+    ".set __aeabi_memmove8, memmove",
+);

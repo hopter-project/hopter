@@ -43,11 +43,6 @@ pub static __HOPTER_EXCEPTIONS: [Vector; 14] = [
     #[cfg(armv6m)]
     Vector { reserved: 0 },
     // Exception 7: Secure Fault Interrupt [only on Armv8-M].
-    #[cfg(armv8m)]
-    Vector {
-        handler: SecureFault,
-    },
-    #[cfg(not(armv8m))]
     Vector { reserved: 0 },
     // 8-10: Reserved
     Vector { reserved: 0 },
@@ -82,9 +77,6 @@ extern "C" {
     #[cfg(not(armv6m))]
     fn UsageFault();
 
-    #[cfg(armv8m)]
-    fn SecureFault();
-
     fn SVCall();
 
     #[cfg(not(armv6m))]
@@ -95,6 +87,7 @@ extern "C" {
     fn SysTick();
 }
 
+mod stm32f072;
 mod stm32f401;
 mod stm32f405;
 mod stm32f407;

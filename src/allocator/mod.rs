@@ -50,7 +50,7 @@ impl Allocator {
     }
 
     /// Allocate memory when running in the kernel, i.e., handler mode.
-    fn kernel_malloc(&self, size: usize) -> *mut u8 {
+    extern "C" fn kernel_malloc(&self, size: usize) -> *mut u8 {
         die_if_not_in_svc();
 
         // Make sure the heap is initialized.
@@ -80,7 +80,7 @@ impl Allocator {
     }
 
     /// Free memory when running in the kernel, i.e., handler mode.
-    fn kernel_free(&self, ptr: *mut u8) {
+    extern "C" fn kernel_free(&self, ptr: *mut u8) {
         die_if_not_in_svc_or_pendsv();
 
         // Make sure the heap is initialized.
@@ -100,6 +100,7 @@ impl Allocator {
     /// The actual implementation for allocation. The function differentiates
     /// between running in kernel, i.e., handler mode, or in a task, i.e.,
     /// thread mode. It invokes different functions based on the mode running.
+    #[cfg(armv7em)]
     #[naked]
     extern "C" fn alloc_impl(&self, size: usize) -> *mut u8 {
         unsafe {
@@ -116,9 +117,40 @@ impl Allocator {
         }
     }
 
+    /// The actual implementation for allocation. The function differentiates
+    /// between running in kernel, i.e., handler mode, or in a task, i.e.,
+    /// thread mode. It invokes different functions based on the mode running.
+    #[cfg(armv6m)]
+    #[naked]
+    extern "C" fn alloc_impl(&self, size: usize) -> *mut u8 {
+        // With only thumb-1 instructions available, the jumping range of
+        // `b` is extremely small. We cannot perform the same tail call
+        // optimization as with thumb-2 instructions. Instead we use `bl`
+        // which has a longer jumping range.
+        unsafe {
+            asm!(
+                "push {{lr}}",
+                "mrs  r2, CONTROL",
+                "movs r3, #2",
+                "ands r2, r3",
+                "bne  0f",
+                "bl   {kernel_malloc}",
+                "pop  {{pc}}",
+                "0:",
+                "mov  r0, r1",
+                "bl   {task_malloc}",
+                "pop  {{pc}}",
+                kernel_malloc = sym Allocator::kernel_malloc,
+                task_malloc = sym svc::svc_malloc,
+                options(noreturn)
+            )
+        }
+    }
+
     /// The actual implementation for free. The function differentiates
     /// between running in kernel, i.e., handler mode, or in a task, i.e.,
     /// thread mode. It invokes different functions based on the mode running.
+    #[cfg(armv7em)]
     #[naked]
     extern "C" fn free_impl(&self, ptr: *mut u8) {
         unsafe {
@@ -128,6 +160,32 @@ impl Allocator {
                 "beq  {kernel_free}",
                 "mov  r0, r1",
                 "b    {task_free}",
+                kernel_free = sym Allocator::kernel_free,
+                task_free = sym svc::svc_free,
+                options(noreturn)
+            )
+        }
+    }
+
+    /// The actual implementation for free. The function differentiates
+    /// between running in kernel, i.e., handler mode, or in a task, i.e.,
+    /// thread mode. It invokes different functions based on the mode running.
+    #[cfg(armv6m)]
+    #[naked]
+    extern "C" fn free_impl(&self, ptr: *mut u8) {
+        unsafe {
+            asm!(
+                "push {{lr}}",
+                "mrs  r2, CONTROL",
+                "movs r3, #2",
+                "ands r2, r3",
+                "bne  0f",
+                "bl   {kernel_free}",
+                "pop  {{pc}}",
+                "0:",
+                "mov  r0, r1",
+                "bl   {task_free}",
+                "pop  {{pc}}",
                 kernel_free = sym Allocator::kernel_free,
                 task_free = sym svc::svc_free,
                 options(noreturn)

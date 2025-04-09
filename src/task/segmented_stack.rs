@@ -137,12 +137,25 @@ pub(crate) struct StackCtrlBlock {
 
 /// Calculate the overhead size according to the stacklet layout. See the
 /// layout graph for details.
+#[cfg(not(armv6m))]
 const OVERHEAD_SIZE: usize = core::mem::size_of::<StackletMeta>()
     + TRAP_FRAME_PAD_SIZE
     + TRAP_FRAME_SIZE
     + R12_PRESERVE_SIZE;
-const TRAP_FRAME_SIZE: usize = core::mem::size_of::<TrapFrame>();
+#[cfg(not(armv6m))]
 const R12_PRESERVE_SIZE: usize = 4;
+
+/// Calculate the overhead size according to the stacklet layout. See the
+/// layout graph for details.
+#[cfg(armv6m)]
+const OVERHEAD_SIZE: usize = core::mem::size_of::<StackletMeta>()
+    + TRAP_FRAME_PAD_SIZE
+    + TRAP_FRAME_SIZE
+    + R0_R1_PRESERVE_SIZE;
+#[cfg(armv6m)]
+const R0_R1_PRESERVE_SIZE: usize = 8;
+
+const TRAP_FRAME_SIZE: usize = core::mem::size_of::<TrapFrame>();
 
 /// Offset between the stacklet metadata and the boundary.
 /// See `svc_more_stack` for how offset is calculated.
