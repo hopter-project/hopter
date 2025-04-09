@@ -142,20 +142,11 @@ assert_value_type!(SVC_NORMAL_PRIORITY, u8);
 const_assert!(SVC_NORMAL_PRIORITY > IRQ_MIN_PRIORITY);
 
 #[doc(inline)]
-pub use hopter_conf_params::SVC_RAISED_PRIORITY;
-assert_value_type!(SVC_RAISED_PRIORITY, u8);
-
-// Raised priority should be higher than normal priority.
-const_assert!(SVC_RAISED_PRIORITY < SVC_NORMAL_PRIORITY);
-// When the interrupt is globally masked, SVC still need to be allowed.
-const_assert!(SVC_RAISED_PRIORITY < IRQ_DISABLE_BASEPRI_PRIORITY);
-
-#[doc(inline)]
 pub use hopter_conf_params::PENDSV_PRIORITY;
 assert_value_type!(PENDSV_PRIORITY, u8);
 
 // PendSV's priority must be lower than SVC.
-const_assert!(PENDSV_PRIORITY > SVC_NORMAL_PRIORITY);
+const_assert!(PENDSV_PRIORITY >= SVC_NORMAL_PRIORITY);
 
 /* ########################### */
 /* ### Task Configurations ### */
