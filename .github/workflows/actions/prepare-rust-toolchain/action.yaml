@@ -16,7 +16,7 @@ runs:
       run: |
         curl --fail -L \
              -o rust.tar.xz \
-             'https://github.com/hopter-project/hopter-compiler-toolchain/releases/download/1.81.0-Patched-2024-09-12/240912-rust-x86_64-linux.tar.xz'
+             'https://github.com/hopter-project/hopter-compiler-toolchain/releases/download/1.81.0-Patched-2025-04-02/250402-rust-x86_64-linux.tar.xz'
       shell: bash
 
     - name: Decompress Rust compiler toolchain

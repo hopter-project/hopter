@@ -8,7 +8,7 @@ runs:
       uses: ./.github/workflows/actions/prepare-rust-toolchain
 
     - name: Build Hopter
-      run: cargo +segstk-rust build --release
+      run: cargo +segstk-rust build --release --features="qemu"
       shell: bash
 
     # *** Tests for sync - mailbox ***
