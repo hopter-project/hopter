@@ -1,7 +1,5 @@
-#[cfg(feature = "stm32f407")]
-use super::Vector;
+use super::super::Vector;
 
-#[cfg(feature = "stm32f407")]
 extern "C" {
     fn WWDG();
     fn PVD();
@@ -88,7 +86,6 @@ extern "C" {
     fn LCD_TFT_1();
 }
 
-#[cfg(feature = "stm32f407")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
 pub static __HOPTER_INTERRUPTS: [Vector; 90] = [

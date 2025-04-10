@@ -1,7 +1,5 @@
-#[cfg(feature = "stm32f413")]
-use super::Vector;
+use super::super::Vector;
 
-#[cfg(feature = "stm32f413")]
 extern "C" {
     fn PVD();
     fn TAMP_STAMP();
@@ -21,10 +19,6 @@ extern "C" {
     fn DMA1_STREAM5();
     fn DMA1_STREAM6();
     fn ADC();
-    fn CAN1_TX();
-    fn CAN1_RX0();
-    fn CAN1_RX1();
-    fn CAN1_SCE();
     fn EXTI9_5();
     fn TIM1_BRK_TIM9();
     fn TIM1_UP_TIM10();
@@ -33,41 +27,26 @@ extern "C" {
     fn TIM2();
     fn TIM3();
     fn TIM4();
-    fn I2C1_EVT();
-    fn I2C1_ERR();
-    fn I2C2_EVT();
-    fn I2C2_ERR();
+    fn I2C1_EV();
+    fn I2C1_ER();
+    fn I2C2_EV();
+    fn I2C2_ER();
     fn SPI1();
     fn SPI2();
     fn USART1();
     fn USART2();
-    fn USART3();
     fn EXTI15_10();
-    fn EXTI17_RTC_ALARM();
-    fn TIM8_BRK_TIM12();
-    fn TIM8_UP_TIM13();
-    fn TIM8_TRG_COM_TIM14();
-    fn TIM8_CC();
+    fn RTC_ALARM();
+    fn OTG_FS_WKUP();
     fn DMA1_STREAM7();
-    fn FSMC();
     fn SDIO();
     fn TIM5();
     fn SPI3();
-    fn USART4();
-    fn UART5();
-    fn TIM6_GLB_IT_DAC1_DAC2();
-    fn TIM7();
     fn DMA2_STREAM0();
     fn DMA2_STREAM1();
     fn DMA2_STREAM2();
     fn DMA2_STREAM3();
     fn DMA2_STREAM4();
-    fn DFSDM1_FLT0();
-    fn DFSDM1_FLT1();
-    fn CAN2_TX();
-    fn CAN2_RX0();
-    fn CAN2_RX1();
-    fn CAN2_SCE();
     fn OTG_FS();
     fn DMA2_STREAM5();
     fn DMA2_STREAM6();
@@ -75,34 +54,13 @@ extern "C" {
     fn USART6();
     fn I2C3_EV();
     fn I2C3_ER();
-    fn CAN3_TX();
-    fn CAN3_RX0();
-    fn CAN3_RX1();
-    fn CAN3_SCE();
-    fn CRYPTO();
-    fn RNG();
     fn FPU();
-    fn USART7();
-    fn USART8();
     fn SPI4();
-    fn SPI5();
-    fn SAI1();
-    fn UART9();
-    fn UART10();
-    fn QUADSPI();
-    fn I2CFMP1EVENT();
-    fn I2CFMP1ERROR();
-    fn LPTIM1_OR_IT_EIT_23();
-    fn DFSDM2_FILTER1();
-    fn DFSDM2_FILTER2();
-    fn DFSDM2_FILTER3();
-    fn DFSDM2_FILTER4();
 }
 
-#[cfg(feature = "stm32f413")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __HOPTER_INTERRUPTS: [Vector; 102] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 85] = [
     Vector { reserved: 0 },
     Vector { handler: PVD },
     Vector {
@@ -138,10 +96,10 @@ pub static __HOPTER_INTERRUPTS: [Vector; 102] = [
         handler: DMA1_STREAM6,
     },
     Vector { handler: ADC },
-    Vector { handler: CAN1_TX },
-    Vector { handler: CAN1_RX0 },
-    Vector { handler: CAN1_RX1 },
-    Vector { handler: CAN1_SCE },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
     Vector { handler: EXTI9_5 },
     Vector {
         handler: TIM1_BRK_TIM9,
@@ -156,43 +114,35 @@ pub static __HOPTER_INTERRUPTS: [Vector; 102] = [
     Vector { handler: TIM2 },
     Vector { handler: TIM3 },
     Vector { handler: TIM4 },
-    Vector { handler: I2C1_EVT },
-    Vector { handler: I2C1_ERR },
-    Vector { handler: I2C2_EVT },
-    Vector { handler: I2C2_ERR },
+    Vector { handler: I2C1_EV },
+    Vector { handler: I2C1_ER },
+    Vector { handler: I2C2_EV },
+    Vector { handler: I2C2_ER },
     Vector { handler: SPI1 },
     Vector { handler: SPI2 },
     Vector { handler: USART1 },
     Vector { handler: USART2 },
-    Vector { handler: USART3 },
+    Vector { reserved: 0 },
     Vector { handler: EXTI15_10 },
+    Vector { handler: RTC_ALARM },
     Vector {
-        handler: EXTI17_RTC_ALARM,
+        handler: OTG_FS_WKUP,
     },
     Vector { reserved: 0 },
-    Vector {
-        handler: TIM8_BRK_TIM12,
-    },
-    Vector {
-        handler: TIM8_UP_TIM13,
-    },
-    Vector {
-        handler: TIM8_TRG_COM_TIM14,
-    },
-    Vector { handler: TIM8_CC },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
     Vector {
         handler: DMA1_STREAM7,
     },
-    Vector { handler: FSMC },
+    Vector { reserved: 0 },
     Vector { handler: SDIO },
     Vector { handler: TIM5 },
     Vector { handler: SPI3 },
-    Vector { handler: USART4 },
-    Vector { handler: UART5 },
-    Vector {
-        handler: TIM6_GLB_IT_DAC1_DAC2,
-    },
-    Vector { handler: TIM7 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
     Vector {
         handler: DMA2_STREAM0,
     },
@@ -208,16 +158,12 @@ pub static __HOPTER_INTERRUPTS: [Vector; 102] = [
     Vector {
         handler: DMA2_STREAM4,
     },
-    Vector {
-        handler: DFSDM1_FLT0,
-    },
-    Vector {
-        handler: DFSDM1_FLT1,
-    },
-    Vector { handler: CAN2_TX },
-    Vector { handler: CAN2_RX0 },
-    Vector { handler: CAN2_RX1 },
-    Vector { handler: CAN2_SCE },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
     Vector { handler: OTG_FS },
     Vector {
         handler: DMA2_STREAM5,
@@ -231,46 +177,15 @@ pub static __HOPTER_INTERRUPTS: [Vector; 102] = [
     Vector { handler: USART6 },
     Vector { handler: I2C3_EV },
     Vector { handler: I2C3_ER },
-    Vector { handler: CAN3_TX },
-    Vector { handler: CAN3_RX0 },
-    Vector { handler: CAN3_RX1 },
-    Vector { handler: CAN3_SCE },
     Vector { reserved: 0 },
-    Vector { handler: CRYPTO },
-    Vector { handler: RNG },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
     Vector { handler: FPU },
-    Vector { handler: USART7 },
-    Vector { handler: USART8 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
     Vector { handler: SPI4 },
-    Vector { handler: SPI5 },
-    Vector { reserved: 0 },
-    Vector { handler: SAI1 },
-    Vector { handler: UART9 },
-    Vector { handler: UART10 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { handler: QUADSPI },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector {
-        handler: I2CFMP1EVENT,
-    },
-    Vector {
-        handler: I2CFMP1ERROR,
-    },
-    Vector {
-        handler: LPTIM1_OR_IT_EIT_23,
-    },
-    Vector {
-        handler: DFSDM2_FILTER1,
-    },
-    Vector {
-        handler: DFSDM2_FILTER2,
-    },
-    Vector {
-        handler: DFSDM2_FILTER3,
-    },
-    Vector {
-        handler: DFSDM2_FILTER4,
-    },
 ];

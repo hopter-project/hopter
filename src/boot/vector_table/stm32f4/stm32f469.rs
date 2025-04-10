@@ -1,12 +1,11 @@
-#[cfg(feature = "stm32f405")]
-use super::Vector;
+use super::super::Vector;
 
-#[cfg(feature = "stm32f405")]
 extern "C" {
     fn WWDG();
     fn PVD();
     fn TAMP_STAMP();
     fn RTC_WKUP();
+    fn FLASH();
     fn RCC();
     fn EXTI0();
     fn EXTI1();
@@ -50,7 +49,7 @@ extern "C" {
     fn TIM8_TRG_COM_TIM14();
     fn TIM8_CC();
     fn DMA1_STREAM7();
-    fn FSMC();
+    fn FMC();
     fn SDIO();
     fn TIM5();
     fn SPI3();
@@ -84,21 +83,29 @@ extern "C" {
     fn CRYP();
     fn HASH_RNG();
     fn FPU();
-    fn LTDC();
-    fn LTDC_ER();
+    fn UART7();
+    fn UART8();
+    fn SPI4();
+    fn SPI5();
+    fn SPI6();
+    fn SAI1();
+    fn LCD_TFT();
+    fn LCD_TFT_1();
+    fn DMA2D();
+    fn QUADSPI();
+    fn DSIHOST();
 }
 
-#[cfg(feature = "stm32f405")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 93] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
         handler: TAMP_STAMP,
     },
     Vector { handler: RTC_WKUP },
-    Vector { reserved: 0 },
+    Vector { handler: FLASH },
     Vector { handler: RCC },
     Vector { handler: EXTI0 },
     Vector { handler: EXTI1 },
@@ -172,7 +179,7 @@ pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector {
         handler: DMA1_STREAM7,
     },
-    Vector { handler: FSMC },
+    Vector { handler: FMC },
     Vector { handler: SDIO },
     Vector { handler: TIM5 },
     Vector { handler: SPI3 },
@@ -228,12 +235,15 @@ pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector { handler: CRYP },
     Vector { handler: HASH_RNG },
     Vector { handler: FPU },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { handler: LTDC },
-    Vector { handler: LTDC_ER },
+    Vector { handler: UART7 },
+    Vector { handler: UART8 },
+    Vector { handler: SPI4 },
+    Vector { handler: SPI5 },
+    Vector { handler: SPI6 },
+    Vector { handler: SAI1 },
+    Vector { handler: LCD_TFT },
+    Vector { handler: LCD_TFT_1 },
+    Vector { handler: DMA2D },
+    Vector { handler: QUADSPI },
+    Vector { handler: DSIHOST },
 ];

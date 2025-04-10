@@ -1,7 +1,5 @@
-#[cfg(feature = "stm32f412")]
-use super::Vector;
+use super::super::Vector;
 
-#[cfg(feature = "stm32f412")]
 extern "C" {
     fn WWDG();
     fn PVD();
@@ -46,24 +44,26 @@ extern "C" {
     fn EXTI15_10();
     fn RTC_ALARM();
     fn OTG_FS_WKUP();
-    fn TIM12();
-    fn TIM13();
-    fn TIM14();
+    fn TIM8_BRK_TIM12();
+    fn TIM8_UP_TIM13();
+    fn TIM8_TRG_COM_TIM14();
     fn TIM8_CC();
     fn DMA1_STREAM7();
-    fn FSMC();
+    fn FMC();
     fn SDIO();
     fn TIM5();
     fn SPI3();
-    fn TIM6_DACUNDER();
+    fn UART4();
+    fn UART5();
+    fn TIM6_DAC();
     fn TIM7();
     fn DMA2_STREAM0();
     fn DMA2_STREAM1();
     fn DMA2_STREAM2();
     fn DMA2_STREAM3();
     fn DMA2_STREAM4();
-    fn DFSDM1_FLT0();
-    fn DFSDM1_FLT1();
+    fn ETH();
+    fn ETH_WKUP();
     fn CAN2_TX();
     fn CAN2_RX0();
     fn CAN2_RX1();
@@ -75,19 +75,28 @@ extern "C" {
     fn USART6();
     fn I2C3_EV();
     fn I2C3_ER();
+    fn OTG_HS_EP1_OUT();
+    fn OTG_HS_EP1_IN();
+    fn OTG_HS_WKUP();
+    fn OTG_HS();
+    fn DCMI();
+    fn CRYP();
     fn HASH_RNG();
     fn FPU();
+    fn UART7();
+    fn UART8();
     fn SPI4();
     fn SPI5();
-    fn QUAD_SPI();
-    fn I2CFMP1_EVENT();
-    fn I2CFMP1_ERROR();
+    fn SPI6();
+    fn SAI1();
+    fn LCD_TFT();
+    fn LCD_TFT_1();
+    fn DMA2D();
 }
 
-#[cfg(feature = "stm32f412")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __HOPTER_INTERRUPTS: [Vector; 97] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 91] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -155,22 +164,26 @@ pub static __HOPTER_INTERRUPTS: [Vector; 97] = [
     Vector {
         handler: OTG_FS_WKUP,
     },
-    Vector { handler: TIM12 },
-    Vector { handler: TIM13 },
-    Vector { handler: TIM14 },
+    Vector {
+        handler: TIM8_BRK_TIM12,
+    },
+    Vector {
+        handler: TIM8_UP_TIM13,
+    },
+    Vector {
+        handler: TIM8_TRG_COM_TIM14,
+    },
     Vector { handler: TIM8_CC },
     Vector {
         handler: DMA1_STREAM7,
     },
-    Vector { handler: FSMC },
+    Vector { handler: FMC },
     Vector { handler: SDIO },
     Vector { handler: TIM5 },
     Vector { handler: SPI3 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector {
-        handler: TIM6_DACUNDER,
-    },
+    Vector { handler: UART4 },
+    Vector { handler: UART5 },
+    Vector { handler: TIM6_DAC },
     Vector { handler: TIM7 },
     Vector {
         handler: DMA2_STREAM0,
@@ -187,12 +200,8 @@ pub static __HOPTER_INTERRUPTS: [Vector; 97] = [
     Vector {
         handler: DMA2_STREAM4,
     },
-    Vector {
-        handler: DFSDM1_FLT0,
-    },
-    Vector {
-        handler: DFSDM1_FLT1,
-    },
+    Vector { handler: ETH },
+    Vector { handler: ETH_WKUP },
     Vector { handler: CAN2_TX },
     Vector { handler: CAN2_RX0 },
     Vector { handler: CAN2_RX1 },
@@ -210,31 +219,27 @@ pub static __HOPTER_INTERRUPTS: [Vector; 97] = [
     Vector { handler: USART6 },
     Vector { handler: I2C3_EV },
     Vector { handler: I2C3_ER },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
+    Vector {
+        handler: OTG_HS_EP1_OUT,
+    },
+    Vector {
+        handler: OTG_HS_EP1_IN,
+    },
+    Vector {
+        handler: OTG_HS_WKUP,
+    },
+    Vector { handler: OTG_HS },
+    Vector { handler: DCMI },
+    Vector { handler: CRYP },
     Vector { handler: HASH_RNG },
     Vector { handler: FPU },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
+    Vector { handler: UART7 },
+    Vector { handler: UART8 },
     Vector { handler: SPI4 },
     Vector { handler: SPI5 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector { handler: QUAD_SPI },
-    Vector { reserved: 0 },
-    Vector { reserved: 0 },
-    Vector {
-        handler: I2CFMP1_EVENT,
-    },
-    Vector {
-        handler: I2CFMP1_ERROR,
-    },
+    Vector { handler: SPI6 },
+    Vector { handler: SAI1 },
+    Vector { handler: LCD_TFT },
+    Vector { handler: LCD_TFT_1 },
+    Vector { handler: DMA2D },
 ];

@@ -120,18 +120,24 @@ const_assert!(SYSTICK_PRIORITY >= IRQ_MAX_PRIORITY);
 const_assert!(SYSTICK_PRIORITY <= IRQ_MIN_PRIORITY);
 
 #[doc(inline)]
+#[cfg(not(armv6m))]
 pub use hopter_conf_params::IRQ_ENABLE_BASEPRI_PRIORITY;
+#[cfg(not(armv6m))]
 assert_value_type!(IRQ_ENABLE_BASEPRI_PRIORITY, u8);
 
 // When all interrupts are enabled, the BASEPRI register should be set to 0.
+#[cfg(not(armv6m))]
 const_assert!(IRQ_ENABLE_BASEPRI_PRIORITY == 0);
 
+#[cfg(not(armv6m))]
 #[doc(inline)]
 pub use hopter_conf_params::IRQ_DISABLE_BASEPRI_PRIORITY;
+#[cfg(not(armv6m))]
 assert_value_type!(IRQ_DISABLE_BASEPRI_PRIORITY, u8);
 
 // The highest priority interrupt must be disabled when the interrupt is
 // globally masked.
+#[cfg(not(armv6m))]
 const_assert!(IRQ_DISABLE_BASEPRI_PRIORITY <= IRQ_MAX_PRIORITY);
 
 #[doc(inline)]

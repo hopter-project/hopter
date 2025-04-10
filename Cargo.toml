@@ -1,6 +1,6 @@
 [package]
 name = "hopter"
-version = "0.2.5"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "A Rust-based embedded operating system designed to enable memory safe, memory efficient, reliable, and responsive applications."
@@ -69,10 +69,10 @@ default-features = false
 features = ["alloc"]
 
 [dependencies.hopter_proc_macro]
-version = "0.2.3"
+version = "0.3.0"
 
 [dependencies.hopter_conf_params]
-version = "0.2.0"
+version = "0.3.0"
 
 [dependencies.cortex-m]
 version = "0.7"

@@ -1,7 +1,5 @@
-#[cfg(feature = "stm32f411")]
-use super::Vector;
+use super::super::Vector;
 
-#[cfg(feature = "stm32f411")]
 extern "C" {
     fn WWDG();
     fn PVD();
@@ -62,7 +60,6 @@ extern "C" {
     fn SPI5();
 }
 
-#[cfg(feature = "stm32f411")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
 pub static __HOPTER_INTERRUPTS: [Vector; 86] = [

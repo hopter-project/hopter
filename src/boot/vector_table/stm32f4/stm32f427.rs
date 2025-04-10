@@ -1,7 +1,5 @@
-#[cfg(feature = "stm32f469")]
-use super::Vector;
+use super::super::Vector;
 
-#[cfg(feature = "stm32f469")]
 extern "C" {
     fn WWDG();
     fn PVD();
@@ -90,18 +88,13 @@ extern "C" {
     fn SPI4();
     fn SPI5();
     fn SPI6();
-    fn SAI1();
     fn LCD_TFT();
     fn LCD_TFT_1();
-    fn DMA2D();
-    fn QUADSPI();
-    fn DSIHOST();
 }
 
-#[cfg(feature = "stm32f469")]
 #[link_section = ".hopter_vector_table.interrupts"]
 #[no_mangle]
-pub static __HOPTER_INTERRUPTS: [Vector; 93] = [
+pub static __HOPTER_INTERRUPTS: [Vector; 90] = [
     Vector { handler: WWDG },
     Vector { handler: PVD },
     Vector {
@@ -243,10 +236,7 @@ pub static __HOPTER_INTERRUPTS: [Vector; 93] = [
     Vector { handler: SPI4 },
     Vector { handler: SPI5 },
     Vector { handler: SPI6 },
-    Vector { handler: SAI1 },
+    Vector { reserved: 0 },
     Vector { handler: LCD_TFT },
     Vector { handler: LCD_TFT_1 },
-    Vector { handler: DMA2D },
-    Vector { handler: QUADSPI },
-    Vector { handler: DSIHOST },
 ];
