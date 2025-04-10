@@ -12,7 +12,7 @@ Therefore, Hopter expects benign but not malicious applications, and its threat 
 
 Hopter can interoperate with community-driven open-source HAL libraries, such as [`stm32f4xx-hal`](https://crates.io/crates/stm32f4xx-hal/0.22.1).
 
-Hopter currently supports two architectures: ARMv7em (`thumbv7em-none-eabihf`) and ARMv6M (`thumbv6m-none-eabi`).
+Hopter currently supports two architectures: ARMv7em (`thumbv7em-none-eabihf`) and ARMv6m (`thumbv6m-none-eabi`).
 It currently supports the following families of microcontrollers:
 - STM32F4
 - STM32F0
