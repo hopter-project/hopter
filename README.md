@@ -22,7 +22,11 @@ Contributions to extend support to other microcontrollers are highly welcomed an
 
 # Getting Started
 
-Check out our [quick start guide](https://github.com/hopter-project/hopter-quick-start) for instructions on setting up your environment and an introduction to Hopter's API.
+- Quick Start Guide: Visit our [quick start guide](https://github.com/hopter-project/hopter-quick-start) for instructions on setting up your environment and an introduction to Hopter's API.
+- Demo Gateway Firmware: Explore our [demo gateway firmware](https://github.com/hopter-project/hopter-gateway) for a more extensive setup and demo application.
+- Flight Control Firmware: Check out our [flight control firmware](https://github.com/hopter-project/hopter-crazyflie) that powers the Crazyflie 2.1 drone.
+
+[Documentation](https://docs.rs/hopter/latest/hopter/) is available on Docs.rs.
 
 # Feature Overview
 
